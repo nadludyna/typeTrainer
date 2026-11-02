@@ -163,6 +163,8 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `result.js`: The result screen in the text window: `showResult(r)` shows the result of Climb and Freetype (the level's move is shown by the bar above, not in words); Learn has none (its rounds follow one another; `learnpanel.js` shows the last one). Speed and accuracy carry their unit instead of a label; beside them, each word's speed on a line chart (a dot's tooltip gives its speed); under them, the words coloured by speed (five bands, slow to fast; red is for mistakes only), then one line of facts (consistency, time, correct characters, and wrong, extra and missed only when not zero). The words of the round with their own speed come from `typedWords()` in `typing.js`, the characters and the time from `roundFacts()`. A small ↻ button (and Enter / Tab, shown in the hint line) starts the next round. A new best shows "New best" under the speed.
 
+- `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result. It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
+
 - `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: learn · climb · freetype · stats), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 
 - `settings.js`: The settings window (Esc or the gear), only what holds for the whole site: caret (line or block), caret movement, speed while typing (on by default, `tt.live`; it never switches itself, #238), the streak (off by default, `tt.streak.free`), stop on a mistake, sounds and volume, a break reminder (plain choices and switches in `CHOICES` / `SWITCHES`), an explanation of every setting in a tooltip over its name, a small preview beside the window that types itself in the chosen look, shown only while the Caret or Caret movement row is hovered or picked (#203), export / import / reset (wired by `tools.js`); drawn from one list of rows (`ROWS`) with arrow keys; on a 1366×768 screen every row fits without scrolling, a scrollbar in the site colours shows only on smaller windows. `setSetting` changes any setting, also the ones that live on their own screen (#202): the keyboard's three switches (its gear), the daily goal (minutes, 15 by default; Learn's ring and the stats activity legend) and the goal line (stats). All kept in `localStorage` (`S.settings`). Also the round lengths and each mode's own (`lengthFor`, `setLength`, `tt.length.<mode>`).
@@ -205,7 +207,8 @@ On the typing screen every mode has the same frame, so the text stands at one
 place: the band (`--band`: Learn's letters or the round bar), the line with
 the numbers (speed and accuracy on the left, the daily goal in Learn and the
 round's count on the right, `3 / 30` or the seconds left), the text, and below
-it `#stand` and the keyboard when it is shown. Warnings and messages float as toasts under
+it `#stand` and the keyboard when it is shown; a quick look at the stats
+(`peek.js`) covers those two for as long as it is held. Warnings and messages float as toasts under
 the header. The result opens where the text stands.
 
 Colours are CSS variables on `:root`; there is one theme, dark.

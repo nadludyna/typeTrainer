@@ -16,6 +16,7 @@ import { renderLetters } from "./letters.js";
 import { renderPanel } from "./learnpanel.js";
 import { keySound } from "./sound.js";
 import { questOpen, questKey } from "./mascot.js";
+import { peekShown, openPeek, closePeek } from "./peek.js";
 import "./share.js";
 
 window.addEventListener("resize", () => {
@@ -118,7 +119,11 @@ function shortcut(e, name) {
   return true;
 }
 
+const PEEK_KEY = "Backquote";
+document.addEventListener("keyup", (e) => { if (e.code === PEEK_KEY) closePeek(); });
+
 document.addEventListener("keydown", (e) => {
+  if (peekShown() && e.code !== PEEK_KEY) closePeek();
   if (document.querySelector("dialog[open]")) return;
   if (questOpen()) { questKey(e); return; }
   if (introOpen()) { introKey(e); return; }
@@ -148,6 +153,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (S.view !== "type") return;
+  if (e.code === PEEK_KEY && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openPeek(); return; }
   if (e.key === "Tab") { if (shortcut(e, "tab")) restartRound(); return; }
   if (e.key === "Backspace") {
     e.preventDefault(); focusText(); hidePointer(); backspace(e.ctrlKey || e.altKey);

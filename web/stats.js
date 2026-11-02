@@ -121,20 +121,21 @@ export function renderStats() {
 
 // ---------- the tiles ----------
 const compact = new Intl.NumberFormat("en", { notation: "compact" });
-function tiles(sessions, count, goal, level, streaks) {
-  const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
+const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
+export function trendTag(sessions, f) {
   const last = sessions.slice(-10), before = sessions.slice(-20, -10);
+  const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
+  if (now === null || was === null || before.length < 5) return "";
+  const d = Math.round(now - was);
+  if (!d) return "";
+  return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
+}
+function tiles(sessions, count, goal, level, streaks) {
+  const last = sessions.slice(-10);
   const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
-  const trend = (f) => {
-    const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
-    if (now === null || was === null || before.length < 5) return "";
-    const d = Math.round(now - was);
-    if (!d) return "";
-    return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
-  };
   const tile = (value, label, meta = "", cls = "") =>
     `<div class="tile${cls}"><b>${value}</b><small>${label}</small><span class="meta">${meta}</span></div>`;
-  const last10 = (f) => t("tile.last10") + trend(f);
+  const last10 = (f) => t("tile.last10") + trendTag(sessions, f);
   const wpm = avg(last, (x) => x.wpm);
   const out = [
     level != null ? `<div class="tile level"><b>${level}</b><small>${t("tile.level")}</small><span class="meta">${t("tile.levelNote", { list: compact.format(S.climb?.levels?.[level - 1] ?? 0).toLowerCase() })}</span></div>` : "",
@@ -243,7 +244,6 @@ function drawActivity() {
 export function summary(s) {
   const sessions = [...s.sessions].reverse();
   const last10 = sessions.slice(-10);
-  const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
   const measured = last10.filter((x) => x.consistency != null);
   const fmt = (v, suffix = "") => v === null ? "—" : Math.round(v) + suffix;
   const best = sessions.length ? Math.max(...sessions.map((x) => x.wpm)) : null;

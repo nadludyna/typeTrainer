@@ -260,6 +260,44 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   await expect(page.locator("#settings-win"), "a held esc doesn't close what it opened").toBeVisible();
 });
 
+test("the quick look at the stats: held or hovered before a round, gone on release, never while typing", async ({ page }) => {
+  await withHistory(page);
+  await openApp(page, {});
+  await page.waitForTimeout(300);
+  const peek = page.locator("#peek"), text = page.locator("#text");
+  const before = await text.boundingBox();
+
+  await page.keyboard.down("Backquote");
+  await expect(peek).toBeVisible();
+  await expect(peek).toContainText("Learn");
+  await expect(peek).toContainText("WPM");
+  await expect(page.locator("#keyboard"), "the keyboard gives way").toBeHidden();
+  expect(await text.boundingBox(), "the text stays put").toEqual(before);
+  const panel = await peek.boundingBox(), hints = await page.locator(".hints").boundingBox();
+  expect(panel.y).toBeGreaterThanOrEqual(before.y + before.height);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(hints.y);
+  await page.keyboard.up("Backquote");
+  await expect(peek).toBeHidden();
+  await expect(page.locator("#keyboard")).toBeVisible();
+
+  await page.hover("#tab-stats");
+  await expect(peek).toBeVisible();
+  await page.mouse.move(800, 300);
+  await expect(peek).toBeHidden();
+
+  await page.keyboard.down("Backquote");
+  await expect(peek).toBeVisible();
+  const ch = await nextChar(page);
+  await page.keyboard.type(ch);
+  await expect(peek, "the first key of a round closes it").toBeHidden();
+  await page.keyboard.up("Backquote");
+  await page.keyboard.down("Backquote");
+  await page.waitForTimeout(100);
+  await expect(peek, "not during a round").toBeHidden();
+  await page.keyboard.up("Backquote");
+  await expect(page.locator("#text > span.bad"), "the key is no mistake").toHaveCount(0);
+});
+
 test("the caret is still at rest, spaces have a dot, the settings are fewer", async ({ page }) => {
   await openApp(page, { "tt.caret": "outline", "tt.blink": "pulse", "tt.ws": "none" });
   await expect(page.locator("body")).toHaveAttribute("data-caret", "line");

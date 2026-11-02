@@ -142,6 +142,9 @@ consequences, the same word for the same thing. All text lives in
   side by side, with a thin line between them, so it reads as one switch.
 - A destructive action asks first in a confirm window (Reset all progress:
   "Reset all progress? This can't be undone.", Cancel has the focus).
+- Hold `~` or rest the pointer on the Stats tab before a round to see the
+  mode's stats under the text; they go as soon as you let go (`web/peek.js`).
+  Nothing moves, and a round being typed is never interrupted.
 - Results stay on screen until the user presses Next round, Enter or Tab
   (Tab = new round everywhere). Esc opens the settings on every screen
   (a round being typed pauses behind it), never "next round".

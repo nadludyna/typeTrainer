@@ -79,6 +79,7 @@
           <span id="climb-note" class="climb-note" hidden></span>
           <div class="metric num"><span id="wpm" class="live-n" data-v="0">0</span><small>wpm</small></div>
           <div class="metric num"><span id="acc" class="live-n" data-v="100">100</span><span class="pct">%</span><small data-i18n="metric.acc">Acc</small></div>
+          <div class="metric streak" id="streak" data-tier="0"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z"/></svg><span id="streak-n">0</span><small data-i18n="streak.label">clean</small></div>
           <span class="live-right">
             <button type="button" id="goal-count" class="goal-count" aria-haspopup="dialog" hidden></button>
             <span id="round-count" class="round-count"></span>
@@ -86,7 +87,6 @@
         </div>
         <div id="text" class="text">loading…</div>
         <div id="caret" class="caret" aria-hidden="true"></div>
-        <div class="streak" id="streak" data-tier="0"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z"/></svg><span id="streak-n">0</span><small class="sr-only" data-i18n="streak.label">Clean words</small></div>
         <div id="focus-hint" class="focus-hint" data-i18n="focusHint">Click here and start typing.</div>
         <div class="pause-note" aria-live="polite"><span class="pause-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg><svg class="goal-ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b data-i18n="pause.title">Paused</b><b class="goal-only" data-i18n="pause.goalTitle">Daily goal reached</b><span class="pause-go"><span data-i18n="pause.press">Press</span> <kbd data-i18n="pause.key">any key</kbd> <span data-i18n="pause.go">to go on</span></span><small data-i18n="pause.away">Take your time, the clock is stopped.</small></div>
         <div id="result" class="result" role="status" aria-live="polite" hidden></div>

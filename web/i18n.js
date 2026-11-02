@@ -56,7 +56,7 @@ const I18N = {
     "intro.new": "Start <kbd>enter</kbd>",
     "intro.skip": "Skip",
     "intro.next": "Next",
-    "streak.label": "Clean words",
+    "streak.label": "clean",
     "metric.acc": "acc", "round.words": "{n}/{of} words", "round.seconds": "{n} s left",
     "result.raw": "raw", "tip.raw": "Every keypress counts here, mistakes included.",
     "hint.tab": "New round", "hint.next": "Next round", "hint.settings": "Settings", "hint.stats": "Stats", "hint.typing": "Typing",

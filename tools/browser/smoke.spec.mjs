@@ -830,3 +830,29 @@ test("under the text: where you stand, a thin strip over the keyboard, and typin
   await expect(page.locator("#tooltip")).toHaveClass(/\bshow\b/);
   expect((await page.locator("#tooltip").boundingBox()).height, "a tooltip under the header stays one line").toBeLessThan(50);
 });
+
+test("Freetype: the streak is a number on the line above the text; a mistake drops it to 0", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-30", "tt.streak.free": "1" });
+  const streak = page.locator(".live > #streak");
+  await expect(streak, "hidden at rest like the other numbers").toHaveCSS("opacity", "0");
+  const word = async () => { for (;;) { const c = await nextChar(page); await page.keyboard.type(c); if (c === " ") return; } };
+  await word();
+  await word();
+  await expect(streak).toHaveCSS("opacity", "1");
+  await expect(page.locator("#streak-n")).toHaveText("2");
+  await expect(streak).toHaveAttribute("data-tier", "1");
+  await word();
+  await word();
+  await word();
+  await expect(streak, "the first milestone is 5 words").toHaveAttribute("data-tier", "2");
+  await page.keyboard.type((await nextChar(page)) === "q" ? "z" : "q");
+  await expect(page.locator("#streak-n")).toHaveText("0");
+  await expect(streak).toHaveAttribute("data-tier", "0");
+});
+
+test("the streak shows only in Freetype and only when it is on", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "climb", "tt.streak.free": "1" });
+  await expect(page.locator("#streak")).toBeHidden();
+  await openApp(page, { "tt.mode.en": "freetype", "tt.streak.free": "0" });
+  await expect(page.locator("#streak")).toBeHidden();
+});

@@ -15,7 +15,7 @@ import { lengthOf } from "./settings.js";
 import { keySound } from "./sound.js";
 import { customPortions, customRoundDone } from "./customtext.js";
 import { paceGlide, resetGlide, scrollText, stopScroll } from "./caret.js";
-import { STREAK_RISE, streakOn, cleanWord, breakStreak } from "./streak.js";
+import { cleanWord, breakStreak } from "./streak.js";
 import { showWarn, hideWarn, warnShowing, foreignKey, layoutCheck } from "./warn.js";
 
 let spans = [];
@@ -38,11 +38,9 @@ let fixedWords = new Set();
 
 const TEXT_LINES = 3;
 let lineH = 0;
-let caretTop = 0;
 export function fitText() {
   if (S.view !== "type") return;
   lineH = parseFloat(getComputedStyle(el.text).lineHeight) || 0;
-  caretTop = el.caret.offsetTop || caretTop;
   stopScroll();
   el.text.scrollTop = 0;
 }
@@ -59,17 +57,12 @@ export function placeCaret(jump, last = false) {
     const x = s.offsetLeft + (atEnd ? s.offsetWidth : 0);
     if (jump) el.caret.classList.add("jump");
     el.caret.style.translate = `${x - 1}px ${s.offsetTop}px`;
-    let top = el.text.scrollTop;
     if (lineH && !last) {
       const line = Math.round(s.offsetTop / lineH);
-      top = Math.max(0, Math.min(line - 1, Math.ceil(el.text.scrollHeight / lineH) - TEXT_LINES)) * lineH;
+      const top = Math.max(0, Math.min(line - 1, Math.ceil(el.text.scrollHeight / lineH) - TEXT_LINES)) * lineH;
       if (Math.abs(el.text.scrollTop - top) > 1) scrollText(top, jump);
     }
     if (jump) requestAnimationFrame(() => el.caret.classList.remove("jump"));
-    if (!streakOn()) return;
-    if (jump) el.streak.classList.add("jump");
-    el.streak.style.translate = `${el.text.offsetLeft + x + 4}px ${el.text.offsetTop + s.offsetTop - top + caretTop - STREAK_RISE}px`;
-    if (jump) requestAnimationFrame(() => el.streak.classList.remove("jump"));
   });
 }
 function keepTextInView() {

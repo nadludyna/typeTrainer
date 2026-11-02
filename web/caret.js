@@ -14,12 +14,10 @@ export function paceGlide(now) {
   if (ms === glideNow) return;
   glideNow = ms;
   el.caret.style.setProperty("--feel-caret-ms", ms + "ms");
-  el.streak.style.setProperty("--feel-caret-ms", ms + "ms");
 }
 export function resetGlide() {
   gap = 0; glideNow = 0;
   el.caret.style.removeProperty("--feel-caret-ms");
-  el.streak.style.removeProperty("--feel-caret-ms");
 }
 
 let scrollFrame = 0;

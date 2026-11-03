@@ -139,7 +139,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `caret.js`: The caret's own movements: the pace of its glide and the scroll of the text to the next line. At rest it stands still.
 
-- `streak.js`: The clean-word streak badge (Freetype only, a setting): its count and colour tiers. Visual only.
+- `streak.js`: The clean-word streak (Freetype only, a setting, `#streak` on the line above the text): its count and colour tiers (from 1, 5, 10, 15, 25, 35, 50, 75, 100 words), a pop of the number on each clean word, a bigger pop at each milestone, and a shake when a mistake drops it to 0. Visual only; Web Animations on transform.
 
 - `warn.js`: The Caps Lock / wrong system layout warning in the toasts under the header (it hides a message while it shows): shown on keys that do not fit, checked before a round with the Keyboard API, hidden on a right key or a language change.
 

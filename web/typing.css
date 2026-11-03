@@ -83,7 +83,7 @@ body.typing-now .climb-note, body.typing-now:not([data-live="off"]) .lp-cols { v
 
 /* ---------- typing settings (settings.js CHOICES and SWITCHES) ---------- */
 :root { --text-size: 2.4rem; }
-body[data-glide="jump"], body[data-glide="jump"] :is(.caret, .streak) { --feel-caret-ms: 0ms !important; }
+body[data-glide="jump"], body[data-glide="jump"] .caret { --feel-caret-ms: 0ms !important; }
 /* the space mark is the space's own background: a space that ends a line has no width, so no mark hangs at the edge (#248) */
 .text span[data-sp] {
   background: radial-gradient(circle closest-side, color-mix(in srgb, currentColor 30%, transparent) 98%, transparent) center / .14em .14em no-repeat;

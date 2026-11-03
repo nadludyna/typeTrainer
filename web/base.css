@@ -33,6 +33,7 @@
   --tw: min(100vw - 32px - 2 * var(--side), max(760px, calc(var(--u) * 14.6)));
 
   --ease: cubic-bezier(.2, .8, .2, 1);
+  --t-in: .16s; --t-out: .1s; --t-hover: .12s;
 
   --ctl: 32px;
   --track: color-mix(in srgb, var(--text) 5%, var(--panel));
@@ -211,3 +212,19 @@ dialog.custom-win .custom-count { margin: 6px 0 0; color: var(--sub); }
 #custom-area:focus { outline: 2px solid var(--accent-text); outline-offset: 1px; }
 .confirm-btns .btn.primary { color: var(--on-accent); background: var(--accent); box-shadow: none; }
 .confirm-btns .btn.primary:disabled { opacity: .45; cursor: default; }
+
+/* ---------- motion: short, only opacity and a few pixels, never on the typing path ---------- */
+button, a { transition: color var(--t-hover) var(--ease), background-color var(--t-hover) var(--ease); }
+dialog {
+  opacity: 0; scale: .98;
+  transition: opacity var(--t-out) var(--ease), scale var(--t-out) var(--ease), overlay var(--t-out) allow-discrete, display var(--t-out) allow-discrete;
+}
+dialog[open] { opacity: 1; scale: 1; transition-duration: var(--t-in); }
+dialog::backdrop { opacity: 0; transition: opacity var(--t-out) var(--ease), overlay var(--t-out) allow-discrete, display var(--t-out) allow-discrete; }
+dialog[open]::backdrop { opacity: 1; transition-duration: var(--t-in); }
+@starting-style {
+  dialog[open] { opacity: 0; scale: .98; }
+  dialog[open]::backdrop { opacity: 0; }
+}
+#view-type:not([hidden]), #view-stats:not([hidden]) { animation: view-in var(--t-in) var(--ease); }
+@keyframes view-in { from { opacity: 0; translate: 0 4px; } }

@@ -95,7 +95,7 @@ body:not(.typing-now) .live:not(.final) > .streak { opacity: 0; }
 }
 .switch button:hover { background: none; color: color-mix(in srgb, var(--text) 70%, var(--sub)); }
 .switch button[aria-selected="true"] { color: var(--text); }
-.switch-thumb { position: absolute; pointer-events: none; }
+.switch-thumb { position: absolute; pointer-events: none; transition: transform .2s var(--ease); }
 .switch-thumb::after {
   content: ""; position: absolute; border-radius: var(--r-sm);
   background: var(--accent);
@@ -185,6 +185,7 @@ button:disabled:hover { color: var(--sub); background: none; }
   background: var(--panel-2); color: var(--text); font-size: var(--fs-min); padding: 6px 10px;
   border-radius: var(--r-md); box-shadow: var(--ring), var(--shadow-sm);
   transform: translate(-50%, calc(-100% - 10px));  white-space: nowrap;
+  transition: opacity var(--t-in) var(--ease);
 }
 .tooltip.below { transform: translate(-50%, 10px); }
 .tooltip[popover] { inset: auto; margin: 0; border: 0; overflow: visible; }

@@ -63,6 +63,22 @@ body:not(.kb-hidden) .step i { height: calc(4px + var(--i) * 4px); }
 body:not(.kb-hidden) .stand-fact { flex-direction: row; align-items: baseline; gap: 8px; }
 body:not(.kb-hidden) .stand-fact b { font-size: var(--fs-m); }
 
+/* ---------- a quick look at the stats, over what's under the text (peek.js) ---------- */
+.peek { position: fixed; z-index: 5; display: flex; flex-direction: column; gap: 14px; }
+.peek[hidden] { display: none; }
+.peek p { margin: 0; }
+body.peek-on :is(#keyboard, #stand, #kb-away) { visibility: hidden; }
+.peek-title { display: flex; justify-content: space-between; gap: 16px; color: var(--label); font-size: var(--fs-min); }
+.peek-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.peek-stats .act-stat b { font-size: var(--fs-l); line-height: 1.1; }
+.peek-stats .speed b { color: var(--accent-big); }
+.peek-stats .trend { margin-left: 8px; font-size: var(--fs-min); }
+.peek-chart { position: relative; flex: 1; min-height: 0; }
+.peek-goal { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--label); }
+.peek-facts { display: flex; align-items: center; gap: 10px; color: var(--label); font-size: var(--fs-min); }
+.peek-end { margin-left: auto; }
+.peek-key { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; padding: 0 6px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); font-size: var(--fs-s); font-weight: 500; }
+
 .climb-status { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--sub); font-size: var(--fs-min); white-space: nowrap; cursor: default; }
 .climb-status b { color: var(--text); font-weight: 500; }
 .climb-status .pips { margin-left: 0; }

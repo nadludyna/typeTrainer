@@ -123,6 +123,16 @@ var (
 	ErrNotFound  = errors.New("storage: not found")
 )
 
+// ImportData is one whole progress state for a language, applied all at once.
+type ImportData struct {
+	Keys     map[string]engine.KeyStat
+	Unlocked int
+	Lap      int
+	Group    string
+	Sessions []Session
+	Freeplay map[string][]Session
+}
+
 type Learned struct {
 	Stats    map[string]engine.KeyStat
 	Unlocked int
@@ -161,6 +171,7 @@ type Store interface {
 	PracticeDays(user, lang string, tz time.Duration) ([]Day, error)
 
 	Reset(user, lang string) error
+	Import(user, lang string, data ImportData) error
 
 	CreateUser(name, passwordHash string, now time.Time, from string) (User, error)
 	UserByName(name string) (User, error)

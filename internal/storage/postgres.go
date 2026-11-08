@@ -390,6 +390,40 @@ func (p *PostgresStore) Reset(user, lang string) error {
 	})
 }
 
+func (p *PostgresStore) Import(user, lang string, data ImportData) error {
+	return p.inTx(func(tx *sql.Tx) error {
+		for _, table := range []string{"progress", "key_stats", "sessions"} {
+			if _, err := tx.Exec(`DELETE FROM `+table+` WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
+				return err
+			}
+		}
+		if err := saveKeyStats(tx, user, lang, data.Keys); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group`,
+			user, lang, data.Unlocked, data.Lap, data.Group); err != nil {
+			return err
+		}
+		for _, s := range data.Sessions {
+			if err := addSession(tx, user, lang, modeLearning, s); err != nil {
+				return err
+			}
+		}
+		for mode, sessions := range data.Freeplay {
+			if mode == "" {
+				return errors.New("storage: freeplay mode is empty")
+			}
+			for _, s := range sessions {
+				if err := addSession(tx, user, lang, mode, s); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+}
+
 func userID(n int64) string { return "u" + strconv.FormatInt(n, 10) }
 
 func (p *PostgresStore) CreateUser(name, passwordHash string, now time.Time, from string) (User, error) {

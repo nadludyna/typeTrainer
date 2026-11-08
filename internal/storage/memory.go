@@ -3,6 +3,7 @@
 package storage
 
 import (
+	"errors"
 	"sort"
 	"strconv"
 	"sync"
@@ -317,6 +318,51 @@ func (m *MemoryStore) Reset(user, lang string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.langs, key{user, lang})
+	return nil
+}
+
+func (m *MemoryStore) Import(user, lang string, data ImportData) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	next := &langData{
+		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
+		unlocked: data.Unlocked, lap: data.Lap, group: data.Group,
+		sessions: make([]Session, 0, len(data.Sessions)),
+		freeplay: make(map[string][]Session, len(data.Freeplay)),
+	}
+	for ch, k := range data.Keys {
+		next.stats[ch] = k
+	}
+	seen := map[string]bool{}
+	put := func(mode string, list []Session) error {
+		if mode == "" {
+			return errors.New("storage: freeplay mode is empty")
+		}
+		for _, s := range list {
+			s = s.WithLength()
+			if s.Round != "" {
+				if seen[s.Round] {
+					continue
+				}
+				seen[s.Round] = true
+			}
+			if mode == "learning" {
+				next.sessions = append(next.sessions, s)
+			} else {
+				next.freeplay[mode] = append(next.freeplay[mode], s)
+			}
+		}
+		return nil
+	}
+	if err := put("learning", data.Sessions); err != nil {
+		return err
+	}
+	for mode, list := range data.Freeplay {
+		if err := put(mode, list); err != nil {
+			return err
+		}
+	}
+	m.langs[key{user, lang}] = next
 	return nil
 }
 

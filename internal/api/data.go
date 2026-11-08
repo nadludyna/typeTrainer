@@ -135,35 +135,6 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		in.Keys = map[string]engine.KeyStat{}
 	}
 	id := l.Info.ID
-
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	if err := s.store.Reset(user, id); err != nil {
-		serverError(w, err)
-		return
-	}
-	if err := s.store.SaveKeyStats(user, id, in.Keys); err != nil {
-		serverError(w, err)
-		return
-	}
-	if err := s.store.SetUnlocked(user, id, in.Unlocked); err != nil {
-		serverError(w, err)
-		return
-	}
-	if err := s.store.SetLap(user, id, in.Lap); err != nil {
-		serverError(w, err)
-		return
-	}
-	if err := s.store.SetGroup(user, id, in.Group); err != nil {
-		serverError(w, err)
-		return
-	}
-	for _, sess := range in.Sessions {
-		if err := s.store.AddSession(user, id, sess); err != nil {
-			serverError(w, err)
-			return
-		}
-	}
 	histories := map[string][]storage.Session{}
 	if in.Freeplay != nil {
 		if in.ClimbLevels == 0 {
@@ -177,13 +148,15 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		n, v, _ := storage.ParseFreetypeKey(list)
 		histories[storage.FreetypeMode(n, v)] = f.Sessions
 	}
-	for mode, sessions := range histories {
-		for _, sess := range sessions {
-			if err := s.store.AddFreeplaySession(user, id, mode, sess); err != nil {
-				serverError(w, err)
-				return
-			}
-		}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.store.Import(user, id, storage.ImportData{
+		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap, Group: in.Group,
+		Sessions: in.Sessions, Freeplay: histories,
+	}); err != nil {
+		serverError(w, err)
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"unlocked": in.Unlocked, "sessions": len(in.Sessions)})
 }

@@ -24,6 +24,7 @@ type Session struct {
 	Lap      int             `json:"lap,omitempty"`
 	Group    string          `json:"group,omitempty"`
 	Device   string          `json:"device,omitempty"`
+	Epoch    int             `json:"epoch"`
 	Round    string          `json:"-"`
 }
 

@@ -161,6 +161,9 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		if sess.Lap < 0 || sess.Lap > laps {
 			return "sessions: lap out of range"
 		}
+		if sess.Epoch < 0 {
+			return "sessions: epoch out of range"
+		}
 		if !okLength(sess.Length) {
 			return "sessions: unknown length " + sess.Length
 		}

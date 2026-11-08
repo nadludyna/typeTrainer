@@ -13,8 +13,9 @@ import (
 )
 
 type MemoryStore struct {
-	mu    sync.Mutex
-	langs map[key]*langData
+	mu     sync.Mutex
+	langs  map[key]*langData
+	epochs map[key]int
 
 	users  map[string]User
 	names  map[string]string
@@ -39,7 +40,7 @@ type langData struct {
 }
 
 func NewMemoryStore() *MemoryStore {
-	return &MemoryStore{langs: map[key]*langData{}, users: map[string]User{}, names: map[string]string{}, logins: map[string]login{}}
+	return &MemoryStore{langs: map[key]*langData{}, epochs: map[key]int{}, users: map[string]User{}, names: map[string]string{}, logins: map[string]login{}}
 }
 
 func (m *MemoryStore) data(user, lang string) *langData {
@@ -103,6 +104,7 @@ func (m *MemoryStore) SetLap(user, lang string, n int) error {
 func (m *MemoryStore) AddSession(user, lang string, s Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	s.Epoch = m.epochs[key{user, lang}]
 	d := m.data(user, lang)
 	if d.hasRound(s.Round) {
 		return nil
@@ -115,6 +117,9 @@ func (m *MemoryStore) SaveLearned(user, lang string, l Learned) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	d := m.data(user, lang)
+	if l.Session != nil {
+		l.Session.Epoch = m.epochs[key{user, lang}]
+	}
 	if l.Stats != nil {
 		d.stats = make(map[string]engine.KeyStat, len(l.Stats))
 		for k, v := range l.Stats {
@@ -279,6 +284,7 @@ func (m *MemoryStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, 
 func (m *MemoryStore) AddFreeplaySession(user, lang, mode string, s Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	s.Epoch = m.epochs[key{user, lang}]
 	d := m.data(user, lang)
 	if d.hasRound(s.Round) {
 		return nil
@@ -317,13 +323,17 @@ func (m *MemoryStore) FreeplaySessionLengths(user, lang, mode string) ([]string,
 func (m *MemoryStore) Reset(user, lang string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.langs, key{user, lang})
+	k := key{user, lang}
+	m.epochs[k]++
+	delete(m.langs, k)
 	return nil
 }
 
 func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	k := key{user, lang}
+	m.epochs[k]++
 	next := &langData{
 		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
 		unlocked: data.Unlocked, lap: data.Lap, group: data.Group,
@@ -362,7 +372,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 			return err
 		}
 	}
-	m.langs[key{user, lang}] = next
+	m.langs[k] = next
 	return nil
 }
 
@@ -380,6 +390,12 @@ func (m *MemoryStore) CreateUser(name, passwordHash string, now time.Time, from 
 			if k.user == from {
 				delete(m.langs, k)
 				m.langs[key{u.ID, k.lang}] = d
+			}
+		}
+		for k, n := range m.epochs {
+			if k.user == from {
+				delete(m.epochs, k)
+				m.epochs[key{u.ID, k.lang}] = n
 			}
 		}
 	}

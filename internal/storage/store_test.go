@@ -37,6 +37,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"RoundSentTwice":            testRoundSentTwice,
 	"SaveLearned":               testSaveLearned,
 	"ImportAtomic":              testImportAtomic,
+	"Epoch":                     testEpoch,
 }
 
 func testRoundSentTwice(t *testing.T, m Store) {
@@ -671,5 +672,36 @@ func testImportAtomic(t *testing.T, m Store) {
 	}
 	if c, _ := m.FreeplaySessionCount(u, "en", ModeClimb, ""); c != 1 {
 		t.Fatalf("import did not replace the freeplay sessions: %d", c)
+	}
+}
+
+func testEpoch(t *testing.T, m Store) {
+	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	m.AddSession(u, "en", Session{WPM: 10, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 0 {
+		t.Fatalf("the first epoch: %+v", got)
+	}
+	if err := m.Reset(u, "en"); err != nil {
+		t.Fatal(err)
+	}
+	m.AddSession(u, "en", Session{WPM: 20, FinishedAt: when})
+	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 30, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 1 {
+		t.Fatalf("a session after a reset must carry the next epoch: %+v", got)
+	}
+	if got, _ := m.RecentFreeplaySessions(u, "en", ModeClimb, "", 5); len(got) != 1 || got[0].Epoch != 1 {
+		t.Fatalf("a freeplay session after a reset must carry the next epoch: %+v", got)
+	}
+	if err := m.Import(u, "en", ImportData{
+		Sessions: []Session{{WPM: 40, Epoch: 5, FinishedAt: when}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 5 {
+		t.Fatalf("an imported session keeps the epoch of its file: %+v", got)
+	}
+	m.AddSession(u, "en", Session{WPM: 50, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 2 || got[0].Epoch != 2 {
+		t.Fatalf("a session after an import must carry the next epoch: %+v", got)
 	}
 }

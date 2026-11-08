@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"typingtrainer/internal/engine"
@@ -88,7 +89,7 @@ func validateSamples(samples []engine.Sample, max int, alphabet string) string {
 	return ""
 }
 
-func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string) string {
+func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string, futureTolerance time.Duration) string {
 	if in.Unlocked < 0 || in.Unlocked > letters {
 		return "unlocked: out of range"
 	}
@@ -108,7 +109,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 			return "keys: impossible numbers for " + ch
 		}
 	}
-	if msg := validateSessions(in.Sessions, maxSessions, maxEvents, letters, laps, alphabet, okLength); msg != "" {
+	if msg := validateSessions(in.Sessions, maxSessions, maxEvents, letters, laps, alphabet, okLength, futureTolerance); msg != "" {
 		return msg
 	}
 	for _, sess := range in.Sessions {
@@ -117,7 +118,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		}
 	}
 	if in.Freeplay != nil {
-		if msg := validateSessions(in.Freeplay.Sessions, maxSessions, maxEvents, letters, 0, climbAlphabet(alphabet), okLength); msg != "" {
+		if msg := validateSessions(in.Freeplay.Sessions, maxSessions, maxEvents, letters, 0, climbAlphabet(alphabet), okLength, futureTolerance); msg != "" {
 			return "freeplay " + msg
 		}
 		for _, sess := range in.Freeplay.Sessions {
@@ -131,7 +132,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		if !okFreetype(list) {
 			return "freetype: unknown list " + list
 		}
-		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, freetypeAlphabet, okLength); msg != "" {
+		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, freetypeAlphabet, okLength, futureTolerance); msg != "" {
 			return "freetype " + msg
 		}
 		for _, sess := range f.Sessions {
@@ -143,7 +144,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 	return ""
 }
 
-func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps int, alphabet string, okLength func(string) bool) string {
+func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps int, alphabet string, okLength func(string) bool, futureTolerance time.Duration) string {
 	if len(sessions) > max {
 		return "sessions: too many"
 	}
@@ -168,6 +169,9 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		}
 		if !validDevice(sess.Device) {
 			return "sessions: unknown device " + sess.Device
+		}
+		if sess.FinishedAt.After(time.Now().Add(futureTolerance)) {
+			return "sessions: finishedAt is in the future"
 		}
 		if msg := validateSamples(sess.Keys, maxEvents, alphabet); msg != "" {
 			return "sessions: keys: " + msg

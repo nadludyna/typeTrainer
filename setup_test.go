@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMain(m *testing.M) {
@@ -152,6 +153,8 @@ func TestApp_ImportRejectsBadDataAndKeepsOldData(t *testing.T) {
 		`{"sessions":[{"wpm":30,"accuracy":90,"consistency":101}]}`,
 		`{"sessions":[{"wpm":30,"accuracy":90,"unlocked":9999}]}`,
 		`{"sessions":[{"wpm":30,"accuracy":90,"keys":[{"char":"ж","errors":0,"ms":300}]}]}`,
+		`{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":"2030-01-01T00:00:00Z"}]}`,
+		`{"freeplay":{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":"2030-01-01T00:00:00Z"}]}}`,
 	}
 	for _, b := range bad {
 		if code, _ := call(t, h, "POST", "/api/v1/import?lang=en", b); code != 400 {
@@ -161,6 +164,11 @@ func TestApp_ImportRejectsBadDataAndKeepsOldData(t *testing.T) {
 	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
 	if st["sessionCount"].(float64) != 1 {
 		t.Fatalf("a refused import changed the data: %v", st["sessionCount"])
+	}
+	slightlyAhead := time.Now().UTC().Add(time.Minute).Format(time.RFC3339)
+	if code, _ := call(t, h, "POST", "/api/v1/import?lang=en",
+		fmt.Sprintf(`{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":%q}]}`, slightlyAhead)); code != 200 {
+		t.Fatalf("a finishedAt inside the tolerance must pass: %d", code)
 	}
 }
 

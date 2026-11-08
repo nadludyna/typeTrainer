@@ -26,6 +26,8 @@ type Config struct {
 	MaxImportBytes    int
 	MaxImportSessions int
 
+	ImportFutureTolerance time.Duration
+
 	MaxRoundWords   int
 	MaxRoundSeconds int
 
@@ -74,6 +76,8 @@ func Default() Config {
 
 		MaxImportBytes:    64 << 20,
 		MaxImportSessions: 50000,
+
+		ImportFutureTolerance: 5 * time.Minute,
 
 		MaxRoundWords:   500,
 		MaxRoundSeconds: 600,

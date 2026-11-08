@@ -127,7 +127,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		n, v, ok := storage.ParseFreetypeKey(key)
 		return ok && s.validVariant(l, n, v)
 	}
-	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Freeplay.Levels), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet)); msg != "" {
+	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Freeplay.Levels), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
 		badRequest(w, msg)
 		return
 	}

@@ -21,7 +21,7 @@ func TestPostgresStore(t *testing.T) {
 	}
 	defer p.Close()
 	runStoreTests(t, func(t *testing.T) Store {
-		if _, err := p.db.Exec(`TRUNCATE users, logins, progress, key_stats, sessions RESTART IDENTITY`); err != nil {
+		if _, err := p.db.Exec(`TRUNCATE users, logins, progress, key_stats, sessions, epochs RESTART IDENTITY`); err != nil {
 			t.Fatal(err)
 		}
 		return p
@@ -43,7 +43,7 @@ func TestPostgresSaveLearnedAllOrNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Close()
-	if _, err := p.db.Exec(`TRUNCATE users, logins, progress, key_stats, sessions RESTART IDENTITY`); err != nil {
+	if _, err := p.db.Exec(`TRUNCATE users, logins, progress, key_stats, sessions, epochs RESTART IDENTITY`); err != nil {
 		t.Fatal(err)
 	}
 	p.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 1}})

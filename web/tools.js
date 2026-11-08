@@ -61,9 +61,15 @@ $("reset-ok").addEventListener("click", async () => {
   working = S.busy = true;
   try {
     for (const l of S.languages) {
-      await fetch(`${API}/reset?lang=${encodeURIComponent(l.id)}`, { method: "POST" });
+      const res = await fetch(`${API}/reset?lang=${encodeURIComponent(l.id)}`, { method: "POST" });
+      if (!res.ok) throw new Error(`reset ${l.id} -> ${res.status}`);
     }
-  } catch (err) { console.error(err); }
+  } catch (err) {
+    console.error(err);
+    FX.toast(t("toast.resetFail"));
+    working = S.busy = false;
+    return;
+  }
   try {
     for (const k of Object.keys(localStorage)) if (k.startsWith("tt.")) localStorage.removeItem(k);
   } catch {}

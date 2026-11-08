@@ -43,6 +43,7 @@ const I18N = {
     "toast.exported": "Your progress is saved to a file.",
     "toast.imported": "Progress loaded: <b>{n}</b> rounds.",
     "toast.importFail": "Couldn't load this file. Use one made with Export.",
+    "toast.resetFail": "Couldn't delete your progress. Try again.",
     "tip.stats": "Stats · Shift+Tab",
     "intro.kicker0": "Home row",
     "intro.title0": "Place your fingers on the home row",

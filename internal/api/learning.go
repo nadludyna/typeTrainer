@@ -87,16 +87,10 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	done, err := s.learn(user, l, req.Samples)
+	done, err := s.learn(user, l, nil)
 	if err != nil {
 		serverError(w, err)
 		return
-	}
-	if done.changed {
-		if err := s.store.SaveLearned(user, l.Info.ID, done.record(nil)); err != nil {
-			serverError(w, err)
-			return
-		}
 	}
 	stats, unlocked := done.stats, done.unlocked
 	p := s.cfg.Engine.ForLap(done.lapAfter, s.cfg.Laps)
@@ -263,7 +257,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	if req.Chars == 0 {
-		req.Chars = len(req.Samples)
+		req.Chars = len(req.Keys)
 	}
 	if msg := validate(req, s.cfg.MaxRoundChars, s.cfg.MaxEvents, l.Info.Alphabet); msg != "" {
 		badRequest(w, msg)
@@ -282,9 +276,9 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	if again {
-		req.Samples = nil
+		req.Keys = nil
 	}
-	done, err := s.learn(user, l, req.Samples)
+	done, err := s.learn(user, l, req.Keys)
 	if err != nil {
 		serverError(w, err)
 		return

@@ -243,12 +243,14 @@ is `RoundPortions` portions (30 words).
 3. The space after the last word of a portion → `POST /api/v1/portion` with the
    portion's samples, the words of the stream so far (`recent`) and the words
    typed with a mistake (`retry`). The handler (under a mutex) reads the stats
-   from the `Store`, calls `engine.Apply`, saves them, asks
-   `Generator.NextUnlocked` whether a letter opens, and answers with ONE new
-   portion built from the updated statistics. The browser adds it at the end of
-   the text. Once the round has all its portions the browser sends
-   `last: true` and gets none. Backspace can go back one word, also into a
-   portion that was sent; those new presses are only shown, not sent again.
+   from the `Store` and answers with ONE new portion built from the current
+   statistics; the samples are not applied here. The whole round's presses are
+   applied to the model once, at its end, by `/results` — so a round dropped
+   with Tab (marked aborted) never touches the model. The browser adds the
+   new portion at the end of the text. Once the round has all its portions the
+   browser sends `last: true` and gets none. Backspace can go back one word,
+   also into a portion that was sent; those new presses are only shown, not
+   sent again.
 
    **Rendering: one word at a time in Learn.** Portions arrive whole, but the browser
    shows only the words up to `SHOWN_AHEAD = 12` (two portions) after the

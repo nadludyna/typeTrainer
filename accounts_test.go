@@ -59,7 +59,7 @@ func TestApp_Accounts(t *testing.T) {
 		}
 	}
 
-	round := `{"samples":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
+	round := `{"keys":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
 	if code, _, _ := callAs(t, h, ann, "POST", "/api/v1/results?lang=en", round); code != 200 {
 		t.Fatalf("ann's round: %d", code)
 	}
@@ -96,7 +96,7 @@ func TestApp_Accounts(t *testing.T) {
 
 func TestApp_SignUpKeepsGuestProgress(t *testing.T) {
 	h, _, _ := newApp()
-	round := `{"samples":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
+	round := `{"keys":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
 	if code, _, _ := callAs(t, h, "", "POST", "/api/v1/results?lang=en", round); code != 200 {
 		t.Fatalf("guest's round: %d", code)
 	}
@@ -143,7 +143,7 @@ func TestApp_GuestPerBrowser(t *testing.T) {
 		t.Fatal("an existing guest cookie must not be replaced")
 	}
 
-	round := `{"samples":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
+	round := `{"keys":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`
 	call(t, h, "POST", "/api/v1/results?lang=en", round)
 	other := httptest.NewRequest("GET", "/api/v1/stats?lang=en", nil)
 	other.AddCookie(c)

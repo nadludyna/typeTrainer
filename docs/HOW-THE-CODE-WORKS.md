@@ -56,7 +56,7 @@ its own.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
@@ -243,12 +243,14 @@ is `RoundPortions` portions (30 words).
 3. The space after the last word of a portion → `POST /api/v1/portion` with the
    portion's samples, the words of the stream so far (`recent`) and the words
    typed with a mistake (`retry`). The handler (under a mutex) reads the stats
-   from the `Store`, calls `engine.Apply`, saves them, asks
-   `Generator.NextUnlocked` whether a letter opens, and answers with ONE new
-   portion built from the updated statistics. The browser adds it at the end of
-   the text. Once the round has all its portions the browser sends
-   `last: true` and gets none. Backspace can go back one word, also into a
-   portion that was sent; those new presses are only shown, not sent again.
+   from the `Store` and answers with ONE new portion built from the current
+   statistics; the samples are not applied here. The whole round's presses are
+   applied to the model once, at its end, by `/results` — so a round dropped
+   with Tab (marked aborted) never touches the model. The browser adds the
+   new portion at the end of the text. Once the round has all its portions the
+   browser sends `last: true` and gets none. Backspace can go back one word,
+   also into a portion that was sent; those new presses are only shown, not
+   sent again.
 
    **Rendering: one word at a time in Learn.** Portions arrive whole, but the browser
    shows only the words up to `SHOWN_AHEAD = 12` (two portions) after the
@@ -286,7 +288,8 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/auth/logout` | | `{ok: true}`; ends this login and deletes the cookie |
 | GET | `/api/v1/auth/me` | | `{accounts, name}`; `name` is null for a guest, `accounts` false where they cannot work (GitHub Pages) |
 | GET | `/api/v1/layout` | | layout JSON |
-| POST | `/api/v1/portion` | `{samples: [{char, errors, ms, typed?}], recent: [words], retry: [words], start: bool, last: bool}` | `{portions: [{words, focus, weakest, unlocked, locked}], newLetter, newLap, round}` (`newLap`: the goal in WPM of a lap these presses started, 0 = none; HOW-THE-MODES-WORK.md 6.1); one portion, `AheadPortions + 1` with `start`, none with `last` |
+| POST | `/api/v1/portion` | `{samples: [{char, errors, ms, typed?}], recent: [words], retry: [words], start: bool, last: bool, round, portionIndex, ack}` | `{portions: [{words, focus, weakest, unlocked, locked}], newLetter, newLap, round}`; one portion, `AheadPortions + 1` with `start`, none with `last`. The samples are not applied here; a repeated `(round, portionIndex)` gets the cached answer back |
+| POST | `/api/v1/abort` | `{round, keys: [the round's raw presses], length}` | `{ok: true}`; Learn only: a round dropped by Tab — kept raw, shown nowhere, never learned |
 | POST | `/api/v1/results` | `{samples: [{char, errors, ms}], keys: [the same shape, the whole round], chars, wpm, accuracy, perSecond: [keypresses in each full second], length}` | `{unlocked, newLetter, newLap, consistency}` (`consistency` 0–100, `null` for a round under `ConsistencyMinSeconds`); the round is over: one history entry |
 | POST | `/api/v1/progress` | `{unlockAll: true\|false}` | `{unlocked}`; for development only, the interface no longer calls it |
 | POST | `/api/v1/group` | `{group: "random"\|""}` | `{group}`; the study group (hidden: only the study link `?group=random` / `?group=adaptive` calls it, `web/app.js`). `/stats` returns `group`, every learning round stores it |
@@ -490,7 +493,9 @@ in git. How to install PostgreSQL on Windows: CONTRIBUTING.md.
   Freetype list, `freetype-<n>-long` for its long words,
   `freetype-sentences` and `freetype-custom` (migration 009); the raw keys as `JSONB`;
   `round_id`, unique per user and language, so a round sent twice is kept
-  once (migration 011); `epoch`, the wipe counter of migration 012), and
+  once (migration 011); `epoch`, the wipe counter of migration 012;
+  `aborted`, the Tab flag of migration 013: such a round is kept raw but
+  shown nowhere and never learned), and
   `epochs` (that counter itself). Every data table is keyed by user and
   language. `user_id` is text and not a foreign key, because guests
   (`g...`, `local`) have data but no row in `users`; an account's id is

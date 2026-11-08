@@ -24,6 +24,7 @@ func main() {
 		"strategy instead of the configured one, e.g. 0.1,0.25 (experiment only)")
 	floor := flag.Int("floor", -1, "FloorWords instead of the configured one (experiment only)")
 	ramp := flag.Float64("ramp", -1, "RampLetters instead of the configured one (experiment only)")
+	apply := flag.String("apply", "portion", "when the stream strategy learns: portion (as typed) or round (one batch at the round's end)")
 	flag.Parse()
 	cfg := config.Default()
 	if *floor >= 0 {
@@ -31,6 +32,12 @@ func main() {
 	}
 	if *ramp >= 0 {
 		cfg.Words.RampLetters = *ramp
+	}
+	switch *apply {
+	case "portion", "round":
+		cfg.Sim.ApplyPerRound = *apply == "round"
+	default:
+		fail(fmt.Errorf("bad -apply %q: portion or round", *apply))
 	}
 
 	ts := []float64{cfg.Engine.Temperature}

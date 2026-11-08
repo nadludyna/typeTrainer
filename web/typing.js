@@ -474,7 +474,15 @@ function renderProgress() {
 // ---------- Tab: start the round again ----------
 export function restartRound() {
   if (S.busy) return;
+  abortRound();
   loadExercise().catch(console.error);
+}
+
+function abortRound() {
+  if (!learning() || startTime === null || !round) return;
+  const keys = records.filter(Boolean);
+  if (!keys.length) return;
+  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length }).catch(console.error);
 }
 
 export function checkLayout() {

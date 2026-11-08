@@ -91,7 +91,7 @@ func TestApp_ResetClearsProgress(t *testing.T) {
 func TestApp_ExportImportRoundTrip(t *testing.T) {
 	h, _, _ := newApp()
 	for _, wpm := range []string{"20", "40"} {
-		body := `{"samples":[{"char":"a","errors":1,"ms":300},{"char":" ","errors":0,"ms":200}],"wpm":` + wpm + `,"accuracy":90}`
+		body := `{"keys":[{"char":"a","errors":1,"ms":300},{"char":" ","errors":0,"ms":200}],"wpm":` + wpm + `,"accuracy":90}`
 		call(t, h, "POST", "/api/v1/results?lang=en", body)
 	}
 	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
@@ -138,7 +138,7 @@ func TestApp_ExportOfEmptyLanguage(t *testing.T) {
 
 func TestApp_ImportRejectsBadDataAndKeepsOldData(t *testing.T) {
 	h, _, _ := newApp()
-	call(t, h, "POST", "/api/v1/results?lang=en", `{"samples":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`)
+	call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"wpm":30,"accuracy":100}`)
 	bad := []string{
 		`not json`,
 		`{"unlocked":-1}`,
@@ -310,9 +310,9 @@ func TestApp_Activity(t *testing.T) {
 func TestApp_StatsBests(t *testing.T) {
 	h, _, _ := newApp()
 	for _, r := range []string{
-		`{"samples":[{"char":"e","errors":0,"ms":300}],"wpm":40,"accuracy":95,"length":"words-10"}`,
-		`{"samples":[{"char":"e","errors":0,"ms":300}],"wpm":60,"accuracy":98,"length":"words-10"}`,
-		`{"samples":[{"char":"e","errors":0,"ms":300}],"wpm":50,"accuracy":90,"length":"time-30"}`,
+		`{"keys":[{"char":"e","errors":0,"ms":300}],"wpm":40,"accuracy":95,"length":"words-10"}`,
+		`{"keys":[{"char":"e","errors":0,"ms":300}],"wpm":60,"accuracy":98,"length":"words-10"}`,
+		`{"keys":[{"char":"e","errors":0,"ms":300}],"wpm":50,"accuracy":90,"length":"time-30"}`,
 	} {
 		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", r); code != 200 {
 			t.Fatalf("results: %d %v", code, out)

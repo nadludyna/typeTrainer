@@ -167,7 +167,7 @@ func (m *MemoryStore) RecentSessions(user, lang, length string, limit int) ([]Se
 func newestFirst(all []Session, length string, limit int) []Session {
 	out := []Session{}
 	for i := len(all) - 1; i >= 0 && len(out) < limit; i-- {
-		if length == "" || all[i].Length == length {
+		if !all[i].Aborted && (length == "" || all[i].Length == length) {
 			out = append(out, all[i])
 		}
 	}
@@ -176,11 +176,17 @@ func newestFirst(all []Session, length string, limit int) []Session {
 
 func countLength(all []Session, length string) int {
 	if length == "" {
-		return len(all)
+		live := 0
+		for _, s := range all {
+			if !s.Aborted {
+				live++
+			}
+		}
+		return live
 	}
 	n := 0
 	for _, s := range all {
-		if s.Length == length {
+		if !s.Aborted && s.Length == length {
 			n++
 		}
 	}
@@ -191,6 +197,9 @@ func lengths(all []Session) []string {
 	seen := map[string]bool{}
 	out := []string{}
 	for _, s := range all {
+		if s.Aborted {
+			continue
+		}
 		if !seen[s.Length] {
 			seen[s.Length] = true
 			out = append(out, s.Length)
@@ -221,6 +230,9 @@ func (m *MemoryStore) BestRounds(user, lang string) (map[string]Session, error) 
 func bestOf(all []Session) map[string]Session {
 	out := map[string]Session{}
 	for _, s := range all {
+		if s.Aborted {
+			continue
+		}
 		if b, ok := out[s.Length]; !ok || s.WPM > b.WPM {
 			out[s.Length] = s.Summary()
 		}
@@ -233,7 +245,7 @@ func (m *MemoryStore) LettersTyped(user, lang string, unlocked int) (int, error)
 	defer m.mu.Unlock()
 	n := 0
 	for _, s := range m.data(user, lang).sessions {
-		if s.Unlocked >= unlocked {
+		if !s.Aborted && s.Unlocked >= unlocked {
 			n += s.Chars
 		}
 	}
@@ -263,6 +275,9 @@ func (m *MemoryStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, 
 		all = append(all, h...)
 	}
 	for _, s := range all {
+		if s.Aborted {
+			continue
+		}
 		date := s.FinishedAt.UTC().Add(tz).Format("2006-01-02")
 		day := byDate[date]
 		if day == nil {

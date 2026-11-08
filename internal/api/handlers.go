@@ -59,6 +59,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
 	mux.HandleFunc("GET /api/v1/layout", s.withLang(s.handleLayout))
 	mux.HandleFunc("POST /api/v1/portion", s.withLang(s.handlePortion))
+	mux.HandleFunc("POST /api/v1/abort", s.withLang(s.handleAbort))
 	mux.HandleFunc("POST /api/v1/results", s.withLang(s.handleResults))
 	mux.HandleFunc("POST /api/v1/progress", s.withLang(s.handleProgress))
 	mux.HandleFunc("POST /api/v1/group", s.withLang(s.handleGroup))

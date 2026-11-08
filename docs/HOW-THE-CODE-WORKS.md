@@ -56,7 +56,7 @@ its own.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
@@ -225,7 +225,17 @@ is `RoundPortions` portions (30 words).
 
 1. Start of a round (`loadExercise()` in `typing.js`) → `POST /api/v1/portion {start: true}`
    returns the portion to type plus `AheadPortions` waiting after it, and
-   `round` (portions per round).
+   `round` (portions per round). The browser gives the round an id once, at
+   this moment, and sends it with every `/portion` and `/results` request of
+   the round, together with `portionIndex` (how many portions of the round
+   were finished) and `ack` (how many were received). The server keeps each
+   portion answer in memory by (round, portionIndex): a request sent twice
+   by a flaky network gets the same portions back and its samples are applied
+   once. The cache is process memory, nothing else: a server restart forgets
+   it, and a retry after a restart is treated as a first request. Answers the
+   browser acked are dropped at once; abandoned rounds are dropped after
+   `PortionCacheTTL` or when the cache passes `PortionCacheRounds` entries
+   (both in `internal/config/config.go`).
 2. `keydown` (`input.js`) → `handleChar()` in `typing.js` compares the key with the expected
    character and moves on either way (wrong = red). Each typed position keeps
    one sample `{char, errors, ms}`; `backspace()` changes only the screen, never
@@ -281,7 +291,7 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/progress` | `{unlockAll: true\|false}` | `{unlocked}`; for development only, the interface no longer calls it |
 | POST | `/api/v1/group` | `{group: "random"\|""}` | `{group}`; the study group (hidden: only the study link `?group=random` / `?group=adaptive` calls it, `web/app.js`). `/stats` returns `group`, every learning round stores it |
 | POST | `/api/v1/reset` | | `{ok: true}`; deletes all progress (the reset button) |
-| GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys], freeplay: {sessions (each with its level)}, climbLevels: 10, freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freeplay` and `freetype` are missing in older files; without `climbLevels` Climb's levels are the old 0..1, turned into 1..10 on import) |
+| GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freeplay: {sessions (each with its level)}, climbLevels: 10, freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freeplay` and `freetype` are missing in older files; without `climbLevels` Climb's levels are the old 0..1, turned into 1..10 on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |
 | GET | `/api/v1/stats?length=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryErr (the mastery rule: at least masteryMin presses, under masteryErr % mistakes, for the texts)}`; no `length` = every length |
 | GET | `/api/v1/learn/history` | | `{order: [the letters in unlock order], rounds: [{wpm, accuracy, unlocked, lap, letters: [{count, errorRate, avgMs, mastered} or null while locked, in order]}], confusions: [{want, typed, n}]}`: every Learn round oldest first, every length, with the letter model replayed over the rounds' raw keys (`history.LetterTimeline`); the pairs mixed up at least `ConfusionMin` times, at most `ConfusionShown` (`history.Confusions`) |
@@ -480,7 +490,8 @@ in git. How to install PostgreSQL on Windows: CONTRIBUTING.md.
   Freetype list, `freetype-<n>-long` for its long words,
   `freetype-sentences` and `freetype-custom` (migration 009); the raw keys as `JSONB`;
   `round_id`, unique per user and language, so a round sent twice is kept
-  once (migration 011)). Every data table is keyed by user and
+  once (migration 011); `epoch`, the wipe counter of migration 012), and
+  `epochs` (that counter itself). Every data table is keyed by user and
   language. `user_id` is text and not a foreign key, because guests
   (`g...`, `local`) have data but no row in `users`; an account's id is
   `u` + `users.id`.

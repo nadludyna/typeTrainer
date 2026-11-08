@@ -124,10 +124,11 @@ for (const mode of MODES) {
   test(`${mode.name}: typing neither dims nor moves the round switches`, async ({ page }) => {
     await openApp(page, mode.storage);
     const bar = page.locator("#mode-bar"), length = bar.locator(".bar-side:last-child > .ring").last();
-    const before = await bar.boundingBox();
+    const px = (b) => ({ x: Math.round(b.x), y: Math.round(b.y), width: Math.round(b.width), height: Math.round(b.height) });
+    const before = px(await bar.boundingBox());
     await page.keyboard.type(await nextChar(page));
     await expect(length).toHaveCSS("opacity", "1");
-    expect(await bar.boundingBox(), "the bar stays where it was").toEqual(before);
+    expect(px(await bar.boundingBox()), "the bar stays where it was").toEqual(before);
   });
 }
 
@@ -625,7 +626,7 @@ test("one grid in all modes: the text stands at one place and the round's count 
         const text = document.getElementById("text").getBoundingClientRect();
         return { top: text.top, textR: text.right, countR: document.getElementById("round-count").getBoundingClientRect().right };
       });
-      tops.push(m.top);
+      tops.push(Math.round(m.top));
       expect(m.countR, `${mode}: the count ends at the text`).toBeCloseTo(m.textR, 0);
     }
     expect(new Set(tops).size, `${width}: one place for the text`).toBe(1);

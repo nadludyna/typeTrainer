@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"typingtrainer/internal/engine"
@@ -36,10 +37,14 @@ func validate(req resultsRequest, maxChars, maxEvents int, alphabet string) stri
 	if !validDevice(req.Device) {
 		return "device: unknown device"
 	}
-	if len(req.Round) > 64 || strings.Trim(req.Round, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") != "" {
+	if len(req.Round) > 64 || !validRoundID(req.Round) {
 		return "round: at most 64 letters, digits and -"
 	}
 	return ""
+}
+
+func validRoundID(round string) bool {
+	return strings.Trim(round, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") == ""
 }
 
 func validLength(length string, maxWords, maxSeconds int) bool {
@@ -84,7 +89,7 @@ func validateSamples(samples []engine.Sample, max int, alphabet string) string {
 	return ""
 }
 
-func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string) string {
+func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string, futureTolerance time.Duration) string {
 	if in.Unlocked < 0 || in.Unlocked > letters {
 		return "unlocked: out of range"
 	}
@@ -104,7 +109,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 			return "keys: impossible numbers for " + ch
 		}
 	}
-	if msg := validateSessions(in.Sessions, maxSessions, maxEvents, letters, laps, alphabet, okLength); msg != "" {
+	if msg := validateSessions(in.Sessions, maxSessions, maxEvents, letters, laps, alphabet, okLength, futureTolerance); msg != "" {
 		return msg
 	}
 	for _, sess := range in.Sessions {
@@ -113,7 +118,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		}
 	}
 	if in.Freeplay != nil {
-		if msg := validateSessions(in.Freeplay.Sessions, maxSessions, maxEvents, letters, 0, climbAlphabet(alphabet), okLength); msg != "" {
+		if msg := validateSessions(in.Freeplay.Sessions, maxSessions, maxEvents, letters, 0, climbAlphabet(alphabet), okLength, futureTolerance); msg != "" {
 			return "freeplay " + msg
 		}
 		for _, sess := range in.Freeplay.Sessions {
@@ -127,7 +132,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		if !okFreetype(list) {
 			return "freetype: unknown list " + list
 		}
-		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, freetypeAlphabet, okLength); msg != "" {
+		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, freetypeAlphabet, okLength, futureTolerance); msg != "" {
 			return "freetype " + msg
 		}
 		for _, sess := range f.Sessions {
@@ -139,7 +144,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 	return ""
 }
 
-func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps int, alphabet string, okLength func(string) bool) string {
+func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps int, alphabet string, okLength func(string) bool, futureTolerance time.Duration) string {
 	if len(sessions) > max {
 		return "sessions: too many"
 	}
@@ -156,6 +161,9 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		if sess.Lap < 0 || sess.Lap > laps {
 			return "sessions: lap out of range"
 		}
+		if sess.Epoch < 0 {
+			return "sessions: epoch out of range"
+		}
 		if !okLength(sess.Length) {
 			return "sessions: unknown length " + sess.Length
 		}
@@ -164,6 +172,9 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		}
 		if !validDevice(sess.Device) {
 			return "sessions: unknown device " + sess.Device
+		}
+		if sess.FinishedAt.After(time.Now().Add(futureTolerance)) {
+			return "sessions: finishedAt is in the future"
 		}
 		if msg := validateSamples(sess.Keys, maxEvents, alphabet); msg != "" {
 			return "sessions: keys: " + msg

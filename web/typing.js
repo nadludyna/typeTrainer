@@ -76,6 +76,7 @@ function keepTextInView() {
 const IDLE_PAUSE_MS = 10000;
 const RECENT_SENT = 40;
 let portions = [];
+let round = "";
 let sentUpTo = 0;
 let current = 0;
 let streamId = 0;
@@ -179,7 +180,7 @@ function portionDone(k) {
   const samples = records.slice(sentUpTo, por.end + 1).filter(Boolean);
   sentUpTo = por.end + 1;
   showPortion(k + 1);
-  const body = { samples, retry: mistypedWords(por), last: !needMore() };
+  const body = { samples, retry: mistypedWords(por), last: !needMore(), round, portionIndex: k + 1, ack: portions.length };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -229,7 +230,7 @@ function resetStream() {
   queue = Promise.resolve();
   S.text = ""; S.pos = 0; wordClean = true; wordsTyped = 0;
   state = new Uint8Array(0); focusMask = new Uint8Array(0); records = []; spans = [];
-  portions = []; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
+  portions = []; round = ""; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
   wordOf = new Int32Array(0); revealAt = 0; shownWords = 0;
   extras = new Map(); correctChars = 0; afterBackspace = false; afterPause = false;
   pausedAt = null; boxState(false, "paused");
@@ -244,7 +245,8 @@ export async function loadExercise() {
   const id = streamId;
   const next = lengthOf(S.settings.length);
   const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
-  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.climbLevel ?? 0 };
+  round = roundId();
+  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.climbLevel ?? 0, round, portionIndex: 0, ack: 0 };
   const res = await getPortions(body);
   if (id !== streamId) return;
   roundBefore = S.lastStats;
@@ -562,7 +564,7 @@ async function finishRound() {
     if (!typed.length) { await loadExercise(); return; }
     if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
-    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round: roundId() };
+    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round };
     learnRound++;
     let res;
     try {
@@ -611,7 +613,7 @@ const roundId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b)
 async function finishFree(wpm, accuracy, keys, perSecond) {
   const before = S.climb?.sessions ?? [];
   const level = S.climbLevel;
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), level, round: roundId() };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), level, round };
   const saved = async (res) => {
     S.climbLevel = res.place.level;
     refreshActivity();
@@ -650,7 +652,7 @@ async function trySave(path, body, saved) {
 async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const variant = S.freetypeVariant, list = roundList();
   const before = S.freetype?.sessions ?? [];
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, round: roundId() };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, round };
   const done = wordsTyped;
   const saved = async () => {
     if (variant === "custom") customRoundDone(done);

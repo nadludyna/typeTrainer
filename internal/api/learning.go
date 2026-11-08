@@ -8,6 +8,7 @@ import (
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"typingtrainer/internal/engine"
@@ -21,6 +22,29 @@ type portionRequest struct {
 	Retry   []string        `json:"retry"`
 	Start   bool            `json:"start"`
 	Last    bool            `json:"last"`
+
+	Round        string `json:"round"`
+	PortionIndex int    `json:"portionIndex"`
+	Ack          int    `json:"ack"`
+}
+
+// A portion answer kept for one (round, portionIndex), so a request sent
+// twice by a flaky network is answered with the same portions and its samples
+// are applied once. The cache lives in the process memory only: a server
+// restart forgets it, and a retry after a restart is handled like a first
+// request. Acked answers are dropped at once; abandoned rounds are dropped
+// by the TTL and the size cap in the config. Two identical requests racing
+// in parallel can both miss the cache and apply their samples twice; the
+// browser sends its portion requests one after another, so the app cannot
+// do that.
+type cachedPortion struct {
+	from      int
+	count     int
+	portions  []engine.Portion
+	round     int
+	newLetter string
+	newLap    float64
+	at        time.Time
 }
 
 func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -37,6 +61,28 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	if len(req.Recent) > s.cfg.MaxEvents || len(req.Retry) > s.cfg.MaxEvents {
 		badRequest(w, "recent or retry: too long")
 		return
+	}
+	if req.Round != "" && !validRoundID(req.Round) {
+		badRequest(w, "round: at most 64 letters, digits and -")
+		return
+	}
+	if req.Round != "" && (req.PortionIndex < 0 || req.PortionIndex > s.cfg.MaxEvents || req.Ack < 0 || req.Ack > s.cfg.MaxEvents) {
+		badRequest(w, "portionIndex or ack: out of range")
+		return
+	}
+	cacheKey := ""
+	if req.Round != "" {
+		cacheKey = user + "\x00" + l.Info.ID + "\x00" + req.Round + "\x00" + strconv.Itoa(req.PortionIndex)
+		s.portionMu.Lock()
+		s.ackPortionsLocked(user, l.Info.ID, req.Round, req.Ack)
+		if e, ok := s.portionCache[cacheKey]; ok {
+			e.at = time.Now()
+			out, letter, lap, round := e.portions, e.newLetter, e.newLap, e.round
+			s.portionMu.Unlock()
+			writeJSON(w, http.StatusOK, map[string]any{"portions": out, "newLetter": letter, "round": round, "newLap": lap})
+			return
+		}
+		s.portionMu.Unlock()
 	}
 
 	s.writeMu.Lock()
@@ -90,7 +136,45 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		req.Retry = nil
 	}
 	s.genMu.Unlock()
+	if req.Round != "" {
+		s.portionMu.Lock()
+		s.portionCache[cacheKey] = &cachedPortion{from: req.Ack, count: len(out), portions: out,
+			round: p.RoundPortions, newLetter: done.newLetter, newLap: newLap(done, p), at: time.Now()}
+		s.trimPortionsLocked(time.Now())
+		s.portionMu.Unlock()
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"portions": out, "newLetter": done.newLetter, "round": p.RoundPortions, "newLap": newLap(done, p)})
+}
+
+// ackPortionsLocked drops the answers of this round the browser says it has
+// received whole: everything up to the ack cursor.
+func (s *Server) ackPortionsLocked(user, lang, round string, ack int) {
+	prefix := user + "\x00" + lang + "\x00" + round + "\x00"
+	for k, e := range s.portionCache {
+		if strings.HasPrefix(k, prefix) && e.from < ack && e.from+e.count <= ack {
+			delete(s.portionCache, k)
+		}
+	}
+}
+
+// trimPortionsLocked drops abandoned rounds: older than the TTL, then the
+// oldest until the cache fits its cap.
+func (s *Server) trimPortionsLocked(now time.Time) {
+	for k, e := range s.portionCache {
+		if now.Sub(e.at) > s.cfg.PortionCacheTTL {
+			delete(s.portionCache, k)
+		}
+	}
+	for len(s.portionCache) > s.cfg.PortionCacheRounds {
+		oldest := ""
+		var at time.Time
+		for k, e := range s.portionCache {
+			if oldest == "" || e.at.Before(at) {
+				oldest, at = k, e.at
+			}
+		}
+		delete(s.portionCache, oldest)
+	}
 }
 
 func (s *Server) lapParams(user, lang string) (engine.Params, int, error) {

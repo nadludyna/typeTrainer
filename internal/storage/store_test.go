@@ -36,6 +36,8 @@ var storeTests = map[string]func(*testing.T, Store){
 	"BestRounds":                testBestRounds,
 	"RoundSentTwice":            testRoundSentTwice,
 	"SaveLearned":               testSaveLearned,
+	"ImportAtomic":              testImportAtomic,
+	"Epoch":                     testEpoch,
 }
 
 func testRoundSentTwice(t *testing.T, m Store) {
@@ -614,5 +616,96 @@ func testBestRounds(t *testing.T, m Store) {
 	m.Reset(u, "en")
 	if b, _ := m.BestRounds(u, "en"); len(b) != 0 {
 		t.Fatalf("after reset: %v, want none", b)
+	}
+}
+
+func testImportAtomic(t *testing.T, m Store) {
+	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"e": {Count: 5}})
+	m.SetUnlocked(u, "en", 4)
+	m.AddSession(u, "en", Session{WPM: 40, FinishedAt: when})
+	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 50, FinishedAt: when})
+
+	bad := ImportData{
+		Keys: map[string]engine.KeyStat{"a": {Count: 1}}, Unlocked: 2,
+		Sessions: []Session{{WPM: 10, FinishedAt: when}},
+		Freeplay: map[string][]Session{"": {{WPM: 20, FinishedAt: when}}},
+	}
+	if err := m.Import(u, "en", bad); err == nil {
+		t.Fatal("an import with an empty freeplay mode must fail")
+	}
+	if s, _ := m.KeyStats(u, "en"); len(s) != 1 || s["e"].Count != 5 {
+		t.Fatalf("a failed import changed the key stats: %v", s)
+	}
+	if n, _ := m.Unlocked(u, "en"); n != 4 {
+		t.Fatalf("a failed import changed unlocked: %d", n)
+	}
+	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
+		t.Fatalf("a failed import changed the sessions: %d", c)
+	}
+	if c, _ := m.FreeplaySessionCount(u, "en", ModeClimb, ""); c != 1 {
+		t.Fatalf("a failed import changed the freeplay sessions: %d", c)
+	}
+	m.AddSession(u, "en", Session{WPM: 45, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); got[0].Epoch != 0 {
+		t.Fatalf("a failed import bumped the epoch: %+v", got[0])
+	}
+
+	good := ImportData{
+		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1, Group: GroupRandom,
+		Sessions: []Session{{WPM: 12, FinishedAt: when}},
+		Freeplay: map[string][]Session{ModeClimb: {{WPM: 30, FinishedAt: when}}},
+	}
+	if err := m.Import(u, "en", good); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := m.KeyStats(u, "en"); len(s) != 1 || s["q"].Count != 2 {
+		t.Fatalf("import did not replace the key stats: %v", s)
+	}
+	if n, _ := m.Unlocked(u, "en"); n != 7 {
+		t.Fatalf("import did not replace unlocked: %d", n)
+	}
+	if n, _ := m.Lap(u, "en"); n != 1 {
+		t.Fatalf("import did not replace the lap: %d", n)
+	}
+	if g, _ := m.Group(u, "en"); g != GroupRandom {
+		t.Fatalf("import did not replace the group: %q", g)
+	}
+	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 12 {
+		t.Fatalf("import did not replace the sessions: %+v", got)
+	}
+	if c, _ := m.FreeplaySessionCount(u, "en", ModeClimb, ""); c != 1 {
+		t.Fatalf("import did not replace the freeplay sessions: %d", c)
+	}
+}
+
+func testEpoch(t *testing.T, m Store) {
+	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	m.AddSession(u, "en", Session{WPM: 10, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 0 {
+		t.Fatalf("the first epoch: %+v", got)
+	}
+	if err := m.Reset(u, "en"); err != nil {
+		t.Fatal(err)
+	}
+	m.AddSession(u, "en", Session{WPM: 20, FinishedAt: when})
+	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 30, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 1 {
+		t.Fatalf("a session after a reset must carry the next epoch: %+v", got)
+	}
+	if got, _ := m.RecentFreeplaySessions(u, "en", ModeClimb, "", 5); len(got) != 1 || got[0].Epoch != 1 {
+		t.Fatalf("a freeplay session after a reset must carry the next epoch: %+v", got)
+	}
+	if err := m.Import(u, "en", ImportData{
+		Sessions: []Session{{WPM: 40, Epoch: 5, FinishedAt: when}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 5 {
+		t.Fatalf("an imported session keeps the epoch of its file: %+v", got)
+	}
+	m.AddSession(u, "en", Session{WPM: 50, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 2 || got[0].Epoch != 2 {
+		t.Fatalf("a session after an import must carry the next epoch: %+v", got)
 	}
 }

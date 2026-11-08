@@ -225,7 +225,17 @@ is `RoundPortions` portions (30 words).
 
 1. Start of a round (`loadExercise()` in `typing.js`) → `POST /api/v1/portion {start: true}`
    returns the portion to type plus `AheadPortions` waiting after it, and
-   `round` (portions per round).
+   `round` (portions per round). The browser gives the round an id once, at
+   this moment, and sends it with every `/portion` and `/results` request of
+   the round, together with `portionIndex` (how many portions of the round
+   were finished) and `ack` (how many were received). The server keeps each
+   portion answer in memory by (round, portionIndex): a request sent twice
+   by a flaky network gets the same portions back and its samples are applied
+   once. The cache is process memory, nothing else: a server restart forgets
+   it, and a retry after a restart is treated as a first request. Answers the
+   browser acked are dropped at once; abandoned rounds are dropped after
+   `PortionCacheTTL` or when the cache passes `PortionCacheRounds` entries
+   (both in `internal/config/config.go`).
 2. `keydown` (`input.js`) → `handleChar()` in `typing.js` compares the key with the expected
    character and moves on either way (wrong = red). Each typed position keeps
    one sample `{char, errors, ms}`; `backspace()` changes only the screen, never

@@ -335,3 +335,38 @@ func TestApp_LearnForecast(t *testing.T) {
 		t.Fatalf("forecast after 8 improving rounds of %v: %v", open, f)
 	}
 }
+
+func TestApp_PortionSentTwice(t *testing.T) {
+	h, _, _ := newApp()
+	body := `{"samples":[{"char":"a","errors":1,"ms":300}],"recent":[],"round":"r-1","portionIndex":0,"ack":0}`
+	code, first := call(t, h, "POST", "/api/v1/portion?lang=en", body)
+	if code != 200 {
+		t.Fatalf("portion: %d %v", code, first)
+	}
+	code, again := call(t, h, "POST", "/api/v1/portion?lang=en", body)
+	if code != 200 {
+		t.Fatalf("portion again: %d %v", code, again)
+	}
+	if fmt.Sprint(again["portions"]) != fmt.Sprint(first["portions"]) || fmt.Sprint(again["newLetter"]) != fmt.Sprint(first["newLetter"]) {
+		t.Fatalf("a repeated request got a different answer: %v vs %v", again, first)
+	}
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	for _, k := range st["keys"].([]any) {
+		if k := k.(map[string]any); k["char"] == "a" && k["count"].(float64) != 1 {
+			t.Fatalf("the sample of a was applied twice: %v", k)
+		}
+	}
+	next := `{"samples":[{"char":"a","errors":0,"ms":300}],"recent":[],"round":"r-1","portionIndex":1,"ack":1}`
+	if code, out := call(t, h, "POST", "/api/v1/portion?lang=en", next); code != 200 || len(out["portions"].([]any)) != 1 {
+		t.Fatalf("the next portion: %d %v", code, out)
+	}
+	for _, bad := range []string{
+		`{"round":"r 1","portionIndex":0}`,
+		`{"round":"r-1","portionIndex":-1}`,
+		`{"round":"r-1","portionIndex":0,"ack":-1}`,
+	} {
+		if code, _ := call(t, h, "POST", "/api/v1/portion?lang=en", bad); code != 400 {
+			t.Fatalf("%s: got %d, want 400", bad, code)
+		}
+	}
+}

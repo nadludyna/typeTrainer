@@ -15,6 +15,9 @@ type Config struct {
 	Server    Server
 	MaxEvents int
 
+	PortionCacheTTL    time.Duration
+	PortionCacheRounds int
+
 	MaxBodyBytes      int
 	MaxSmallBodyBytes int
 	MaxAuthBodyBytes  int
@@ -60,6 +63,9 @@ func Default() Config {
 			Shutdown:   20 * time.Second,
 		},
 		MaxEvents: 5000,
+
+		PortionCacheTTL:    10 * time.Minute,
+		PortionCacheRounds: 256,
 
 		MaxBodyBytes:      1 << 20,
 		MaxSmallBodyBytes: 1024,

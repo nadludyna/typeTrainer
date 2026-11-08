@@ -36,10 +36,14 @@ func validate(req resultsRequest, maxChars, maxEvents int, alphabet string) stri
 	if !validDevice(req.Device) {
 		return "device: unknown device"
 	}
-	if len(req.Round) > 64 || strings.Trim(req.Round, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") != "" {
+	if len(req.Round) > 64 || !validRoundID(req.Round) {
 		return "round: at most 64 letters, digits and -"
 	}
 	return ""
+}
+
+func validRoundID(round string) bool {
+	return strings.Trim(round, "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-") == ""
 }
 
 func validLength(length string, maxWords, maxSeconds int) bool {

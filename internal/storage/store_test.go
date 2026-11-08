@@ -646,6 +646,10 @@ func testImportAtomic(t *testing.T, m Store) {
 	if c, _ := m.FreeplaySessionCount(u, "en", ModeClimb, ""); c != 1 {
 		t.Fatalf("a failed import changed the freeplay sessions: %d", c)
 	}
+	m.AddSession(u, "en", Session{WPM: 45, FinishedAt: when})
+	if got, _ := m.RecentSessions(u, "en", "", 5); got[0].Epoch != 0 {
+		t.Fatalf("a failed import bumped the epoch: %+v", got[0])
+	}
 
 	good := ImportData{
 		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1, Group: GroupRandom,

@@ -33,7 +33,10 @@ type portionRequest struct {
 // are applied once. The cache lives in the process memory only: a server
 // restart forgets it, and a retry after a restart is handled like a first
 // request. Acked answers are dropped at once; abandoned rounds are dropped
-// by the TTL and the size cap in the config.
+// by the TTL and the size cap in the config. Two identical requests racing
+// in parallel can both miss the cache and apply their samples twice; the
+// browser sends its portion requests one after another, so the app cannot
+// do that.
 type cachedPortion struct {
 	from      int
 	count     int

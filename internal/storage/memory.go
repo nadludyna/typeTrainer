@@ -333,7 +333,6 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	k := key{user, lang}
-	m.epochs[k]++
 	next := &langData{
 		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
 		unlocked: data.Unlocked, lap: data.Lap, group: data.Group,
@@ -373,6 +372,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 		}
 	}
 	m.langs[k] = next
+	m.epochs[k]++
 	return nil
 }
 

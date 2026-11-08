@@ -239,10 +239,10 @@ func addSession(db execer, user, lang, mode string, s Session) error {
 	}
 	s = s.WithLength()
 	_, err := db.Exec(`INSERT INTO sessions
-		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17)
+		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch, aborted)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18)
 		ON CONFLICT DO NOTHING`,
-		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch)
+		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted)
 	return err
 }
 

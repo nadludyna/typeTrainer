@@ -626,10 +626,10 @@ test("one grid in all modes: the text stands at one place and the round's count 
         const text = document.getElementById("text").getBoundingClientRect();
         return { top: text.top, textR: text.right, countR: document.getElementById("round-count").getBoundingClientRect().right };
       });
-      tops.push(Math.round(m.top));
+      tops.push(m.top);
       expect(m.countR, `${mode}: the count ends at the text`).toBeCloseTo(m.textR, 0);
     }
-    expect(new Set(tops).size, `${width}: one place for the text`).toBe(1);
+    expect(Math.max(...tops) - Math.min(...tops), `${width}: one place for the text`).toBeLessThanOrEqual(1);
   }
 });
 

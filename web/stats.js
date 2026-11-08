@@ -121,20 +121,21 @@ export function renderStats() {
 
 // ---------- the tiles ----------
 const compact = new Intl.NumberFormat("en", { notation: "compact" });
-function tiles(sessions, count, goal, level, streaks) {
-  const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
+const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
+export function trendTag(sessions, f) {
   const last = sessions.slice(-10), before = sessions.slice(-20, -10);
+  const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
+  if (now === null || was === null || before.length < 5) return "";
+  const d = Math.round(now - was);
+  if (!d) return "";
+  return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
+}
+function tiles(sessions, count, goal, level, streaks) {
+  const last = sessions.slice(-10);
   const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
-  const trend = (f) => {
-    const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
-    if (now === null || was === null || before.length < 5) return "";
-    const d = Math.round(now - was);
-    if (!d) return "";
-    return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
-  };
   const tile = (value, label, meta = "", cls = "") =>
     `<div class="tile${cls}"><b>${value}</b><small>${label}</small><span class="meta">${meta}</span></div>`;
-  const last10 = (f) => t("tile.last10") + trend(f);
+  const last10 = (f) => t("tile.last10") + trendTag(sessions, f);
   const wpm = avg(last, (x) => x.wpm);
   const out = [
     level != null ? `<div class="tile level"><b>${level}</b><small>${t("tile.level")}</small><span class="meta">${t("tile.levelNote", { list: compact.format(S.climb?.levels?.[level - 1] ?? 0).toLowerCase() })}</span></div>` : "",
@@ -144,10 +145,10 @@ function tiles(sessions, count, goal, level, streaks) {
     tile(num(avg(last.filter((x) => x.consistency != null), (x) => x.consistency), "%"), t("tile.cons"), last10((x) => x.consistency)),
   ];
   if (count && streaks.length) {
-    const [first] = streaks;
-    const runs = streaks.map((x) => t("tile.streakAt", { min: x.min, n: x.longest })).join(", ");
-    const tip = t("tile.streakTip", { min: first.min, runs });
-    out.push(`<div class="tile" data-tip-text="${tip}"><b>${first.current}</b><small>${t("tile.streak", { min: first.min })}</small><span class="meta">${t("tile.streakBest", { n: first.longest })}</span></div>`);
+    const [first, ...more] = streaks;
+    const runs = more.map((x) => t("tile.streakAt", { min: x.min, n: x.longest })).join(", ");
+    const tip = runs ? ` data-tip-text="${t("tile.streakTip", { runs })}"` : "";
+    out.push(`<div class="tile"${tip}><b>${first.current}</b><small>${t("tile.streak", { min: first.min })}</small><span class="meta">${t("tile.streakBest", { n: first.longest })}</span></div>`);
   }
   if (goal) {
     const left = wpm === null ? null : Math.max(0, Math.round(goal - wpm));
@@ -226,7 +227,7 @@ function drawActivity() {
   const dayName = new Intl.DateTimeFormat(lang, { weekday: "short" });
   const dayNames = [0, 2, 4].map((i) => `<span style="grid-row:${i + 1}">${dayName.format(new Date(2026, 9, 19 + i))}</span>`).join("");
   const legend = `<span class="act-legend">${t("act.less")}<i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i>${t("act.more")}` +
-    `<button type="button" class="act-goal" aria-haspopup="dialog" data-tip-text="${t("settings.dailyDesc")}">` +
+    `<button type="button" class="act-goal" aria-haspopup="dialog" data-tip-text="${t("lp.goalClick")}">` +
     (goal ? `<i class="l2 met"></i>${t("act.goalLegend", { g: goal })}` : t("act.goalOff")) + `</button></span>`;
   const periods = `<div class="ring act-period" role="group" aria-label="${t("act.period")}">` +
     Object.keys(PERIODS).map((p) => `<button type="button" data-period="${p}" aria-pressed="${p === period}">${t("act." + p)}</button>`).join("") + `</div>`;
@@ -243,7 +244,6 @@ function drawActivity() {
 export function summary(s) {
   const sessions = [...s.sessions].reverse();
   const last10 = sessions.slice(-10);
-  const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
   const measured = last10.filter((x) => x.consistency != null);
   const fmt = (v, suffix = "") => v === null ? "—" : Math.round(v) + suffix;
   const best = sessions.length ? Math.max(...sessions.map((x) => x.wpm)) : null;
@@ -274,7 +274,7 @@ function renderPick(mode, list, variant) {
   const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"];
   pickEl.innerHTML = ring(t("stats.modes"), [["learn", "mode.learn"], ["climb", "mode.free"], ["freetype", "mode.freetype"]].map(([m, key]) =>
     ringBtn(`data-mode="${m}"`, t(key), m === mode))) +
-    (ft ? ring(t("ft.kind"), kinds.map((k) => ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), variant === k, k ? t(`ft.${k}Tip`) : ""))) : "") +
+    (ft ? ring(t("ft.kind"), kinds.map((k) => ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), variant === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""))) : "") +
     (lists.length ? ring(t("freetype.list"), lists.map((n) => ringBtn(`data-list="${n}"`, listLabel(n), n === list, t("freetype.listN", { n })))) : "");
 }
 document.getElementById("activity").addEventListener("click", (e) => {

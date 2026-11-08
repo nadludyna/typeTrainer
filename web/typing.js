@@ -12,10 +12,10 @@ import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal } 
 import { learning, refreshFreeplay } from "./modes.js";
 import { renderModeBar, climbAnswer } from "./modebar.js";
 import { lengthOf } from "./settings.js";
-import { keySound } from "./sound.js";
+import { keySound, missSound, eraseSound } from "./sound.js";
 import { customPortions, customRoundDone } from "./customtext.js";
 import { paceGlide, resetGlide, scrollText, stopScroll } from "./caret.js";
-import { STREAK_RISE, streakOn, cleanWord, breakStreak } from "./streak.js";
+import { cleanWord, breakStreak } from "./streak.js";
 import { showWarn, hideWarn, warnShowing, foreignKey, layoutCheck } from "./warn.js";
 
 let spans = [];
@@ -38,11 +38,9 @@ let fixedWords = new Set();
 
 const TEXT_LINES = 3;
 let lineH = 0;
-let caretTop = 0;
 export function fitText() {
   if (S.view !== "type") return;
   lineH = parseFloat(getComputedStyle(el.text).lineHeight) || 0;
-  caretTop = el.caret.offsetTop || caretTop;
   stopScroll();
   el.text.scrollTop = 0;
 }
@@ -59,17 +57,12 @@ export function placeCaret(jump, last = false) {
     const x = s.offsetLeft + (atEnd ? s.offsetWidth : 0);
     if (jump) el.caret.classList.add("jump");
     el.caret.style.translate = `${x - 1}px ${s.offsetTop}px`;
-    let top = el.text.scrollTop;
     if (lineH && !last) {
       const line = Math.round(s.offsetTop / lineH);
-      top = Math.max(0, Math.min(line - 1, Math.ceil(el.text.scrollHeight / lineH) - TEXT_LINES)) * lineH;
+      const top = Math.max(0, Math.min(line - 1, Math.ceil(el.text.scrollHeight / lineH) - TEXT_LINES)) * lineH;
       if (Math.abs(el.text.scrollTop - top) > 1) scrollText(top, jump);
     }
     if (jump) requestAnimationFrame(() => el.caret.classList.remove("jump"));
-    if (!streakOn()) return;
-    if (jump) el.streak.classList.add("jump");
-    el.streak.style.translate = `${el.text.offsetLeft + x + 4}px ${el.text.offsetTop + s.offsetTop - top + caretTop - STREAK_RISE}px`;
-    if (jump) requestAnimationFrame(() => el.streak.classList.remove("jump"));
   });
 }
 function keepTextInView() {
@@ -132,8 +125,7 @@ function appendPortions(list) {
     const sp = document.createElement("span");
     sp.textContent = S.text[i];
     sp.className = (focusMask[i] ? "fx" : "") + (learning() ? " later" : "") + (endAt >= 0 && i >= endAt ? " beyond" : "");
-    if (focusMask[i]) sp.dataset.tipText = t("tip.fx", { l: S.text[i] });
-    else if (S.text[i] === " ") sp.dataset.sp = "";
+    if (S.text[i] === " ") sp.dataset.sp = "";
     frag.appendChild(sp);
     spans.push(sp);
   }
@@ -330,7 +322,7 @@ export function roundFacts(end = lastTime) {
 const wordHasError = (start, end) =>
   state.subarray(start, end).some((s) => s >= 2) || (extras.get(end)?.length ?? 0) > 0;
 function mistake() {
-  keySound(false);
+  missSound();
   if (wordClean) breakStreak();
   wordClean = false;
 }
@@ -393,7 +385,7 @@ export function handleChar(ch) {
       const ok = ch === S.text[S.pos];
       record(S.pos, !ok, now, ch);
       setState(S.pos, ok ? 1 : 2);
-      if (ok) { correctPresses++; keySound(true); }
+      if (ok) { correctPresses++; keySound(ch === " "); }
       else mistake();
       const space = S.text[S.pos] === " ";
       if (space) { leaveBackWord(); endWord(); }
@@ -431,6 +423,7 @@ export function backspace(wholeWord) {
   } else {
     setState(--S.pos, 0);
   }
+  eraseSound(wholeWord);
   afterBackspace = true;
   highlightNextKey();
   placeCaret(false);
@@ -462,20 +455,19 @@ function endWord() {
 }
 function renderProgress() {
   const time = limit.kind === "time";
-  let shown, tip;
+  let shown, tip = "";
   if (!time) {
     const words = Math.min(wordsTyped, roundWords);
     shown = `${words} / ${roundWords}`;
-    tip = t("round.words", { n: words, of: roundWords });
     const s = learning() && S.lastStats;
-    if (s?.lap) tip += `. ${t("lp.lap")} ${t("lp.lapOf", { n: s.lap + 1, all: s.lastLap + 1 })}. ${t("lp.lapTip", { w: s.targetWpm })}`;
+    if (s?.lap) tip = `${t("lp.lap")} ${t("lp.lapOf", { n: s.lap + 1, all: s.lastLap + 1 })}. ${t("lp.lapTip", { w: s.targetWpm })}`;
   } else {
     const passed = startTime === null ? 0 : (performance.now() - startTime) / 1000;
     shown = String(Math.max(0, Math.ceil(limit.n - passed)));
-    tip = t("round.seconds", { n: shown });
   }
   el.roundCount.textContent = shown;
-  el.roundCount.dataset.tipText = tip;
+  if (tip) el.roundCount.dataset.tipText = tip;
+  else delete el.roundCount.dataset.tipText;
 }
 // ---------- Tab: start the round again ----------
 export function restartRound() {
@@ -568,7 +560,6 @@ async function finishRound() {
     await queue;
     streamId++;
     if (!typed.length) { await loadExercise(); return; }
-    restCheck((end - startTime) / 1000);
     if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
     const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round: roundId() };
@@ -612,20 +603,6 @@ function learnUnsaved(err, body) {
       FX.toast(t("save.done"));
     }, (again) => learnUnsaved(again, body));
   });
-}
-
-const REST_BREAK_MS = 5 * 60 * 1000;
-let restTyped = 0, restAt = 0;
-function restCheck(seconds) {
-  const now = Date.now();
-  if (now - restAt - seconds * 1000 > REST_BREAK_MS) restTyped = 0;
-  restAt = now;
-  restTyped += seconds;
-  const limit = Number(S.settings.rest);
-  if (limit && restTyped >= limit * 60) {
-    restTyped = 0;
-    FX.toast(t("toast.rest", { m: limit }));
-  }
 }
 
 const device = () => (isTouch() ? "touch" : "keyboard");

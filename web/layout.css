@@ -57,7 +57,7 @@ body.typing-now .mascot { opacity: 0; visibility: hidden; }
 }
 .live-right { margin-left: auto; display: flex; align-items: center; gap: 18px; color: var(--label); font-size: var(--fs-s); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .round-count { color: var(--text); cursor: default; }
-.goal-count { padding: 0; border: 0; background: none; color: var(--label); font: inherit; cursor: pointer; }
+.goal-count { padding: 0; border: 0; background: none; color: var(--label); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; }
 .goal-count:hover { color: var(--text); background: none; }
 .goal-count.met { color: var(--ok); }
 /* the round's numbers show from its first key; at rest their place stays empty (#241) */
@@ -70,20 +70,21 @@ body:not(.typing-now) .live:not(.final) > .metric.num { opacity: 0; pointer-even
 .metric:has(#wpm) { min-width: 4rem; }
 .metric:has(#acc) { min-width: 4.6rem; }
 
-.streak {
-  --sc: #f2c230;
-  position: absolute; left: 0; top: 0; z-index: 3; display: none; align-items: center; gap: 3px; pointer-events: none;
-  font-size: var(--fs-min); font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; color: var(--sc);
-  transition: translate var(--feel-caret-ms, 0ms) var(--caret-curve), color .4s var(--ease);
-}
-.streak.jump { transition: none; }
-#streak-n { display: inline-block; }
-.streak .bolt { width: 13px; height: 13px; flex: none; fill: color-mix(in srgb, var(--sc) 35%, transparent); stroke: var(--sc); stroke-width: 2; stroke-linejoin: round; }
-.streak[data-tier="1"] { --sc: #f39a3d; }
-.streak[data-tier="2"] { --sc: #f2607a; }
-.streak[data-tier="3"] { --sc: #a98bff; }
-.text-box.typing .streak.show { display: flex; }
-.text-box:is(.paused, .blurred, .resulting) .streak.show, body.streak-off .text-box .streak.show { display: none; }
+/* the clean-word streak: a number of the top line (Freetype, a setting) */
+.streak { --sc: var(--sub); display: none; align-items: baseline; gap: 4px; }
+body[data-mode="freetype"][data-streak="on"] .streak { display: flex; }
+body:not(.typing-now) .live:not(.final) > .streak { opacity: 0; }
+.metric.streak > span { color: var(--sc); display: inline-block; transition: color .4s var(--ease); }
+.streak .bolt { width: 14px; height: 14px; flex: none; align-self: center; fill: color-mix(in srgb, var(--sc) 35%, transparent); stroke: var(--sc); stroke-width: 2; stroke-linejoin: round; }
+.streak[data-tier="1"] { --sc: #f2c230; }
+.streak[data-tier="2"] { --sc: #f39a3d; }
+.streak[data-tier="3"] { --sc: #f2607a; }
+.streak[data-tier="4"] { --sc: #e76fd8; }
+.streak[data-tier="5"] { --sc: #a98bff; }
+.streak[data-tier="6"] { --sc: #6ea8ff; }
+.streak[data-tier="7"] { --sc: #45d3e6; }
+.streak[data-tier="8"] { --sc: #5fe3b0; }
+.streak[data-tier="9"] { --sc: #fff; }
 
 /* ---------- the navigation switch ---------- */
 .switch { position: relative; display: grid; --n: 2; --i: 0; flex: none; }
@@ -94,7 +95,7 @@ body:not(.typing-now) .live:not(.final) > .metric.num { opacity: 0; pointer-even
 }
 .switch button:hover { background: none; color: color-mix(in srgb, var(--text) 70%, var(--sub)); }
 .switch button[aria-selected="true"] { color: var(--text); }
-.switch-thumb { position: absolute; pointer-events: none; }
+.switch-thumb { position: absolute; pointer-events: none; transition: transform .2s var(--ease); }
 .switch-thumb::after {
   content: ""; position: absolute; border-radius: var(--r-sm);
   background: var(--accent);
@@ -184,6 +185,7 @@ button:disabled:hover { color: var(--sub); background: none; }
   background: var(--panel-2); color: var(--text); font-size: var(--fs-min); padding: 6px 10px;
   border-radius: var(--r-md); box-shadow: var(--ring), var(--shadow-sm);
   transform: translate(-50%, calc(-100% - 10px));  white-space: nowrap;
+  transition: opacity var(--t-in) var(--ease);
 }
 .tooltip.below { transform: translate(-50%, 10px); }
 .tooltip[popover] { inset: auto; margin: 0; border: 0; overflow: visible; }

@@ -79,6 +79,7 @@
           <span id="climb-note" class="climb-note" hidden></span>
           <div class="metric num"><span id="wpm" class="live-n" data-v="0">0</span><small>wpm</small></div>
           <div class="metric num"><span id="acc" class="live-n" data-v="100">100</span><span class="pct">%</span><small data-i18n="metric.acc">Acc</small></div>
+          <div class="metric streak" id="streak" data-tier="0"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z"/></svg><span id="streak-n">0</span><small data-i18n="streak.label">clean</small></div>
           <span class="live-right">
             <button type="button" id="goal-count" class="goal-count" aria-haspopup="dialog" hidden></button>
             <span id="round-count" class="round-count"></span>
@@ -86,7 +87,6 @@
         </div>
         <div id="text" class="text">loading…</div>
         <div id="caret" class="caret" aria-hidden="true"></div>
-        <div class="streak" id="streak" data-tier="0"><svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2.5 5 13.5h6l-1 8 8.5-11h-6z"/></svg><span id="streak-n">0</span><small class="sr-only" data-i18n="streak.label">Clean words</small></div>
         <div id="focus-hint" class="focus-hint" data-i18n="focusHint">Click here and start typing.</div>
         <div class="pause-note" aria-live="polite"><span class="pause-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/></svg><svg class="goal-ic" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><b data-i18n="pause.title">Paused</b><b class="goal-only" data-i18n="pause.goalTitle">Daily goal reached</b><span class="pause-go"><span data-i18n="pause.press">Press</span> <kbd data-i18n="pause.key">any key</kbd> <span data-i18n="pause.go">to go on</span></span><small data-i18n="pause.away">Take your time, the clock is stopped.</small></div>
         <div id="result" class="result" role="status" aria-live="polite" hidden></div>
@@ -105,6 +105,7 @@
         </div>
       </div>
       <p class="kb-away" id="kb-away" data-i18n="kb.away">Zoom out to see the keyboard.</p>
+      <div id="peek" class="peek panel" hidden></div>
 
     </section>
 
@@ -116,7 +117,7 @@
       <div class="activity panel" id="activity" aria-label="All time"></div>
       <div class="len-bar">
         <h2 class="len-head" id="len-head"></h2>
-        <button type="button" class="btn" id="btn-image" data-tip="tip.image"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg><span data-i18n="share.image">Image</span></button>
+        <button type="button" class="btn" id="btn-image"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg><span data-i18n="share.image">Image</span></button>
       </div>
       <div class="tiles" id="tiles"></div>
 
@@ -149,6 +150,8 @@
   </nav>
 
   <dialog class="win settings-win" id="settings-win">
+    <label class="sw-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input id="settings-q" type="text" autocomplete="off" spellcheck="false"></label>
+    <div class="sw-chips" id="settings-chips"></div>
     <div class="sw-list" id="settings-body"></div>
     <div class="sw-foot keys-only">
       <span><kbd>↑</kbd><kbd>↓</kbd> <span data-i18n="settings.keyPick">pick</span></span>
@@ -188,6 +191,7 @@
       <span><kbd>esc</kbd> <span data-i18n="hint.settings">Settings</span></span>
       <span class="stats-line"><kbd>shift</kbd> + <kbd>tab</kbd> <span class="type-only" data-i18n="hint.stats">Stats</span><span class="stats-hint" data-i18n="hint.typing">Typing</span></span>
       <span class="type-only"><kbd>alt</kbd> + <kbd>k</kbd> <span data-i18n="hint.kb">Keyboard</span></span>
+      <span class="round-only"><kbd>~</kbd> <span data-i18n="hint.peek">Hold for stats</span></span>
     </div>
   </footer>
 

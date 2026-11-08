@@ -68,7 +68,7 @@ test("Learn: the line over the text holds the last round, the daily goal and the
   await expect(last.locator("[data-n]")).toHaveCount(2);
   await expect(last.locator("[data-n]").first()).toHaveAttribute("data-n", /^[1-9]\d*$/);
   await expect(last).toHaveAttribute("data-tip-text", /^Your last round\. .*faster/);
-  await expect(goal).toHaveText(/^\d+ \/ 15 min$/);
+  await expect(goal, "minutes and seconds").toHaveText(/^(\d+:\d\d of 15:00|15:00 done)$/);
   await expect(goal).toHaveAttribute("data-tip-text", /Daily goal/);
   await expect(page.locator("#letters .locked.next").first()).toHaveAttribute("data-tip-text", /rounds? away\. Mastered means/);
   await goal.click();
@@ -84,7 +84,8 @@ test("Learn: a best round's speed is gold, the letters change state without moti
     m.renderPanel();
   });
   await expect(page.locator("#lp-cols .lp-last .lp-best"), "a best round's speed stands out").toHaveCount(1);
-  expect(await page.evaluate(() => document.getAnimations().length), "nothing runs on the screen").toBe(0);
+  expect(await page.evaluate(() => document.getAnimations().filter((x) => !x.effect.target.closest(".ambient")).length),
+    "nothing runs on the screen but the falling keycaps").toBe(0);
 });
 
 test("Learn: while typing this round's numbers take the last round's place, nothing moves", async ({ page }) => {
@@ -215,15 +216,15 @@ test("Learn: an unsaved round offers to save it again", async ({ page }, info) =
 
 test("Live stats is on for a new user and doesn't switch itself", async ({ page }) => {
   await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
-  await expect(page.locator("body")).not.toHaveClass(/\blive-off\b/);
+  await expect(page.locator("body")).toHaveAttribute("data-live", "on");
   await page.evaluate(() => localStorage.setItem("tt.live", "0"));
   await page.reload();
   await waitForText(page);
-  await expect(page.locator("body")).toHaveClass(/\blive-off\b/);
+  await expect(page.locator("body")).toHaveAttribute("data-live", "off");
   await typeRound(page);
   await expectResult(page);
   expect(await page.evaluate(() => localStorage.getItem("tt.live")), "a finished round leaves the setting alone").toBe("0");
-  await expect(page.locator("body")).toHaveClass(/\blive-off\b/);
+  await expect(page.locator("body")).toHaveAttribute("data-live", "off");
 });
 
 test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ page }) => {
@@ -260,30 +261,153 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   await expect(page.locator("#settings-win"), "a held esc doesn't close what it opened").toBeVisible();
 });
 
-test("the caret is still at rest, spaces have a dot, the settings are fewer", async ({ page }) => {
-  await openApp(page, { "tt.caret": "outline", "tt.blink": "pulse", "tt.ws": "none" });
+test("the quick look at the stats: held or hovered before a round, gone on release, never while typing", async ({ page }) => {
+  await withHistory(page);
+  await openApp(page, {});
+  await page.waitForTimeout(300);
+  const peek = page.locator("#peek"), text = page.locator("#text");
+  const before = await text.boundingBox();
+
+  await page.keyboard.down("Backquote");
+  await expect(peek).toBeVisible();
+  await expect(peek).toContainText("Learn");
+  await expect(peek).toContainText("WPM");
+  await expect(page.locator("#keyboard"), "the keyboard gives way").toBeHidden();
+  expect(await text.boundingBox(), "the text stays put").toEqual(before);
+  const panel = await peek.boundingBox(), hints = await page.locator(".hints").boundingBox();
+  expect(panel.y).toBeGreaterThanOrEqual(before.y + before.height);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(hints.y);
+  await page.keyboard.up("Backquote");
+  await expect(peek).toBeHidden();
+  await expect(page.locator("#keyboard")).toBeVisible();
+
+  await page.hover("#tab-stats");
+  await expect(peek).toBeVisible();
+  await page.mouse.move(800, 300);
+  await expect(peek).toBeHidden();
+
+  await page.keyboard.down("Backquote");
+  await expect(peek).toBeVisible();
+  const ch = await nextChar(page);
+  await page.keyboard.type(ch);
+  await expect(peek, "the first key of a round closes it").toBeHidden();
+  await page.keyboard.up("Backquote");
+  await page.keyboard.down("Backquote");
+  await page.waitForTimeout(100);
+  await expect(peek, "not during a round").toBeHidden();
+  await page.keyboard.up("Backquote");
+  await expect(page.locator("#text > span.bad"), "the key is no mistake").toHaveCount(0);
+});
+
+test("the caret is still at rest, spaces have a dot unless you switch it off", async ({ page }) => {
+  await openApp(page, { "tt.caret": "outline", "tt.blink": "pulse" });
   await expect(page.locator("body")).toHaveAttribute("data-caret", "line");
   await page.waitForTimeout(1500);
   const caretAnims = await page.evaluate(() => document.getElementById("caret").getAnimations().length);
   expect(caretAnims, "animations on the caret at rest").toBe(0);
-  const dot = await page.evaluate(() => getComputedStyle(document.querySelector("#text span[data-sp]")).backgroundImage);
-  expect(dot, "a space has its dot").toContain("radial-gradient");
+  const dot = () => page.evaluate(() => getComputedStyle(document.querySelector("#text span[data-sp]")).backgroundImage);
+  expect(await dot(), "a space has its dot").toContain("radial-gradient");
   await page.keyboard.press("Escape");
-  await expect(page.getByText("Caret movement")).toBeVisible();
   await expect(page.getByText("Caret at rest")).toHaveCount(0);
-  await expect(page.getByText("Space marks")).toHaveCount(0);
-  const names = await page.locator("#settings-win .sw-name").allTextContents();
-  expect(names, "only what holds for the whole site").toEqual(["Caret", "Caret movement",
-    "Live stats", "Streak", "Stop on a mistake", "Sounds", "Break reminder", "Progress data", "Reset progress"]);
-  await expect(page.locator("#settings-win input[type=text]"), "no search").toHaveCount(0);
-  const preview = page.locator("#settings-win .sw-preview");
+  const win = page.locator("#settings-win");
+  await win.locator('button[data-key="ws"][data-value="none"]').click();
+  expect(await page.evaluate(() => localStorage.getItem("tt.ws"))).toBe("none");
+  expect(await dot(), "no dot").toBe("none");
+  const preview = win.locator(".sw-preview");
+  await win.locator('#settings-chips button[data-cat="caret"]').click();
   await expect(preview, "the preview next to Caret").toBeVisible();
   await page.keyboard.press("ArrowDown");
   await expect(preview, "the preview next to Caret movement").toBeVisible();
-  await page.keyboard.press("ArrowDown");
-  await expect(preview, "no preview on Live stats").toBeHidden();
-  const list = await page.locator("#settings-win .sw-list").evaluate((l) => l.scrollHeight <= l.clientHeight);
-  expect(list, "every row fits without scrolling").toBe(true);
+  await win.locator('#settings-chips button[data-cat="typing"]').click();
+  await expect(preview, "no preview on Stop on a mistake").toBeHidden();
+});
+
+test("settings: one window with every setting, a search and categories", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype" });
+  await page.keyboard.press("Escape");
+  const win = page.locator("#settings-win"), q = win.locator("#settings-q");
+  await expect(q, "the search waits for typing").toBeFocused();
+  const names = () => win.locator(".sw-name > span:first-child").allTextContents();
+  expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret", "Caret movement",
+    "Stop on a mistake", "Round length", "Keys", "Mistakes", "Show keyboard", "Next key", "Hand",
+    "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Reset progress"]);
+  await expect(win.locator(".sw-row", { hasText: "Streak" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
+
+  await page.keyboard.type("cursor");
+  expect(await names(), "a search finds other words for a setting too").toEqual(["Caret", "Caret movement"]);
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator("body")).toHaveAttribute("data-caret", "block");
+  await page.keyboard.press("Escape");
+  await expect(q, "the first esc clears the search").toHaveValue("");
+  await expect(win).toBeVisible();
+  await page.keyboard.type("zzzz");
+  await expect(win.locator(".sw-none")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await win.locator('#settings-chips button[data-cat="goals"]').click();
+  expect(await names()).toEqual(["Daily goal, minutes", "Speed goal, wpm"]);
+  await win.locator('button[data-key="goal"][data-step="1"]').click();
+  await expect(win.locator(".stepper output")).toHaveText("40");
+  expect(await page.evaluate(() => localStorage.getItem("tt.goal"))).toBe("40");
+
+  await win.locator('#settings-chips button[data-cat="typing"]').click();
+  await win.locator('button[data-key="length"][data-value="words-10"]').click();
+  await expect(page.locator('#mode-bar button[data-length="words-10"]'), "the round bar follows").toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("Escape");
+  await expect(win).toBeHidden();
+  await expect(page.locator("#round-count"), "a new round of the new length").toHaveText("0 / 10");
+});
+
+test("the falling keycaps are on by default, the settings switch turns them off for good", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openApp(page);
+  const layer = page.locator(".ambient");
+  await expect(layer).toHaveAttribute("data-kind", "keys");
+  await expect(page.locator(".ambient > i").first()).toBeAttached();
+  const playing = () => page.evaluate(() => document.querySelector(".ambient").getAnimations({ subtree: true }).filter((a) => a.playState === "running").length);
+  expect(await playing(), "they fall at rest").toBeGreaterThan(0);
+  await page.keyboard.type((await nextChar(page)) ?? "");
+  await expect.poll(playing, { message: "they hold still while you type" }).toBe(0);
+  await page.keyboard.press("Escape");
+  const row = page.locator("#settings-win .sw-row", { hasText: "Falling keycaps" });
+  await row.getByRole("button", { name: "Off" }).click();
+  await expect(layer).toHaveAttribute("data-kind", "off");
+  await expect(page.locator(".ambient > *")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("tt.bg"))).toBe("off");
+  await page.reload();
+  await waitForText(page);
+  await expect(layer).toHaveAttribute("data-kind", "off");
+  await expect(page.locator(".ambient > *")).toHaveCount(0);
+});
+
+test("key and mistake sounds are two settings, the old one splits", async ({ page }) => {
+  await openApp(page, { "tt.sound": "keys" });
+  await page.keyboard.press("Escape");
+  const win = page.locator("#settings-win");
+  await expect(win.locator('button[data-key="keySound"][aria-pressed="true"]')).toHaveText("Deep");
+  await expect(win.locator('button[data-key="missSound"][aria-pressed="true"]')).toHaveText("Thud");
+  await win.locator('button[data-key="missSound"]', { hasText: "Off" }).click();
+  await expect(win.getByText("Volume"), "volume stays while keys still sound").toBeVisible();
+  await win.locator('button[data-key="keySound"]', { hasText: "Off" }).click();
+  await expect(win.getByText("Volume"), "no volume with every sound off").toHaveCount(0);
+  expect(await page.evaluate(() => [localStorage.getItem("tt.keySound"), localStorage.getItem("tt.missSound")])).toEqual(["off", "off"]);
+});
+
+test("erasing sounds lower than typing, a whole word lower still", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__rates = [];
+    const start = AudioBufferSourceNode.prototype.start;
+    AudioBufferSourceNode.prototype.start = function (...a) { window.__rates.push(this.playbackRate.value); return start.apply(this, a); };
+  });
+  await openApp(page, { "tt.keySound": "deep", "tt.missSound": "off" });
+  for (let i = 0; i < 2; i++) await page.keyboard.type(await nextChar(page));
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Control+Backspace");
+  await page.keyboard.press("Backspace");
+  const rates = await page.evaluate(() => window.__rates);
+  expect(rates, "two keys, one letter, one word, nothing left to erase").toHaveLength(4);
+  expect(rates[2]).toBeLessThan(Math.min(rates[0], rates[1]));
+  expect(rates[3]).toBeLessThan(rates[2]);
 });
 
 test("the settings of one screen live on that screen", async ({ page }) => {
@@ -606,7 +730,7 @@ test("no text on the typing, result, settings and stats screens is smaller than 
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) {
       const el = n.parentElement;
-      if (!n.textContent.trim() || !el.checkVisibility({ visibilityProperty: true }) || el.closest("#keyboard, .logo")) continue;
+      if (!n.textContent.trim() || !el.checkVisibility({ visibilityProperty: true }) || el.closest("#keyboard, .logo, .ambient")) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize);
       if (fs < 13.95) out.add(`${el.tagName.toLowerCase()}.${el.className} ${fs}px "${n.textContent.trim().slice(0, 20)}"`);
     }
@@ -829,4 +953,30 @@ test("under the text: where you stand, a thin strip over the keyboard, and typin
   await page.locator("#tab-learn").hover();
   await expect(page.locator("#tooltip")).toHaveClass(/\bshow\b/);
   expect((await page.locator("#tooltip").boundingBox()).height, "a tooltip under the header stays one line").toBeLessThan(50);
+});
+
+test("Freetype: the streak is a number on the line above the text; a mistake drops it to 0", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-30", "tt.streak.free": "1" });
+  const streak = page.locator(".live > #streak");
+  await expect(streak, "hidden at rest like the other numbers").toHaveCSS("opacity", "0");
+  const word = async () => { for (;;) { const c = await nextChar(page); await page.keyboard.type(c); if (c === " ") return; } };
+  await word();
+  await word();
+  await expect(streak).toHaveCSS("opacity", "1");
+  await expect(page.locator("#streak-n")).toHaveText("2");
+  await expect(streak).toHaveAttribute("data-tier", "1");
+  await word();
+  await word();
+  await word();
+  await expect(streak, "the first milestone is 5 words").toHaveAttribute("data-tier", "2");
+  await page.keyboard.type((await nextChar(page)) === "q" ? "z" : "q");
+  await expect(page.locator("#streak-n")).toHaveText("0");
+  await expect(streak).toHaveAttribute("data-tier", "0");
+});
+
+test("the streak shows only in Freetype and only when it is on", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "climb", "tt.streak.free": "1" });
+  await expect(page.locator("#streak")).toBeHidden();
+  await openApp(page, { "tt.mode.en": "freetype", "tt.streak.free": "0" });
+  await expect(page.locator("#streak")).toBeHidden();
 });

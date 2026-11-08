@@ -22,7 +22,7 @@ export function renderModeBar() {
   if (S.mode === "freetype") {
     const v = S.freetypeVariant;
     const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"].map((k) =>
-      ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), v === k, k ? t(`ft.${k}Tip`) : ""));
+      ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), v === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""));
     if (v === "custom" && hasCustomText()) kinds.push(ringBtn(`data-edit="1"`, t("ft.edit"), false));
     parts.push(ring(t("ft.kind"), kinds));
     if (!listless(v)) parts.push(ring(t("freetype.list"), (S.freetype?.lists ?? []).map((n) =>
@@ -58,6 +58,7 @@ function climbStand() {
 
 // ---------- Freetype: the best and the last rounds of this list and length ----------
 const LAST_ROUNDS = 20;
+export const roundBars = (rounds, top) => rounds.map((r) => `<i style="height:${Math.max(4, r.wpm / top * 100).toFixed(1)}%" data-tip-text="${t("result.wordWpm", { wpm: Math.round(r.wpm) })}"></i>`).join("");
 function freetypeStand() {
   const f = S.freetype;
   if (!f) return "";
@@ -65,9 +66,8 @@ function freetypeStand() {
   if (!rounds.length) return `<p class="stand-none">${t("below.none")}</p>`;
   const best = f.bests?.[S.settings.length]?.wpm ?? Math.max(...rounds.map((r) => r.wpm));
   const top = Math.max(best, ...rounds.map((r) => r.wpm));
-  const bars = rounds.map((r) => `<i style="height:${Math.max(4, r.wpm / top * 100).toFixed(1)}%" data-tip-text="${t("result.wordWpm", { wpm: Math.round(r.wpm) })}"></i>`).join("");
   return `<p class="stand-fact"><small>${t("below.best")}</small><b>${Math.round(best)}</b></p>` +
-    `<div class="stand-chart" role="img" aria-label="${t("below.last", { n: rounds.length })}">${bars}</div>`;
+    `<div class="stand-chart" role="img" aria-label="${t("below.last", { n: rounds.length })}">${roundBars(rounds, top)}</div>`;
 }
 
 const SEEN = "tt.climbSeen";

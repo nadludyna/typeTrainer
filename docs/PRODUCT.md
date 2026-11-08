@@ -41,11 +41,14 @@ are thesis items and stay.
 - **Settings change how much and how it looks, never what is practised.**
   What a round is belongs to each mode and sits in the round bar above the
   text (`web/modebar.js`). The settings window (`web/settings.js`) holds
-  what applies to the whole app.
-- **Plain defaults.** No decorative animation, dimming, glow or blur: a state
-  changes at once. What moves is what shows position: the caret and the line
-  scroll. The on-screen keyboard keeps its keycap look and its lit next key. Effects may come back one by one, each decided
-  on its own. A rule that does not change is spelled out once, then lives in
+  every setting, with a search and categories; a mode's own ones are tagged
+  with the mode.
+- **Plain defaults.** No decorative animation, dimming, glow or blur. Motion
+  is short and quiet: windows, screens and tooltips fade in (opacity and a few
+  pixels, under 0.2 s, `web/base.css` "motion"), the tab marker slides, hover
+  colours ease; nothing new moves while you type. What moves to show position:
+  the caret and the line scroll. The on-screen keyboard keeps its keycap look and its lit next key. Effects may come back one by one, each decided
+  on its own; back so far: the falling keycaps in the empty sides, on by default, still while you type. A rule that does not change is spelled out once, then lives in
   a tooltip. Text only where nothing else can say it.
 - **One language: English.** Other languages are removed, not hidden.
 - **The letter model is Learn's core.** Do not change the formulas in

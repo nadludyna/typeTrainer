@@ -27,6 +27,8 @@ type Params struct {
 	Runs         int
 	MaxExercises int
 
+	ApplyPerRound bool
+
 	BestOf        int
 	MissPenaltyMs float64
 	ScoreWindow   int
@@ -282,6 +284,9 @@ func Run(gen *engine.Generator, s Strategy, t *Typist, ep engine.Params, p Param
 	typed := 0
 	rankSum, rankN := 0.0, 0
 	all := len(gen.Order())
+	perRound := p.ApplyPerRound && strings.Contains(s.Name(), "portions")
+	pending := []engine.Sample{}
+	portions := 0
 	for words := 0; words < p.MaxExercises*ep.ExerciseWords; {
 		text := s.Text(stats, unlocked, typed)
 		if len(text) == 0 {
@@ -302,8 +307,18 @@ func Run(gen *engine.Generator, s Strategy, t *Typist, ep engine.Params, p Param
 		letters += len(samples)
 		res.Letters = float64(letters) / float64(words)
 		s.Observe(samples)
-		stats = engine.Apply(stats, samples, ep)
-		unlocked = gen.NextUnlocked(stats, unlocked, ep)
+		if perRound {
+			pending = append(pending, samples...)
+			portions++
+			if portions == ep.RoundPortions {
+				stats = engine.Apply(stats, pending, ep)
+				unlocked = gen.NextUnlocked(stats, unlocked, ep)
+				pending, portions = nil, 0
+			}
+		} else {
+			stats = engine.Apply(stats, samples, ep)
+			unlocked = gen.NextUnlocked(stats, unlocked, ep)
+		}
 		if res.AllOpenAt == 0 && unlocked == len(gen.Order()) {
 			res.AllOpenAt = exercises(words)
 		}

@@ -48,8 +48,10 @@ comments. How the parts fit together is in `docs/HOW-THE-CODE-WORKS.md`.
   handling lives in `internal/auth` (standard library only); never store a
   password or a login token itself, only its hash.
 - Tab starts a new round, as
-  on Monkeytype: the dropped round is not saved, its presses already sent
-  stay learned.
+  on Monkeytype: the dropped round is marked aborted, is not shown in the
+  history and its presses never reach the Learn model (they stay stored raw,
+  for recalculation only). A round finished with Esc is saved and learned
+  normally. The model is applied once per round, at its end.
 - Every text the user sees follows `docs/TEXT-RULES.md` and lives in
   `web/i18n.js`; decide yourself what text a new feature needs. Never
   hard-code interface text in the other `.js` files or `index.html`; use

@@ -38,6 +38,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"SaveLearned":               testSaveLearned,
 	"ImportAtomic":              testImportAtomic,
 	"Epoch":                     testEpoch,
+	"AbortedNotShown":           testAbortedNotShown,
 }
 
 func testRoundSentTwice(t *testing.T, m Store) {
@@ -707,5 +708,35 @@ func testEpoch(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 50, FinishedAt: when})
 	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 2 || got[0].Epoch != 2 {
 		t.Fatalf("a session after an import must carry the next epoch: %+v", got)
+	}
+}
+
+func testAbortedNotShown(t *testing.T, m Store) {
+	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	m.AddSession(u, "en", Session{WPM: 20, Chars: 10, Unlocked: 1, Length: "words-10", FinishedAt: when})
+	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
+	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 30, Chars: 30, FinishedAt: when})
+
+	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 20 {
+		t.Fatalf("recent: %+v, want only the live round", got)
+	}
+	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
+		t.Fatalf("count: %d, want 1", c)
+	}
+	if l, _ := m.SessionLengths(u, "en"); len(l) != 1 || l[0] != "words-10" {
+		t.Fatalf("lengths: %v, want only the live round's", l)
+	}
+	if b, _ := m.BestRounds(u, "en"); b["words-10"].WPM != 20 || b["words-99"].WPM != 0 {
+		t.Fatalf("bests: %+v, want no aborted round", b)
+	}
+	if n, _ := m.LettersTyped(u, "en", 1); n != 10 {
+		t.Fatalf("letters typed: %d, want 10 (no aborted chars)", n)
+	}
+	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 1 || days[0].Rounds != 2 || days[0].Chars != 40 {
+		t.Fatalf("days: %+v, want 2 rounds and 40 chars (no aborted)", days)
+	}
+	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
+	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
+		t.Fatalf("the same aborted round twice: %d, want 1", c)
 	}
 }

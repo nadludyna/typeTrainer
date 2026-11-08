@@ -379,3 +379,64 @@ func TestApp_PortionSentTwice(t *testing.T) {
 		}
 	}
 }
+
+func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
+	h, _, _ := newApp()
+	keys := `[{"char":"a","errors":1,"ms":300},{"char":"s","errors":0,"ms":400}]`
+	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30"}`
+	for range 2 {
+		if code, out := call(t, h, "POST", "/api/v1/abort?lang=en", body); code != 200 {
+			t.Fatalf("abort: %d %v", code, out)
+		}
+	}
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["sessionCount"].(float64) != 0 {
+		t.Fatalf("an aborted round must not be in the history: %v", st["sessionCount"])
+	}
+	for _, k := range st["keys"].([]any) {
+		if k := k.(map[string]any); (k["char"] == "a" || k["char"] == "s") && k["count"].(float64) > 0 {
+			t.Fatalf("an aborted round reached the model: %v", k)
+		}
+	}
+	if b := st["bests"].(map[string]any); len(b) != 0 {
+		t.Fatalf("an aborted round must not be among the bests: %v", b)
+	}
+	_, out := call(t, h, "GET", "/api/v1/activity?lang=en", "")
+	if days := out["days"].([]any); len(days) != 0 {
+		t.Fatalf("an aborted round must not count as practice: %v", days)
+	}
+	_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
+	if rounds := hist["rounds"].([]any); len(rounds) != 0 {
+		t.Fatalf("an aborted round must not be in the timeline: %v", rounds)
+	}
+	if conf := hist["confusions"].([]any); len(conf) != 0 {
+		t.Fatalf("an aborted round must not make confusions: %v", conf)
+	}
+	res := `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":30,"accuracy":100}`
+	if code, _ := call(t, h, "POST", "/api/v1/results?lang=en", res); code != 200 {
+		t.Fatal("a normal round after an aborted one must save")
+	}
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["sessionCount"].(float64) != 1 {
+		t.Fatalf("only the normal round counts: %v", st["sessionCount"])
+	}
+	counted := false
+	for _, k := range st["keys"].([]any) {
+		if k := k.(map[string]any); k["char"] == "a" && k["count"].(float64) == 1 {
+			counted = true
+		}
+	}
+	if !counted {
+		t.Fatal("the normal round must be learned")
+	}
+	for _, bad := range []string{
+		`{"round":"a b","keys":[]}`,
+		`{"keys":[]}`,
+		`{"round":"tab-2","keys":[{"char":"ж","errors":0,"ms":1}]}`,
+		`{"round":"tab-2","keys":[],"length":"words-9999"}`,
+	} {
+		if code, _ := call(t, h, "POST", "/api/v1/abort?lang=en", bad); code != 400 {
+			t.Fatalf("%s: got %d, want 400", bad, code)
+		}
+	}
+}

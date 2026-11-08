@@ -234,6 +234,45 @@ func newLap(done learned, p engine.Params) float64 {
 	return 0
 }
 
+type abortRequest struct {
+	Round  string          `json:"round"`
+	Keys   []engine.Sample `json:"keys"`
+	Length string          `json:"length"`
+}
+
+// A round dropped with Tab: its raw presses are kept, but it is not shown
+// anywhere and its presses never reach the model.
+func (s *Server) handleAbort(w http.ResponseWriter, r *http.Request, user string, l *Language) {
+	r.Body = http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxBodyBytes))
+	var req abortRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		badRequest(w, "invalid JSON")
+		return
+	}
+	if req.Round == "" || !validRoundID(req.Round) {
+		badRequest(w, "round: at most 64 letters, digits and -")
+		return
+	}
+	if msg := validateSamples(req.Keys, s.cfg.MaxEvents, l.Info.Alphabet); msg != "" {
+		badRequest(w, "keys: "+msg)
+		return
+	}
+	if !s.validLength(req.Length) {
+		badRequest(w, "length: unknown round length")
+		return
+	}
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.store.AddSession(user, l.Info.ID, storage.Session{
+		Keys: req.Keys, Chars: len(req.Keys), FinishedAt: time.Now(),
+		Length: req.Length, Round: req.Round, Aborted: true,
+	}); err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 type resultsRequest struct {
 	Samples   []engine.Sample `json:"samples"`
 	Keys      []engine.Sample `json:"keys"`

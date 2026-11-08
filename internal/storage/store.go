@@ -25,6 +25,7 @@ type Session struct {
 	Group    string          `json:"group,omitempty"`
 	Device   string          `json:"device,omitempty"`
 	Epoch    int             `json:"epoch"`
+	Aborted  bool            `json:"aborted,omitempty"`
 	Round    string          `json:"-"`
 }
 

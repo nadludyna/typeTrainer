@@ -6,13 +6,13 @@
 
 <p align="center">
   A typing trainer that finds your weak letters and builds the next words around them. Real words only.<br><br>
-  <a href="https://69inoi69.github.io/typeTrainer/"><b>Start typing</b></a>
+  <a href="https://nadludyna.github.io/typeTrainer/"><b>Start typing</b></a>
   ·
   <a href="docs/HOW-THE-MODES-WORK.md">How it works</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/69inoi69/typeTrainer/actions/workflows/pages.yml"><img src="https://github.com/69inoi69/typeTrainer/actions/workflows/pages.yml/badge.svg" alt="Deploy"></a>
+  <a href="https://github.com/nadludyna/typeTrainer/actions/workflows/pages.yml"><img src="https://github.com/nadludyna/typeTrainer/actions/workflows/pages.yml/badge.svg" alt="Deploy"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License: GPL-3.0"></a>
 </p>
 
@@ -29,7 +29,7 @@ typeTrainer started as an engineering thesis at the Lublin University of
 Technology; the thesis notes live in [docs/thesis](docs/thesis/).
 
 The project is changing fast right now, so this page stays short. To see
-what it does today, [open the site](https://69inoi69.github.io/typeTrainer/).
+what it does today, [open the site](https://nadludyna.github.io/typeTrainer/).
 
 ## Run it yourself
 

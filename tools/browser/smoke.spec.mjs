@@ -329,13 +329,13 @@ test("settings: one window with every setting, a search and categories", async (
   const win = page.locator("#settings-win"), q = win.locator("#settings-q");
   await expect(q, "the search waits for typing").toBeFocused();
   const names = () => win.locator(".sw-name > span:first-child").allTextContents();
-  expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret", "Caret movement",
+  expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret style", "Caret movement",
     "Stop on a mistake", "Round length", "Keys", "Mistakes", "Show keyboard", "Next key", "Hand",
     "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Reset progress"]);
   await expect(win.locator(".sw-row", { hasText: "Streak" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
 
   await page.keyboard.type("cursor");
-  expect(await names(), "a search finds other words for a setting too").toEqual(["Caret", "Caret movement"]);
+  expect(await names(), "a search finds other words for a setting too").toEqual(["Caret style", "Caret movement"]);
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("body")).toHaveAttribute("data-caret", "block");
   await page.keyboard.press("Escape");

@@ -16,7 +16,7 @@ const I18N = {
     "settings.liveDesc": "Speed and accuracy, live while you type. Hide them if they make you nervous.",
     "settings.streak": "Streak",
     "settings.streakDesc": "Counts the words you type in a row without a single mistake.",
-    "settings.caret": "Caret", "settings.caret_line": "Line", "settings.caret_block": "Block",
+    "settings.caret": "Caret style", "settings.caret_line": "Line", "settings.caret_block": "Block",
     "settings.glide": "Caret movement", "settings.glide_smooth": "Smooth", "settings.glide_jump": "Jump",
     "settings.sample": "type real words",
     "settings.stop": "Stop on a mistake",

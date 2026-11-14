@@ -45,7 +45,8 @@ jobs:
         run: GOOS=js GOARCH=wasm go build -o /dev/null .
 
   browser:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 cannot install Chromium on Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 

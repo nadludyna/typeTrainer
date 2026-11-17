@@ -24,8 +24,6 @@ type Params struct {
 
 	UnmasteredBonus float64
 
-	HomeBoost float64
-
 	StartLetters   int
 	MinWords       int
 	RepeatPenalty  float64

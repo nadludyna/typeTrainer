@@ -22,8 +22,8 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 3. A letter is **mastered** once it reaches level 80 after at least 40
    presses, checked at the end of each round. Mastered stays mastered: later
    slips only lower the level, so its words come more often. The next letter
-   opens when every open letter is mastered. The home row and the most
-   frequent letters come first.
+   opens when every open letter is mastered. The home row comes first, then
+   the most frequent letters.
 4. Every 6 words the program picks one **focus** letter, more likely a weak
    one, and all 6 words contain it. Common words come first; a mistyped
    word comes back two lines later.
@@ -226,17 +226,22 @@ uniform choice.
 
 ## 6. Unlocking letters
 
-**Order.** Letters are sorted by how often they occur in the word list of the
-language, but a letter under a resting finger counts `HomeBoost = 4` times
+**Order.** The letters under the resting fingers come first, then every
+other letter by how often it occurs in the word list of the language
 (`Generator.SetHome`). The resting keys come from the layout data
 (`layout.RestingKeys`): in the row with the home bumps, one key per finger,
-`a s d f j k l ;` on QWERTY. The order is computed from the data, not written
-by hand (first lesson in bold):
+`a s d f j k l ;` on QWERTY. Inside each group the more frequent letter
+comes first. The order is computed from the data, not written by hand
+(first lesson in bold):
 
-**a s l d e f r** t i n o k c g h u p m y w b v j x z q
+**a s l d f k j e r** t i n o c g h u p m y w b v x z q
 
-**First lesson.** At least `StartLetters = 6` letters, and more if needed until
-at least `MinWords = 30` real words can be built from them: 7 letters (39 words).
+So the fingers start where they rest, and every later letter is one step
+from home, in the order real words need it.
+
+**First lesson.** At least `StartLetters = 8` letters, and more if needed until
+at least `MinWords = 30` real words can be built from them: the home row and
+`e` make 27 words, so `r` comes too, 9 letters (47 words).
 Without this rule the first lesson would cycle through a handful of words.
 
 **Level and mastery** (`engine.Level`, `MeetsGoal`, `Mastered`):
@@ -533,8 +538,7 @@ All in `internal/config/config.go`.
 | `MasteryMinSamples` | 40 | presses needed for mastery | a new letter gets about 30 presses a round as the focus: about two rounds |
 | `MasteryLevel` | 80 | level needed for mastery (section 6) | few mistakes near the goal speed; with the simulation, a fast typist opens every letter in about 46 rounds instead of 348 |
 | `UnmasteredBonus` | 0.2 | added to the difficulty of a letter not mastered yet, for the choice only | e^(0.2/0.1) ≈ 7 times the weight of an equal mastered letter: a blocking letter gets about half the portions among ten (section 7) |
-| `HomeBoost` | 4 | a resting key counts this many times as frequent in the unlock order | the smallest boost that starts English with the home row and `f` (section 6) |
-| `StartLetters` / `MinWords` | 6 / 30 | first lesson | enough variety from the first minute |
+| `StartLetters` / `MinWords` | 8 / 30 | first lesson | the home row and one more letter, with enough variety from the first minute |
 | `RepeatPenalty` | 0.3 | less repetition of recent words | variety |
 | `MaxRepeats` | 2 | a word comes at most this many times in a round | the penalty alone let a rare letter's 10 words come 5-6 times in 30 (section 7); 2 still lets a mistyped word come back |
 | `MinWordLetters` | 2 | shorter words never appear in learning | `a`, `i`, `в` are filler, not practice (section 7) |
@@ -643,11 +647,12 @@ Median exercises to the goal (20 typists), and the stream's variety:
 
 | Language | Random words | Best of 20 | Adaptive, T = 0.1 | Stream (the app) | Stream, no frequency penalty | Stream variety, first 30 | Stream variety, expert |
 |---|---|---|---|---|---|---|---|
-| en | 2142 | 247 | 96 | 92 | 96 | 81 / 40 / 88 | 97 / 5 / 63 |
+| en | 2038 | 236 | 108 | 116 | 120 | 80 / 49 / 76 | 97 / 6 / 63 |
 
-The stream needs 23 times fewer exercises than random words and 2.7
+The stream needs 18 times fewer exercises than random words and 2
 times fewer than best of 20. The forecast is within
-max(2, 25 %) in 87 % of cases (mean error 1.8 rounds).
+max(2, 25 %) in 63 % of cases (mean error 4.7 rounds): `j` and `k` come early
+and have few words, so their waits are long and hard to foresee.
 
 **Unlock pace.** The same tool also types Learn exactly as the app does
 (rounds of 30 words, the model learns once per round) for three kinds of
@@ -655,13 +660,17 @@ typist and counts the rounds until every letter is open (median of 20):
 
 | Typist | Mistakes | Time per press | Learns | Rounds to 13 letters | Rounds to all 26 |
 |---|---|---|---|---|---|
-| beginner | 3-30 % | 350-900 ms | yes | 20 | 58 |
-| middle | 4-8 % | 250-450 ms | yes | 15 | 44 |
-| fast | 2-4 % | 120-250 ms | no, already fast | 15 | 46 |
+| beginner | 3-30 % | 350-900 ms | yes | 39 | 77 |
+| middle | 4-8 % | 250-450 ms | yes | 27 | 57 |
+| fast | 2-4 % | 120-250 ms | no, already fast | 27 | 58 |
 
 Before the level and "mastered stays mastered" (section 6) these were 104,
 69 and 348 rounds: a fast typist waited for a round in which every open
-letter was under 5 % mistakes at the same moment.
+letter was under 5 % mistakes at the same moment. The home row first
+(section 6) costs about a quarter more rounds than the order by frequency
+(58, 44, 46): `j` and `k` have few words, so they collect their presses
+slowly. The simulated typist has no fingers, so what the home row gives
+(fingers in place from the first lesson) is not in these numbers.
 
 Limits: the typist is invented. Letters do not influence each other, there is
 no forgetting, and learning is the same exponential curve for every letter. The

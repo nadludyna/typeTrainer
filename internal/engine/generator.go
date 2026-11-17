@@ -63,32 +63,28 @@ func NewGenerator(words []string, rng *rand.Rand, p Params) *Generator {
 			g.rank[w] = i
 		}
 	}
-	g.order = letterOrder(words, nil, 1)
+	g.order = letterOrder(words, nil)
 	g.start = g.firstLessonSize(p)
 	return g
 }
 
+// SetHome puts the letters under the resting fingers first, then every
+// other letter by how often it occurs. The first lesson is the home row and
+// the next letter or two (at least StartLetters, enough for MinWords words).
 func (g *Generator) SetHome(home []string, p Params) {
 	set := map[string]bool{}
 	for _, c := range home {
 		set[c] = true
 	}
-	g.order = letterOrder(g.words, set, p.HomeBoost)
+	g.order = letterOrder(g.words, set)
 	g.start = g.firstLessonSize(p)
 }
 
-func letterOrder(words []string, home map[string]bool, boost float64) []string {
+func letterOrder(words []string, home map[string]bool) []string {
 	count := map[string]float64{}
 	for _, w := range words {
 		for _, r := range w {
 			count[string(r)]++
-		}
-	}
-	if boost > 1 {
-		for c := range count {
-			if home[c] {
-				count[c] *= boost
-			}
 		}
 	}
 	order := make([]string, 0, len(count))
@@ -96,6 +92,9 @@ func letterOrder(words []string, home map[string]bool, boost float64) []string {
 		order = append(order, c)
 	}
 	sort.Slice(order, func(i, j int) bool {
+		if home[order[i]] != home[order[j]] {
+			return home[order[i]]
+		}
 		if count[order[i]] != count[order[j]] {
 			return count[order[i]] > count[order[j]]
 		}

@@ -48,23 +48,19 @@ func TestWeightedPick_EdgeCases(t *testing.T) {
 }
 
 func TestLetterOrder_MostFrequentFirst(t *testing.T) {
-	order := letterOrder([]string{"eee", "ee", "ta", "t"}, nil, 1)
+	order := letterOrder([]string{"eee", "ee", "ta", "t"}, nil)
 	if strings.Join(order, "") != "eta" {
 		t.Fatalf("got %v, want e t a", order)
 	}
 }
 
-func TestLetterOrder_HomeLettersBoosted(t *testing.T) {
-	words := []string{"eee", "eee", "ttt", "a", "a"}
-	home := map[string]bool{"a": true}
-	if got := strings.Join(letterOrder(words, home, 4), ""); got != "aet" {
-		t.Errorf("boost 4: got %s, want a e t", got)
+func TestLetterOrder_HomeLettersFirst(t *testing.T) {
+	words := []string{"eee", "eee", "ttt", "a", "ss"}
+	if got := strings.Join(letterOrder(words, map[string]bool{"a": true, "s": true}), ""); got != "saet" {
+		t.Errorf("got %s, want s a (home, by frequency), then e t", got)
 	}
-	if got := strings.Join(letterOrder(words, home, 2), ""); got != "eat" {
-		t.Errorf("boost 2: got %s, want e a t", got)
-	}
-	if got := strings.Join(letterOrder(words, home, 1), ""); got != "eta" {
-		t.Errorf("boost 1 (off): got %s, want e t a", got)
+	if got := strings.Join(letterOrder(words, nil), ""); got != "etsa" {
+		t.Errorf("no home: got %s, want e t s a", got)
 	}
 }
 

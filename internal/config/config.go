@@ -120,9 +120,8 @@ func Default() Config {
 			MasteryMinSamples: 40,
 			MasteryLevel:      80,
 			UnmasteredBonus:   0.2,
-			HomeBoost:         4,
 
-			StartLetters:   6,
+			StartLetters:   8,
 			MinWords:       30,
 			RepeatPenalty:  0.3,
 			MinWordLetters: 2,

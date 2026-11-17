@@ -11,8 +11,8 @@ var testParams = Params{
 	PriorDifficulty: 0.7, PriorStrength: 5,
 	Temperature:       0.1,
 	MasteryMinSamples: 20, MasteryLevel: 80,
-	UnmasteredBonus: 0.2, HomeBoost: 4,
-	StartLetters: 6, MinWords: 30, RepeatPenalty: 0.3, MinWordLetters: 2, MaxRepeats: 2, ExerciseWords: 20,
+	UnmasteredBonus: 0.2,
+	StartLetters:    6, MinWords: 30, RepeatPenalty: 0.3, MinWordLetters: 2, MaxRepeats: 2, ExerciseWords: 20,
 	PortionWords: 6, AheadPortions: 2, RecentWords: 24, RetryWords: 2, RoundPortions: 5,
 	RankStart: 200, RankStep: 200, RankPenalty: 0.5,
 }

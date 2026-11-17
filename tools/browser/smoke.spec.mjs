@@ -78,6 +78,7 @@ test("Learn: the line over the text holds the last round, the daily goal and the
 test("Learn: a best round's speed is gold, the letters change state without motion", async ({ page }) => {
   await withHistory(page);
   await openApp(page, { "tt.mode.en": "learn" });
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === "running" && !a.effect.target.closest(".ambient")));
   await page.evaluate(async () => {
     const m = await import("/learnpanel.js");
     m.roundMilestone({ best: true, mastered: [] });

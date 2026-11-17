@@ -1,7 +1,7 @@
 // The typing screen: text, caret and keypresses.
 
 import { t } from "./i18n.js";
-import { FX } from "./fx.js";
+import { FX, fade } from "./fx.js";
 import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel } from "./state.js";
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
@@ -257,6 +257,7 @@ export async function loadExercise() {
   limit = next;
   roundWords = limit.kind === "words" ? limit.n : 0;
   appendPortions(res.portions);
+  fade(el.text, [{ opacity: 0 }, { opacity: getComputedStyle(el.text).opacity }], 160);
   renderProgress();
   fitText();
   requestFit();

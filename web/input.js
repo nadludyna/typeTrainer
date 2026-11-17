@@ -20,6 +20,7 @@ import { keySound, missSound } from "./sound.js";
 import { questOpen, questKey } from "./mascot.js";
 import { peekShown, openPeek, closePeek } from "./peek.js";
 import "./share.js";
+import { startGrow } from "./fx.js";
 
 window.addEventListener("resize", () => {
   buildAmbient();
@@ -45,6 +46,7 @@ function setView(name) {
   el.viewType.hidden = stats;
   el.viewStats.hidden = !stats;
   if (stats) {
+    startGrow();
     resetStatsPick();
     setTyping(false);
     refreshStats().catch(console.error);

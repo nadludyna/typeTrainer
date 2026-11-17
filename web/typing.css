@@ -7,6 +7,7 @@
   border-radius: var(--r-sm); font-size: var(--fs-min); font-weight: 500; color: color-mix(in srgb, var(--text) 78%, var(--sub));
   background: var(--panel-2); box-shadow: var(--lift); position: relative;
 }
+.chip.opened { animation: pop .3s var(--ease); }
 .chip.mastered { color: var(--text); background: color-mix(in oklab, var(--ok) 20%, var(--panel-2)); }
 .chip .prog {
   position: absolute; left: 16%; right: 16%; bottom: 4px; height: 3px; border-radius: var(--r-sm);
@@ -153,7 +154,9 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
   .text { font-size: var(--text-size); }
   #view-type:not([hidden]) { flex: 1; display: flex; flex-direction: column; margin-block: 0; }
   #view-type > .letters { margin-top: clamp(8px, 3vh, 28px); }
-  body.kb-hidden #keyboard { display: none; }
+  #keyboard { transition: opacity .2s var(--ease), translate .2s var(--ease), display .2s allow-discrete; }
+  body.kb-hidden #keyboard { display: none; opacity: 0; translate: 0 8px; }
+  @starting-style { body:not(.kb-hidden) #keyboard { opacity: 0; translate: 0 8px; } }
 }
 .text-box.blurred .text { opacity: .5; }
 .focus-hint {
@@ -184,7 +187,10 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
 .text-box.goal .pause-note > :is([data-i18n="pause.title"], [data-i18n="pause.away"]) { display: none; }
 .text-box.goal .pause-note .goal-only, .text-box.goal .pause-ic .goal-ic { display: revert; }
 .text-box.goal .pause-ic { color: var(--ok); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ok) 60%, transparent); }
-.text-box.paused :is(.text, .live) { visibility: hidden; }
+.text, .live, .focus-hint, .pause-note {
+  transition: opacity var(--t-in) var(--ease), visibility var(--t-in) allow-discrete;
+}
+.text-box.paused :is(.text, .live) { visibility: hidden; opacity: 0; }
 .text-box.paused :is(.caret, .focus-hint) { opacity: 0; }
 
 .text span.ok { color: var(--text); }

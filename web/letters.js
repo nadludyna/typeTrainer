@@ -7,9 +7,11 @@ import { renderModeBar } from "./modebar.js";
 
 let builtFor = "";
 let chipOf = {};
+let seen = null;
 export function renderLetters() {
   if (!learning()) {
     builtFor = "";
+    seen = null;
     renderFreeLetters();
     return;
   }
@@ -32,7 +34,9 @@ export function renderLetters() {
       chipOf[c] = chip;
       frag.appendChild(chip);
     };
-    for (const c of S.exercise.unlocked) add(c, info[c]?.mastered ? "mastered" : "");
+    const was = seen?.lang === S.lang ? seen.open : null;
+    seen = { lang: S.lang, open: new Set(S.exercise.unlocked) };
+    for (const c of S.exercise.unlocked) add(c, (info[c]?.mastered ? "mastered" : "") + (was && !was.has(c) ? " opened" : ""));
     for (const c of S.exercise.locked) add(c, c === S.exercise.locked[0] ? "locked next" : "locked");
     el.letters.replaceChildren(frag);
 

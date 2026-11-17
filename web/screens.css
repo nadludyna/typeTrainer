@@ -18,6 +18,7 @@ body.tb-resulting .hints .round-only { display: none; }
   display: flex; flex-direction: column;
 }
 .result[hidden] { display: none; }
+.result:not([hidden]) { animation: view-in .18s var(--ease); }
 .result p { margin: 0; }
 .r-body { display: flex; flex-direction: column; }
 .r-body { gap: 26px; }

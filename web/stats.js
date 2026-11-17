@@ -7,6 +7,7 @@ import { LENGTHS, lengthLabel, lengthFor, setSetting, pickDaily } from "./settin
 import { ring, ringBtn } from "./minipop.js";
 import { renderLearnStats, learnStatsStale } from "./learnstats.js";
 import { freetypeUrl } from "./modes.js";
+import { grow } from "./fx.js";
 
 // ---------- the goal line ----------
 const goalPick = $("goal-pick");
@@ -377,6 +378,8 @@ function drawChart(sessions, target, total, order) {
   el.chart.innerHTML = svg;
 
   const bars = el.chart.querySelectorAll(".bar");
+  grow(bars, [{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], 300, 6);
+  grow(el.chart.querySelectorAll(".avg, .target"), [{ opacity: 0 }, { opacity: 1 }], 300);
   el.chart.querySelectorAll(".hit").forEach((h) => {
     const i = Number(h.dataset.i), x = sessions[i];
     h.addEventListener("pointerenter", () => bars[i].classList.add("hover"));

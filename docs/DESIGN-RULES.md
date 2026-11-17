@@ -225,7 +225,7 @@ consequences, the same word for the same thing. All text lives in
 - Look at the real result in a browser, not just the code: the screen that
   changed.
 - Check the edges: no data yet, a very long name, the first and the last
-  letter, a time round that runs out, Climb at a low and a high level.
+  letter, a time round that runs out.
 - Check what is next to the change, not only the element that was asked
   about.
 

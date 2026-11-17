@@ -21,7 +21,7 @@ are thesis items and stay.
 
 ## Pillars
 
-1. **One path.** First you learn the letters (Learn), then you polish (Reinforce).
+1. **One path in three stages.** Learn the letters, reinforce them on words, then type freely. Each stage adds one thing to train: accuracy, then speed, then consistency.
 2. **It adapts to you.** The next words bring your weak letters and transitions.
 3. **Real words and real sentences only.**
 4. **Fast and calm.** Nothing jumps while you type.
@@ -38,17 +38,29 @@ are thesis items and stay.
 - **A computer keyboard is needed to practise.** Phones and tablets show only
   the stats and the account: thumbs on glass would skew the letter model.
   The phone layout of the typing screen is not maintained.
-- **One mode: Learn, then Reinforce.** *Learn* teaches from zero: letters
-  open one by one from the home row, and the algorithm alone decides what to
-  practise (no difficulty switches, no "open all letters"). The letter row
-  is all the progress Learn shows; the stats screen opens with Reinforce.
-  When every letter is open, *Reinforce* begins: you choose what to type (a word level or real
-  sentences), and inside that choice the algorithm brings your weak letters
-  and transitions. *Climb* and *Freetype* are not part of this path: they get
-  hidden, and Climb is removed once Reinforce has real sentences. Until then
-  they never touch Learn's data, and every mode, list and round length keeps
-  its own history: rounds of different kinds are never mixed in one chart or
-  record. How each mode works: `docs/HOW-THE-MODES-WORK.md`.
+- **One mode, three stages.** Every stage adapts to you; each adds one
+  measure on top of the ones before. How the trainer picks what you type:
+  `docs/HOW-THE-MODES-WORK.md`.
+
+  | Stage | What you practise | What it trains | How it adapts | Opens when |
+  |---|---|---|---|---|
+  | **Learn** | letters, from the home row, one at a time | accuracy | words around your weak letters and the letter pairs you stumble on | from the start |
+  | **Reinforce** | words in levels that add up: 200, then 200 and 500, then up to 1k, and so on to 25k | accuracy and speed | the same, inside the open levels; the speed goal grows by a step you choose, with no ceiling | every letter is open |
+  | **Freetype** | free typing with your own settings | accuracy, speed and consistency | the next word is picked by the move from the end of one word into the start of the next, so the hands find a flow | the first Reinforce level is passed once |
+
+  Consistency belongs to Freetype because it depends most on the moves
+  between words. The letter row is all the progress Learn shows; the stats
+  screen opens with Reinforce. Learn never switches difficulty and never
+  "opens all letters": the algorithm alone decides what to practise.
+
+  **Built now:** Learn, and Reinforce with one word level at a time and a
+  speed goal from 30 to 200 in steps of 10. Learn's letter level still
+  counts speed as well as accuracy. **To build:** Learn on accuracy only,
+  levels that add up, a level that can be passed, a goal step in the
+  settings and no ceiling, Freetype as the third stage with word-to-word
+  flow. *Climb* is hidden and goes once the stages are built; until then it
+  never touches Learn's data, and every mode, list and round length keeps
+  its own history.
 - **Settings change how much and how it looks, never what is practised.**
   What a round is belongs to each mode and sits in the round bar above the
   text (`web/modebar.js`). The settings window (`web/settings.js`) holds

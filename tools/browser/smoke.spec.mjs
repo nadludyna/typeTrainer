@@ -993,26 +993,12 @@ test("a new visitor sees only Learn: Climb and Freetype are hidden", async ({ pa
   await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
 });
 
-test("a new learner types the short test first: it sets the goal and opens known letters", async ({ page }) => {
-  await openApp(page, {}, { test: true });
-  await expect(page.locator("#climb-note"), "the test says what it is").toContainText("short test");
-  await expect(page.locator("#round-count")).toContainText("/ 31");
-  await page.locator("#text-box").click();
-  await typeRound(page, { delay: 60, done: async () => !(await page.locator("#climb-note").isVisible()) && await page.locator("#round-count").textContent().then((s) => s.includes("/ 30")) });
-  await expect(page.locator("#notice"), "the result is told").toContainText("Your goal is");
-  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
-  expect(s.placed).toBe(true);
-  expect(s.keys.filter((k) => k.unlocked).length, "known letters open at once").toBeGreaterThan(9);
-  await expect(page.locator("#climb-note")).toBeHidden();
-});
-
-test("Tab skips the short test, and Start Learn over brings it back", async ({ page }) => {
-  await openApp(page, {}, { test: true });
-  await expect(page.locator("#climb-note")).toBeVisible();
-  await page.locator("#text-box").click();
-  await page.keyboard.press("Tab");
-  await expect(page.locator("#climb-note")).toBeHidden();
-  await expect(page.locator("#round-count")).toContainText("/ 30");
+test("Start Learn over in the settings: Learn's rounds go, the first lesson comes back", async ({ page }) => {
+  await openApp(page);
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+  await page.reload();
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
   await page.keyboard.press("Escape");
   await page.locator("#settings-q").fill("start over");
   await page.locator("#btn-relearn").click();
@@ -1020,14 +1006,16 @@ test("Tab skips the short test, and Start Learn over brings it back", async ({ p
   await page.locator("#reset-ok").click();
   await page.waitForLoadState("load");
   await waitForText(page);
-  await expect(page.locator("#climb-note"), "the test is back").toContainText("short test");
+  await expect(page.locator("#mode-bar"), "back to the first letters").toBeHidden();
+  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
+  expect(s.keys.filter((k) => k.unlocked).length).toBe(9);
 });
 
 test("Reinforce: with every letter open, Learn offers word levels and speed goal steps", async ({ page }) => {
   await openApp(page);
   await expect(page.locator("#mode-bar"), "no Reinforce bar while letters are locked").toBeHidden();
   const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
-  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k, placement: { done: true, goal: 0, known: "" } }) }), keys);
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
   await page.reload();
   await expect(page.locator("#mode-bar")).toContainText("Reinforce");
   await page.locator('#mode-bar button[data-wlevel="1"]').waitFor();

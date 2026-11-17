@@ -141,13 +141,12 @@ var (
 
 // ImportData is one whole progress state for a language, applied all at once.
 type ImportData struct {
-	Keys      map[string]engine.KeyStat
-	Unlocked  int
-	Lap       int
-	Group     string
-	Sessions  []Session
-	Freeplay  map[string][]Session
-	Placement Placement
+	Keys     map[string]engine.KeyStat
+	Unlocked int
+	Lap      int
+	Group    string
+	Sessions []Session
+	Freeplay map[string][]Session
 }
 
 type Learned struct {
@@ -155,14 +154,6 @@ type Learned struct {
 	Unlocked int
 	Lap      int
 	Session  *Session
-}
-
-// Placement is what Learn's placement test found: the personal speed goal
-// and the letters already known, opened at once.
-type Placement struct {
-	Done  bool    `json:"done"`
-	Goal  float64 `json:"goal"`
-	Known string  `json:"known"`
 }
 
 type Store interface {
@@ -173,8 +164,6 @@ type Store interface {
 	SetUnlocked(user, lang string, n int) error
 	Lap(user, lang string) (int, error)
 	SetLap(user, lang string, n int) error
-	Placement(user, lang string) (Placement, error)
-	SetPlacement(user, lang string, pl Placement) error
 
 	AddSession(user, lang string, s Session) error
 	RecentSessions(user, lang, length string, limit int) ([]Session, error)
@@ -198,7 +187,7 @@ type Store interface {
 	PracticeDays(user, lang string, tz time.Duration) ([]Day, error)
 
 	Reset(user, lang string) error
-	// ResetLearn starts Learn over: its letters, rounds and placement; the
+	// ResetLearn starts Learn over: its letters and rounds; the
 	// other modes and the study group stay.
 	ResetLearn(user, lang string) error
 	Import(user, lang string, data ImportData) error

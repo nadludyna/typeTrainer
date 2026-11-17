@@ -3,7 +3,6 @@ package main
 // Learn through the whole app.
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -474,65 +473,20 @@ func TestApp_TuneChangesOnlyThisUsersNumbers(t *testing.T) {
 	}
 }
 
-func TestApp_PlacementSetsGoalAndKnownLetters(t *testing.T) {
+func TestApp_StartLearnOver(t *testing.T) {
 	h, _, _ := newApp()
-	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	text, _ := st["placementText"].(string)
-	if st["placed"] != false || text == "" {
-		t.Fatalf("a new learner: placed %v, text %q", st["placed"], text)
-	}
-	start := 0
-	for _, k := range st["keys"].([]any) {
-		if k.(map[string]any)["unlocked"] == true {
-			start++
-		}
-	}
-	keys := []map[string]any{}
-	for _, r := range text {
-		keys = append(keys, map[string]any{"char": string(r), "ms": 150})
-	}
-	body, _ := json.Marshal(map[string]any{"keys": keys, "wpm": 80, "accuracy": 100})
-	code, out := call(t, h, "POST", "/api/v1/placement?lang=en", string(body))
-	if code != 200 || out["goal"].(float64) != 85 || out["known"] == "" || int(out["unlocked"].(float64)) <= start {
-		t.Fatalf("placement: %d %v (first lesson %d letters)", code, out, start)
-	}
-	if code, _ := call(t, h, "POST", "/api/v1/placement?lang=en", string(body)); code != 409 {
-		t.Fatalf("a second test: %d, want 409", code)
-	}
-	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["placed"] != true || st["targetWpm"].(float64) != 85 || st["known"] != out["known"] {
-		t.Fatalf("stats after the test: placed %v, goal %v, known %v", st["placed"], st["targetWpm"], st["known"])
-	}
-	_, exp := call(t, h, "GET", "/api/v1/export?lang=en", "")
-	if pl, _ := exp["placement"].(map[string]any); pl == nil || pl["goal"].(float64) != 85 {
-		t.Fatalf("export: placement %v", exp["placement"])
-	}
-
+	call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100}`)
+	call(t, h, "POST", "/api/v1/freeplay/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100,"level":1}`)
 	if code, _ := call(t, h, "POST", "/api/v1/learn/reset?lang=en", ""); code != 200 {
 		t.Fatalf("reset: %d", code)
 	}
-	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["placed"] != false || st["targetWpm"].(float64) != 30 || st["known"] != "" {
-		t.Fatalf("after starting over: placed %v, goal %v, known %v", st["placed"], st["targetWpm"], st["known"])
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["learnRounds"].(float64) != 0 {
+		t.Fatalf("Learn rounds after starting over: %v", st["learnRounds"])
 	}
-	exp["placement"] = map[string]any{"done": true, "goal": 85, "known": "zz"}
-	bad, _ := json.Marshal(exp)
-	if code, _ := call(t, h, "POST", "/api/v1/import?lang=en", string(bad)); code != 400 {
-		t.Fatalf("import with a letter twice: %d, want 400", code)
-	}
-}
-
-func TestApp_PlacementSkipped(t *testing.T) {
-	h, _, _ := newApp()
-	if code, out := call(t, h, "POST", "/api/v1/placement?lang=en", `{"skip":true}`); code != 200 || out["goal"].(float64) != 30 || out["known"] != "" {
-		t.Fatalf("skip: %d %v", code, out)
-	}
-	if code, _ := call(t, h, "POST", "/api/v1/placement?lang=en", `{"skip":true}`); code != 409 {
-		t.Fatalf("after a skip: %d, want 409", code)
-	}
-	h, _, _ = newApp()
-	if code, _ := call(t, h, "POST", "/api/v1/placement?lang=en", `{"keys":[]}`); code != 400 {
-		t.Fatalf("no presses: %d, want 400", code)
+	_, fp := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en", "")
+	if fp["sessionCount"].(float64) != 1 {
+		t.Fatalf("Climb lost its round: %v", fp["sessionCount"])
 	}
 }
 

@@ -11,8 +11,7 @@ const bar = $("mode-bar"), note = $("climb-note"), stand = $("stand");
 export function renderModeBar() {
   const cur = S.settings.length;
   const parts = [];
-  note.hidden = !(S.mode === "learn" && S.placing);
-  if (!note.hidden) note.innerHTML = t("place.note");
+  note.hidden = true;
   bar.hidden = S.mode === "learn" && !reinforcing();
   document.body.classList.toggle("reinforce", S.mode === "learn" && !bar.hidden);
   if (S.mode === "learn" && !bar.hidden) {

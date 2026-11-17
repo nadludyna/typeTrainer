@@ -42,7 +42,6 @@ type Config struct {
 	Engine                engine.Params
 	Laps                  engine.LapParams
 	Forecast              engine.ForecastParams
-	Placement             engine.PlacementParams
 	Words                 engine.WordParams
 	Freeplay              freeplay.Params
 	Sim                   sim.Params
@@ -90,7 +89,6 @@ func Default() Config {
 		ConfusionMin:          3,
 		Laps:                  engine.LapParams{StepWPM: 10, MaxWPM: 200},
 		Forecast:              engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
-		Placement:             engine.PlacementParams{GoalAbove: 5, MinGoal: 15, MaxGoal: 150, KnownWPM: 25, KnownAccuracy: 90, KnownPresses: 2, KnownMisses: 1, KnownSlack: 1.25},
 		ConfusionShown:        6,
 		Auth: auth.Params{
 			Iterations:    600000,

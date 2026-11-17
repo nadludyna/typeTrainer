@@ -144,14 +144,6 @@ func (g *Generator) WithWords(words []string, p Params) *Generator {
 	return &out
 }
 
-// InOrderOf is this generator with the letter order and first lesson of o:
-// a word level for one learner.
-func (g *Generator) InOrderOf(o *Generator) *Generator {
-	out := *g
-	out.order, out.start = o.order, o.start
-	return &out
-}
-
 // Size is how many words the generator draws from.
 func (g *Generator) Size() int { return len(g.words) }
 
@@ -163,31 +155,6 @@ func (g *Generator) WithPairs(pairs []string) *Generator {
 	}
 	out := *g
 	out.pairs = pairs
-	return &out
-}
-
-// WithKnown is this generator for one learner: the letters the placement
-// test found known join the first lesson, in their usual order; the rest
-// keep theirs. Unknown letters and letters already in the first lesson
-// change nothing. The copy shares the words and the random source.
-func (g *Generator) WithKnown(known []string) *Generator {
-	set := map[string]bool{}
-	for _, c := range known {
-		set[c] = true
-	}
-	first, rest := append([]string{}, g.order[:g.start]...), []string{}
-	for _, c := range g.order[g.start:] {
-		if set[c] {
-			first = append(first, c)
-		} else {
-			rest = append(rest, c)
-		}
-	}
-	if len(first) == g.start {
-		return g
-	}
-	out := *g
-	out.order, out.start = append(first, rest...), len(first)
 	return &out
 }
 

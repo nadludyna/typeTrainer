@@ -30,7 +30,6 @@ type langExport struct {
 	Freeplay    *freeplayExport           `json:"freeplay,omitempty"`
 	ClimbLevels int                       `json:"climbLevels,omitempty"`
 	Freetype    map[string]freeplayExport `json:"freetype,omitempty"`
-	Placement   *storage.Placement        `json:"placement,omitempty"`
 }
 
 type freeplayExport struct {
@@ -102,19 +101,10 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 			freetype[key] = freeplayExport{Sessions: h}
 		}
 	}
-	pl, err := s.store.Placement(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	out := langExport{
+	writeJSON(w, http.StatusOK, langExport{
 		Unlocked: unlocked, Keys: keys, Sessions: oldestFirst(newestFirst), Group: group, Lap: lap,
 		Freeplay: &freeplayExport{Sessions: free}, ClimbLevels: len(s.cfg.Freeplay.Levels), Freetype: freetype,
-	}
-	if pl.Done {
-		out.Placement = &pl
-	}
-	writeJSON(w, http.StatusOK, out)
+	})
 }
 
 func (s *Server) allFreeplay(user, lang, mode string) ([]storage.Session, error) {
@@ -137,17 +127,9 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		n, v, ok := storage.ParseFreetypeKey(key)
 		return ok && s.validVariant(l, n, v)
 	}
-	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Freeplay.Levels), s.lastStepAny(), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
+	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Freeplay.Levels), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
 		badRequest(w, msg)
 		return
-	}
-	var pl storage.Placement
-	if in.Placement != nil {
-		if msg := s.validPlacement(*in.Placement, l.Info.Alphabet); msg != "" {
-			badRequest(w, "placement: "+msg)
-			return
-		}
-		pl = *in.Placement
 	}
 	if in.Keys == nil {
 		in.Keys = map[string]engine.KeyStat{}
@@ -171,7 +153,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	defer s.writeMu.Unlock()
 	if err := s.store.Import(user, id, storage.ImportData{
 		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap, Group: in.Group,
-		Sessions: in.Sessions, Freeplay: histories, Placement: pl,
+		Sessions: in.Sessions, Freeplay: histories,
 	}); err != nil {
 		serverError(w, err)
 		return
@@ -198,4 +180,15 @@ func (s *Server) handleGroup(w http.ResponseWriter, r *http.Request, user string
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"group": req.Group})
+}
+
+// POST: Learn starts over; the other modes keep their rounds.
+func (s *Server) handleLearnReset(w http.ResponseWriter, r *http.Request, user string, l *Language) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.store.ResetLearn(user, l.Info.ID); err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }

@@ -16,8 +16,8 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 	return level >= 1 && level <= len(l.Levels)
 }
 
-// reinforce is the generator of one word level for this learner: their
-// letter order, and the pairs that slow their last Learn rounds down.
+// reinforce is the generator of one word level for this learner, with the
+// pairs that slow their last Learn rounds down.
 func (s *Server) reinforce(user string, l *Language, gen *engine.Generator, level int) (*engine.Generator, error) {
 	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Freeplay.WeakRounds)
 	if err != nil {
@@ -27,7 +27,7 @@ func (s *Server) reinforce(user string, l *Language, gen *engine.Generator, leve
 	for _, p := range s.pairsOf(rounds) {
 		pairs = append(pairs, p.Pair)
 	}
-	return l.Levels[level-1].InOrderOf(gen).WithPairs(pairs), nil
+	return l.Levels[level-1].WithPairs(pairs), nil
 }
 
 // wordLevels is the levels' names: how many of the most common words each
@@ -50,11 +50,7 @@ func (s *Server) handleLearnStep(w http.ResponseWriter, r *http.Request, user st
 	id := l.Info.ID
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	who, err := s.learner(user, l)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
+	who := s.learner(user, l)
 	if req.Step < 0 || req.Step > who.base.LastLap(s.cfg.Laps) {
 		badRequest(w, "step: 0 to the last step")
 		return
@@ -85,12 +81,4 @@ func (s *Server) handleLearnStep(w http.ResponseWriter, r *http.Request, user st
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"step": req.Step, "targetWpm": who.base.ForLap(req.Step, s.cfg.Laps).TargetWPM})
-}
-
-// lastStepAny is the highest goal step any learner can reach: the one who
-// starts from the lowest goal.
-func (s *Server) lastStepAny() int {
-	p := s.cfg.Engine
-	p.TargetWPM = min(p.TargetWPM, s.cfg.Placement.MinGoal)
-	return p.LastLap(s.cfg.Laps)
 }

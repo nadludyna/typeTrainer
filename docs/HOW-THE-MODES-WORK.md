@@ -29,10 +29,7 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
    word comes back two lines later.
 5. Only real words made of open letters. Learning has no settings: the
    model alone decides what to practise.
-6. Before the first round a **short test** (one fixed phrase) sets the
-   personal speed goal and opens the letters you already type well
-   (section 6, "Placement test").
-7. Once every letter is open, Learn becomes **Reinforce**: you pick how many
+6. Once every letter is open, Learn becomes **Reinforce**: you pick how many
    common words to type (200 up to 25k), weak letters and letter pairs come
    more often, and the speed goal grows in steps up to 200 wpm (section 6.1).
 
@@ -277,25 +274,10 @@ round. A new letter
 starts at the prior difficulty 0.7 (level 30), which is higher than the
 difficulty of the mastered letters, so it automatically becomes the focus.
 
-**Placement test** (`engine.Place`, `api/placement.go`). A new learner first
-types one fixed text (`data/langs/<id>/placement.txt`, three pangrams, 31
-words, every letter at least 3 times); Tab skips it. The test decides two things:
-
-```
-goal  = test wpm rounded + 5, kept in 15..150          (PlacementParams)
-known = letters with at most 1 mistake, at least 2 timed presses,
-        and an average press at most 1.25 x the test's average press
-        (only when the test was at least 25 wpm and 90 % accurate)
-```
-
-A good typist opens every letter at once and goes straight to the words.
-The goal replaces `TargetWPM` for this learner, so "fast" means fast for
-them. The known letters join the first lesson (`Generator.WithKnown`): they
-open at once, in their usual order, and the rest of the order stays. The
-test's presses also go into the letter statistics like a round's.
-The test runs once; "Start Learn over" in the settings deletes Learn's
-letters and rounds and brings the test back. A skipped test keeps the
-default goal and opens nothing extra.
+**Experienced typists** start from the first letters too (there is no "open
+all letters" choice): typing well, they master the open letters quickly and
+unlock the rest in a short time. "Start Learn over" in the settings deletes
+Learn's letters and rounds and starts again from the first lesson.
 
 ### 6.1 Reinforce: after every letter is open
 
@@ -320,11 +302,9 @@ each weak pair in it (`Generator.WithPairs`).
 **Speed goal steps** (`engine.LapParams`, `lap.go`):
 
 ```
-goal of step n = min(goal + n * StepWPM, MaxWPM)
-               = goal, +10, +20, ... up to 200 wpm
+goal of step n = min(TargetWPM + n * StepWPM, MaxWPM)
+               = 30, 40, 50, ... 200 wpm   (step 0 .. 17; LastLap = 17)
 ```
-
-`goal` is the placement test's personal goal, or 30 without it.
 
 - **When.** After the presses of a round are applied, if every letter is
   open and mastered at the step's goal (`LapDone`) and the step is not the

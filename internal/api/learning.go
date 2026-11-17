@@ -184,20 +184,14 @@ func (s *Server) trimPortionsLocked(now time.Time) {
 	}
 }
 
-// learner is one user's Learn setup: the letter order, with the letters the
-// placement test found known moved into the first lesson, and the numbers.
+// learner is one user's Learn setup: the letter order and the numbers.
 type learner struct {
 	gen  *engine.Generator
 	base engine.Params
-	pl   storage.Placement
 }
 
-func (s *Server) learner(user string, l *Language) (learner, error) {
-	pl, err := s.store.Placement(user, l.Info.ID)
-	if err != nil {
-		return learner{}, err
-	}
-	return learner{gen: l.Gen.WithKnown(strings.Split(pl.Known, "")), base: s.params(user, pl), pl: pl}, nil
+func (s *Server) learner(user string, l *Language) learner {
+	return learner{gen: l.Gen, base: s.params(user)}
 }
 
 func (s *Server) lapParams(user, lang string, who learner) (engine.Params, int, error) {
@@ -228,9 +222,7 @@ func (done learned) record(round *storage.Session) storage.Learned {
 
 func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out learned, err error) {
 	id := l.Info.ID
-	if out.who, err = s.learner(user, l); err != nil {
-		return
-	}
+	out.who = s.learner(user, l)
 	gen := out.who.gen
 	p, lap, err := s.lapParams(user, id, out.who)
 	if err != nil {
@@ -402,11 +394,7 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user str
 	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	who, err := s.learner(user, l)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
+	who := s.learner(user, l)
 	n := who.gen.Start()
 	if req.UnlockAll {
 		n = len(who.gen.Order())
@@ -445,11 +433,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	who, err := s.learner(user, l)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
+	who := s.learner(user, l)
 	gen := who.gen
 	unlocked = gen.Clamp(unlocked)
 	p, lap, err := s.lapParams(user, id, who)
@@ -513,8 +497,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"masteryMin": p.MasteryMinSamples, "masteryLevel": p.MasteryLevel,
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
-		"placed":      who.pl.Done, "known": who.pl.Known, "placementText": l.Placement,
-		"wordLevels": s.wordLevels(l),
+		"wordLevels":  s.wordLevels(l),
 	})
 }
 
@@ -534,11 +517,7 @@ func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user
 		serverError(w, err)
 		return
 	}
-	who, err := s.learner(user, l)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
+	who := s.learner(user, l)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"order":      who.gen.Order(),
 		"rounds":     history.LetterTimeline(all, who.gen.Order(), who.gen.Start(), who.base, s.cfg.Laps),

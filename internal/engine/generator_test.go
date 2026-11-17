@@ -251,25 +251,6 @@ func TestUnmasteredBonus_SlowLetterGetsTheFocus(t *testing.T) {
 	}
 }
 
-func TestWithKnown_KnownLettersJoinTheFirstLesson(t *testing.T) {
-	g := newTestGen(1)
-	start, order := g.Start(), strings.Join(g.Order(), "")
-	if g.WithKnown(nil) != g || g.WithKnown([]string{g.Order()[0], "?"}) != g {
-		t.Fatal("nothing new known: the same generator")
-	}
-	last := g.Order()[len(g.Order())-1]
-	k := g.WithKnown([]string{last})
-	if k.Start() != start+1 || k.Order()[start] != last || len(k.Order()) != len(g.Order()) {
-		t.Fatalf("known %q: start %d, order %v", last, k.Start(), k.Order())
-	}
-	if strings.Join(g.Order(), "") != order || g.Start() != start {
-		t.Fatal("WithKnown changed the shared generator")
-	}
-	if all := g.WithKnown(g.Order()); all.Start() != len(g.Order()) {
-		t.Fatalf("every letter known: start %d", all.Start())
-	}
-}
-
 func TestWithWords_ALevelDrawsOnlyItsWords(t *testing.T) {
 	g := newTestGen(1)
 	level := g.WithWords([]string{"then", "the", "a", "x9", "when", "the"}, testParams)

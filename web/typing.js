@@ -176,7 +176,6 @@ const needMore = () => limit.kind === "time" || wordsLoaded < limit.n;
 
 function portionDone(k) {
   if (!learning()) return freePortionDone(k);
-  if (S.placing) { showPortion(k + 1); return; }
   const por = portions[k];
   const samples = records.slice(sentUpTo, por.end + 1).filter(Boolean);
   sentUpTo = por.end + 1;
@@ -243,29 +242,15 @@ function resetStream() {
 
 const learnLevel = () => (reinforcing() ? wordLevel() : 0);
 
-// The placement test: a new learner's first Learn text is one fixed phrase.
-const placementDue = () => {
-  const s = S.lastStats;
-  return learning() && !!s && !s.placed && !s.learnRounds && !!s.placementText;
-};
-
 export async function loadExercise() {
   resetStream();
   const id = streamId;
-  S.placing = placementDue();
   renderModeBar();
-  let next = lengthOf(S.settings.length);
+  const next = lengthOf(S.settings.length);
   const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
   const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.mode === "climb" ? S.climbLevel ?? 0 : learnLevel(), round, portionIndex: 0, ack: 0 };
-  let res;
-  if (S.placing) {
-    const test = S.lastStats.placementText.split(" ");
-    res = { portions: [{ words: test, focus: "" }] };
-    next = { kind: "words", n: test.length };
-  } else {
-    res = await getPortions(body);
-  }
+  const res = await getPortions(body);
   if (id !== streamId) return;
   roundBefore = S.lastStats;
   if (S.mode === "climb" && res.level !== S.climbLevel) { S.climbLevel = res.level; renderModeBar(); renderLetters(); }
@@ -492,7 +477,6 @@ function renderProgress() {
 // ---------- Tab: start the round again ----------
 export function restartRound() {
   if (S.busy) return;
-  if (S.placing) { skipPlacement(); return; }
   abortRound();
   loadExercise().catch(console.error);
 }
@@ -590,7 +574,6 @@ async function finishRound() {
     await queue;
     streamId++;
     if (!typed.length) { await loadExercise(); return; }
-    if (S.placing) { await finishPlacement({ keys: typed, wpm, accuracy }); return; }
     if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
     const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel() };
@@ -618,23 +601,6 @@ async function finishRound() {
   } finally {
     S.busy = false;
   }
-}
-
-async function finishPlacement(body) {
-  const res = await postJSON("/placement", body);
-  await refreshStats();
-  const n = res.known.length;
-  FX.toast(t(n ? "place.done" : "place.doneNone", { goal: Math.round(res.goal), n }));
-  await loadExercise();
-}
-
-function skipPlacement() {
-  S.busy = true;
-  postJSON("/placement", { skip: true })
-    .then(() => refreshStats())
-    .then(() => loadExercise())
-    .catch((err) => { console.error(err); FX.toast(t("err.server")); })
-    .finally(() => { S.busy = false; });
 }
 
 let learnRound = 0;

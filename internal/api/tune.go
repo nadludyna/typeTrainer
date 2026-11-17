@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/storage"
 )
 
 type tunable struct {
@@ -49,15 +48,11 @@ func tunables() []tunable {
 	}
 }
 
-// params is Learn's numbers for this user: the config, the personal speed
-// goal of the placement test, and the panel's values on top. The panel's
-// values live in the server's memory only; the browser keeps a copy and
-// sends it again after a restart.
-func (s *Server) params(user string, pl storage.Placement) engine.Params {
+// params is Learn's numbers for this user: the config with the panel's values
+// on top. The values live in the server's memory only; the browser keeps a
+// copy and sends it again after a restart.
+func (s *Server) params(user string) engine.Params {
 	p := s.cfg.Engine
-	if pl.Goal > 0 {
-		p.TargetWPM = pl.Goal
-	}
 	s.tuneMu.Lock()
 	own := s.tune[user]
 	s.tuneMu.Unlock()
@@ -72,15 +67,15 @@ func (s *Server) params(user string, pl storage.Placement) engine.Params {
 	return p
 }
 
-func (s *Server) tuneList(user string, pl storage.Placement) []tunable {
-	p := s.params(user, pl)
+func (s *Server) tuneList(user string) []tunable {
+	p := s.params(user)
 	s.tuneMu.Lock()
 	own := s.tune[user]
 	s.tuneMu.Unlock()
 	out := tunables()
 	for i := range out {
 		out[i].Value = round3(out[i].get(p))
-		out[i].Default = round3(out[i].get(s.params("", pl)))
+		out[i].Default = round3(out[i].get(s.cfg.Engine))
 		_, out[i].Override = own[out[i].Name]
 	}
 	return out
@@ -89,12 +84,7 @@ func (s *Server) tuneList(user string, pl storage.Placement) []tunable {
 func round3(v float64) float64 { return float64(int64(v*1000+0.5)) / 1000 }
 
 func (s *Server) handleTuneGet(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	pl, err := s.store.Placement(user, l.Info.ID)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"params": s.tuneList(user, pl)})
+	writeJSON(w, http.StatusOK, map[string]any{"params": s.tuneList(user)})
 }
 
 // POST {values: {name: value}}: the whole set of the user's own values;

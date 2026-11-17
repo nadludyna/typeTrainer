@@ -191,29 +191,13 @@ func (p *PostgresStore) SetLap(user, lang string, n int) error {
 	return err
 }
 
-func (p *PostgresStore) Placement(user, lang string) (Placement, error) {
-	var pl Placement
-	err := p.db.QueryRow(`SELECT placed, goal, known FROM progress WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&pl.Done, &pl.Goal, &pl.Known)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Placement{}, nil
-	}
-	return pl, err
-}
-
-func (p *PostgresStore) SetPlacement(user, lang string, pl Placement) error {
-	_, err := p.db.Exec(`INSERT INTO progress (user_id, lang, placed, goal, known) VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (user_id, lang) DO UPDATE SET placed = EXCLUDED.placed, goal = EXCLUDED.goal, known = EXCLUDED.known`,
-		user, lang, pl.Done, pl.Goal, pl.Known)
-	return err
-}
-
 func (p *PostgresStore) ResetLearn(user, lang string) error {
 	return p.inTx(func(tx *sql.Tx) error {
 		if _, err := tx.Exec(`INSERT INTO epochs (user_id, lang, epoch) VALUES ($1, $2, 1)
 			ON CONFLICT (user_id, lang) DO UPDATE SET epoch = epochs.epoch + 1`, user, lang); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`UPDATE progress SET unlocked = 0, lap = 0, placed = false, goal = 0, known = ''
+		if _, err := tx.Exec(`UPDATE progress SET unlocked = 0, lap = 0
 			WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
 			return err
 		}
@@ -460,11 +444,9 @@ func (p *PostgresStore) Import(user, lang string, data ImportData) error {
 		if err := saveKeyStats(tx, user, lang, data.Keys); err != nil {
 			return err
 		}
-		pl := data.Placement
-		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group, placed, goal, known) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group,
-			placed = EXCLUDED.placed, goal = EXCLUDED.goal, known = EXCLUDED.known`,
-			user, lang, data.Unlocked, data.Lap, data.Group, pl.Done, pl.Goal, pl.Known); err != nil {
+		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group) VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group`,
+			user, lang, data.Unlocked, data.Lap, data.Group); err != nil {
 			return err
 		}
 		for _, s := range data.Sessions {

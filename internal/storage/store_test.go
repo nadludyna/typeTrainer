@@ -33,7 +33,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"Lap":                       testLap,
 	"Device":                    testDevice,
 	"PracticeDays":              testPracticeDays,
-	"PlacementAndResetLearn":    testPlacementAndResetLearn,
+	"ResetLearn":                testResetLearn,
 	"BestRounds":                testBestRounds,
 	"RoundSentTwice":            testRoundSentTwice,
 	"SaveLearned":               testSaveLearned,
@@ -749,36 +749,19 @@ func testAbortedNotShown(t *testing.T, m Store) {
 	}
 }
 
-func testPlacementAndResetLearn(t *testing.T, m Store) {
-	if pl, err := m.Placement(u, "en"); err != nil || pl != (Placement{}) {
-		t.Fatalf("no test yet: %+v, %v", pl, err)
-	}
-	want := Placement{Done: true, Goal: 85, Known: "tin"}
+func testResetLearn(t *testing.T, m Store) {
 	m.SetUnlocked(u, "en", 12)
 	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 3}})
 	m.AddSession(u, "en", Session{WPM: 60, Chars: 10, Round: "r1"})
 	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 50, Level: 1, Round: "c1"})
-	if err := m.SetPlacement(u, "en", want); err != nil {
-		t.Fatal(err)
-	}
-	if pl, _ := m.Placement(u, "en"); pl != want {
-		t.Fatalf("placement %+v, want %+v", pl, want)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 12 {
-		t.Fatalf("the test changed unlocked: %d", n)
-	}
-	if pl, _ := m.Placement(u, "pl"); pl.Done {
-		t.Fatal("the placement leaked into another language")
-	}
 	if err := m.ResetLearn(u, "en"); err != nil {
 		t.Fatal(err)
 	}
-	pl, _ := m.Placement(u, "en")
 	n, _ := m.Unlocked(u, "en")
 	stats, _ := m.KeyStats(u, "en")
 	learn, _ := m.SessionCount(u, "en", "")
 	climb, _ := m.FreeplaySessionCount(u, "en", ModeClimb, "")
-	if pl.Done || n != 0 || len(stats) != 0 || learn != 0 || climb != 1 {
-		t.Fatalf("after ResetLearn: placement %+v, unlocked %d, stats %d, Learn rounds %d, Climb rounds %d (want Climb kept)", pl, n, len(stats), learn, climb)
+	if n != 0 || len(stats) != 0 || learn != 0 || climb != 1 {
+		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Climb rounds %d (want Climb kept)", n, len(stats), learn, climb)
 	}
 }

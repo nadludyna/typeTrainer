@@ -73,7 +73,11 @@ calling the work done.
 ## Voice
 
 The site sounds like a friend who types well and is glad you came: warm,
-lively, with a bit of humour. Never a manual, never a cheerleader.
+lively, with a bit of humour. It tells you how things work the way you'd
+tell a mate about something cool you found: with a little excitement, as
+if the thing is worth hearing about. Dry is a failure too: a correct
+sentence that bores the reader gets rewritten. Never a manual, never a
+cheerleader.
 
 - **Whole sentences, not fragments.** "Only words of 6 letters or more.",
   not "Words of 6+ letters. Separate stats". No "A: B" shorthand
@@ -117,6 +121,7 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
 | Learn: 26 letters, one by one | First you learn the letters, a few at the start and then one at a time. |
 | focus e, pair el | This round leans on e, and on e followed by l, where you slow down. |
 | We pick the words from your mistakes | Words are picked from the letters you miss and the pairs where you slow down. |
+| You start with six letters and get a new one each time the old ones are ready. | Six letters to start. Get them right and a new one pops open, one by one, until you have all 26. |
 | Not saved: no connection. Leaving this screen drops the round | No connection, so this round isn't saved yet. Try Save again before you move on, or the round is lost. |
 | Type a round and I will have something to say | Nothing to say yet. Type something and I'll judge it. |
 

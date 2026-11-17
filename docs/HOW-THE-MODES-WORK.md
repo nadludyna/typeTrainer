@@ -876,10 +876,23 @@ every new letter and real words. You choose to reopen the tour, to turn
 the on-screen keyboard off and the step of the speed goal
 (`docs/PRODUCT.md`).
 
-### 14.7 To check with the simulation before building
+### 14.7 The simulation
 
-- Variety: a fixed focus for many portions in a row may drum the same
-  words more than the softmax draw did.
-- How many rounds each typist of section 10 needs to open every letter.
-- Whether the thresholds 90 % and 85 % and the window of 100 presses hold
-  up, or need other numbers (measure first, then change).
+The rules are in the engine behind a switch (`AccWindow`, 0 = off, as in
+the app); `go run ./tools/sim -apply round -acc 100` turns them on. Once
+every letter is open the focus goes back to the softmax draw of section 7:
+"the newest letter" would stay on the last one for good (a first run gave
+96 % of the words with `q`).
+
+| | built rules | accuracy rules |
+|---|---|---|
+| rounds to open every letter: beginner / middle / fast | 90 / 64 / 65 | 107 / 61 / 50 |
+| exercises until the goal, stream (median) | 134 | 172 |
+| beginner, first 30 exercises: dist / rep | 96 % / 33 % | 97 % / 31 % |
+
+A typist who makes few mistakes opens the letters sooner, one who makes
+many takes longer: accuracy now decides alone. The goal of the simulation
+includes speed, which Learn no longer trains, so it is reached later;
+Reinforce is meant to train it. The forecast "rounds to the next letter"
+(section 6.2) reads the level and shows nothing under these rules: it has
+to be built again on accuracy.

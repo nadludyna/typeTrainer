@@ -35,6 +35,7 @@ type langData struct {
 	lap      int
 	group    string
 	sessions []Session
+	placed   Placement
 
 	freeplay map[string][]Session
 }
@@ -98,6 +99,29 @@ func (m *MemoryStore) SetLap(user, lang string, n int) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.data(user, lang).lap = n
+	return nil
+}
+
+func (m *MemoryStore) Placement(user, lang string) (Placement, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.data(user, lang).placed, nil
+}
+
+func (m *MemoryStore) SetPlacement(user, lang string, pl Placement) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.data(user, lang).placed = pl
+	return nil
+}
+
+func (m *MemoryStore) ResetLearn(user, lang string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	k := key{user, lang}
+	m.epochs[k]++
+	d := m.data(user, lang)
+	d.stats, d.unlocked, d.lap, d.sessions, d.placed = map[string]engine.KeyStat{}, 0, 0, nil, Placement{}
 	return nil
 }
 

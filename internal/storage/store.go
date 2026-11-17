@@ -156,6 +156,14 @@ type Learned struct {
 	Session  *Session
 }
 
+// Placement is what Learn's placement test found: the personal speed goal
+// and the letters already known, opened at once.
+type Placement struct {
+	Done  bool    `json:"done"`
+	Goal  float64 `json:"goal"`
+	Known string  `json:"known"`
+}
+
 type Store interface {
 	KeyStats(user, lang string) (map[string]engine.KeyStat, error)
 	SaveKeyStats(user, lang string, stats map[string]engine.KeyStat) error
@@ -164,6 +172,8 @@ type Store interface {
 	SetUnlocked(user, lang string, n int) error
 	Lap(user, lang string) (int, error)
 	SetLap(user, lang string, n int) error
+	Placement(user, lang string) (Placement, error)
+	SetPlacement(user, lang string, pl Placement) error
 
 	AddSession(user, lang string, s Session) error
 	RecentSessions(user, lang, length string, limit int) ([]Session, error)
@@ -187,6 +197,9 @@ type Store interface {
 	PracticeDays(user, lang string, tz time.Duration) ([]Day, error)
 
 	Reset(user, lang string) error
+	// ResetLearn starts Learn over: its letters, rounds and placement; the
+	// other modes and the study group stay.
+	ResetLearn(user, lang string) error
 	Import(user, lang string, data ImportData) error
 
 	CreateUser(name, passwordHash string, now time.Time, from string) (User, error)

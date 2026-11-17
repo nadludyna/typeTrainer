@@ -34,8 +34,11 @@ are thesis items and stay.
   snapshot and need not have every feature.
 - **The on-screen keyboard with the hands** is part of the product and of the
   thesis; it can be turned off.
-- **Phones:** what they show is not decided yet; during development they show
-  the whole site.
+- **Phones:** the whole site adapts to the screen: the same screens as on a
+  computer with fewer elements, and you can type. Rounds typed on a phone are
+  stored apart and never enter the letter model or the computer stats: thumbs
+  on glass make other mistakes than fingers on keys. Phone typing may grow its
+  own training later.
 - **One mode, three stages.** Every stage adapts to you; each adds one
   measure on top of the ones before. How the trainer picks what you type:
   `docs/HOW-THE-MODES-WORK.md`.

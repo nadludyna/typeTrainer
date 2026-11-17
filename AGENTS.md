@@ -38,9 +38,13 @@ I test by feel, on my own machine, and I do not touch the terminal.
 1. **You run the site.** Start and restart the local server yourself (the web
    files are built into the program, so a change needs a restart). I only
    refresh <http://localhost:3000>. Git pulls are yours too.
-2. **First an opinion, then work.** On any request or mockup say what you think
-   and what you would do better, and why. Build after my "ок". An idea outside
-   the request is a proposal, not an action.
+2. **The wake-up kick before a decision.** When a request changes the
+   product, an algorithm or how the code is built, do not just do it, however
+   sure I sound. First: (a) say in your own words what you heard; (b) say what
+   is good in it and what is doubtful, and why; (c) offer your version; (d) ask
+   one short question that checks I understood the difference. Build after my
+   "ок". Small edits (a margin, a typo, a colour) skip the kick and are done
+   at once. An idea outside the request is a proposal, not an action.
 3. **One branch for one topic, one PR at the end,** when I say so. A GitHub
    issue is not required.
 4. **Every PR description answers three things:** (a) what changed;

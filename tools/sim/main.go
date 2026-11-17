@@ -90,7 +90,7 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		runLanguage(l.ID, cfg.Words.LearnList(l.Words(string(list))), lay.RestingKeys(), cfg, ts)
+		runLanguage(l.ID, l.Words(string(list)), lay.RestingKeys(), cfg, ts)
 	}
 }
 

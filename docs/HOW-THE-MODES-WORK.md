@@ -247,7 +247,7 @@ from home, in the order real words need it. After the first lesson the
 letters open one at a time.
 
 **First lesson.** `StartLetters = 6` letters, more only if fewer than
-`MinWords = 40` real words can be built from them: these six make 74.
+`MinWords = 40` real words can be built from them: these six make 99.
 
 **Level and mastery** (`engine.Level`, `MeetsGoal`, `Mastered`):
 
@@ -397,7 +397,7 @@ one knob for "how hard to push on weaknesses":
 drawn again for every portion, it changes every few words: the user works on
 one letter at a time, but never on the same one for long.
 
-**Step 2, how to train it: every word of the portion contains the focus letter.**
+**Step 2, how to train it: the portion's words contain the focus letter, while it has fresh ones.**
 
 ```
 D(word)   = average difficulty of the word's letters (each occurrence counts)
@@ -405,6 +405,12 @@ F(word)   = RankPenalty^(max(0, rank(word) - MaxRank) / RankStep)
 P(word)  ~ exp(D(word) / T) * F(word) * RepeatPenalty^(uses in the last RecentWords words)
 P(word)  = 0 when it was used MaxRepeats times in the round (and for the word just before or after)
 ```
+
+A word of the focus letter comes only if it is not among the last
+`RecentWords` words. When the focus letter has no such word left (a new
+letter with one or two words, like `j` early on), the rest of the portion
+takes any open word, by the same weights: the weak letters still lead, and
+no word is drummed.
 
 Among words that contain the focus letter, the ones that also contain other weak
 letters are preferred.
@@ -427,7 +433,7 @@ With `RankStart = 200`, `RankStep = 200` and `RankPenalty = 0.5`, every lesson
 before the full alphabet allows the 200 most common words freely, and every
 200 places further down the list halve a word's chance (rank 1000: 1/16).
 When the last letter opens, the limit grows in a straight line and reaches the
-whole list (10 000) after `RampLetters = 10 000` letters, about 1700-1900
+whole list (25 000) after `RampLetters = 10 000` letters, about 1700-1900
 words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 
 - **The ramp counts typed letters, not rounds.** Rounds have different
@@ -461,7 +467,7 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
   never trained less because its words are rare.
 - **A soft penalty, not a ban.** The weight is never 0, so rare words stay
   possible, and a letter whose words are all rare still gets practised. Early
-  lessons have few words at all (in English 74 in the first lesson, only 4 of
+  lessons have few words at all (in English 99 in the first lesson, only 4 of
   them among the 200 most common), so a hard limit would leave the user with
   a handful of words.
 - **A floor for a lesson.** For the same reason the limit is never below the
@@ -475,13 +481,11 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 the last `RecentWords = 24` words of the round unlikely (24 plus the 6 of the
 portion being built: the whole round of 30), and the same word never appears
 twice in a row (also across the border of two portions). On top of the
-penalty, a hard cap: a word used `MaxRepeats = 2` times in that window is not
-picked again. When the cap leaves the focus letter no word, the slot takes
-any open word by the same weights (`D`, `F` with the general `MaxRank`, the
-penalty), so the round still trains the focus letter in most of its words
-but no word comes a third time. Only a
-dictionary too small for both rules relaxes them (first the cap, then
-"not twice in a row").
+penalty, every slot first takes a word not used in that window: the
+focus letter's words, then any open word (`D`, `F` with the general
+`MaxRank`). Only when no fresh word is left does a word come again, at most
+`MaxRepeats = 2` times. Only a dictionary too small for these rules relaxes
+them (first the cap, then "not twice in a row").
 
 **No one-letter words.** Words shorter than `MinWordLetters = 2` are left
 out of learning when the generator is made (`NewGenerator`): `a` and
@@ -559,7 +563,6 @@ All in `internal/config/config.go`.
 | `MasteryLevel` | 80 | level needed for mastery (section 6) | few mistakes near the goal speed; with the simulation, a fast typist opens every letter in about 46 rounds instead of 348 |
 | `UnmasteredBonus` | 0.2 | added to the difficulty of a letter not mastered yet, for the choice only | e^(0.2/0.1) ≈ 7 times the weight of an equal mastered letter: a blocking letter gets about half the portions among ten (section 7) |
 | `StartLetters` / `MinWords` | 6 / 40 | first lesson; the open words that always come freely | letters open one by one from early on; a round of 30 words without the same few words |
-| `LearnWords` | 10 000 | Learn's word list, the most common words of the long list | enough words for the first lessons (74 from six letters) |
 | `RepeatPenalty` | 0.3 | less repetition of recent words | variety |
 | `MaxRepeats` | 2 | a word comes at most this many times in a round | the penalty alone let a rare letter's 10 words come 5-6 times in 30 (section 7); 2 still lets a mistyped word come back |
 | `MinWordLetters` | 2 | shorter words never appear in learning | `a`, `i`, `в` are filler, not practice (section 7) |
@@ -712,13 +715,14 @@ switch the layout. Caps Lock is detected the same way. Wrong-layout presses
 would otherwise ruin the statistics for reasons that have nothing to do with
 typing skill.
 
-**Word list.** Learn takes the `LearnWords = 10 000` most common words of
-the long list (`data/langs/<id>/free.txt`, section 13), one-letter words
+**Word list.** Learn takes the whole long list, 25 000 words
+(`data/langs/<id>/free.txt`, section 13), one-letter words
 left out (`MinWordLetters`, section 7). Word frequencies come from
 FrequencyWords (Hermit Dave), counted in the OpenSubtitles 2018 corpus
 (CC BY-SA 4.0). Subtitle frequencies are a good model of everyday language
 (Brysbaert & New, 2009). A large list keeps the early lessons, which can
-only use a few letters, from repeating the same words.
+only use a few letters, from repeating the same words: short words that are
+not common are what those lessons need most.
 
 ## 12. Climb, hidden
 

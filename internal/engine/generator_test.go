@@ -277,7 +277,7 @@ func TestWithWords_ALevelDrawsOnlyItsWords(t *testing.T) {
 func TestWithPairs_WeakPairsComeMoreOften(t *testing.T) {
 	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
 	p := testParams
-	p.PairBoost = 20
+	p.PairBoost, p.PortionWords = 20, 2
 	count := func(gen *Generator) (n int) {
 		for i := 0; i < 200; i++ {
 			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
@@ -310,5 +310,25 @@ func TestSetHome_MostCommonOtherLetterClosesTheFirstLesson(t *testing.T) {
 	g.SetHome([]string{"a", "s", "d", "f"}, p)
 	if got := strings.Join(g.Order(), ""); got != "asdfet" {
 		t.Errorf("a first lesson past the home letters: got %s, want the plain asdfet", got)
+	}
+}
+
+func TestPortion_FewFocusWordsDoNotRepeat(t *testing.T) {
+	words := []string{"aa", "ab", "ba", "aab", "bba", "abb", "baa", "aaa", "bbb", "bb", "jab"}
+	for seed := int64(1); seed <= 20; seed++ {
+		g := NewGenerator(words, newRng(seed), testParams)
+		p := testParams
+		p.StartLetters, p.MinWords = 3, 0
+		weak := map[string]KeyStat{"a": {Count: 100, TimeEMA: 100, TimedCount: 100}, "b": {Count: 100, TimeEMA: 100, TimedCount: 100}}
+		por := g.Portion(weak, 3, 0, nil, nil, p)
+		n := 0
+		for _, w := range por.Words {
+			if w == "jab" {
+				n++
+			}
+		}
+		if por.Focus == "j" && n != 1 {
+			t.Fatalf("seed %d: the only j word came %d times in %v", seed, n, por.Words)
+		}
 	}
 }

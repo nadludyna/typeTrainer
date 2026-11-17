@@ -86,7 +86,7 @@ its own.
 
 - `data/layouts/*.json`: Keys, rows, finger per key, AltGr letters, finger colors.
 
-- `data/langs/en/free.txt`: The word list, most frequent first (25 000 words, `tools/wordlists/free.py`): Learn takes the first 10 000, Reinforce, Climb and Freetype all of it.
+- `data/langs/en/free.txt`: The word list, most frequent first (25 000 words, `tools/wordlists/free.py`): used by every mode (Reinforce's word levels are its first n).
 
 - `data/langs/en/sentences.txt`: Freetype's real sentences, one per line (from Tatoeba, CC BY 2.0 FR, `tools/sentences/build.py`).
 

@@ -81,7 +81,7 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	if len(long) == 0 {
 		return nil, fmt.Errorf("word list is empty")
 	}
-	gen := engine.NewGenerator(cfg.Words.LearnList(long), rand.New(rand.NewSource(seed)), cfg.Engine)
+	gen := engine.NewGenerator(long, rand.New(rand.NewSource(seed)), cfg.Engine)
 	gen.SetHome(lay.RestingKeys(), cfg.Engine)
 	gen.SetWordParams(cfg.Words)
 	free := freeplay.NewPicker(freeplay.Longer(long, cfg.Freeplay.MinLetters), rand.New(rand.NewSource(seed+1)))

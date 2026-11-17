@@ -164,8 +164,8 @@ func TestPortion_MaxRepeatsInARound(t *testing.T) {
 				t.Fatalf("seed %d: %q %d times in %v", seed, w, uses[w], round)
 			}
 		}
-		if uses["cab"]+uses["abc"] != 2*p.MaxRepeats {
-			t.Fatalf("seed %d: the focus words should fill their cap first: %v", seed, round)
+		if uses["cab"] < 1 || uses["abc"] < 1 {
+			t.Fatalf("seed %d: every focus word should come: %v", seed, round)
 		}
 	}
 }

@@ -49,7 +49,7 @@ func TestAdaptiveBeatsRandom(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			words, home := cfg.Words.LearnList(l.Words(string(list))), lay.RestingKeys()
+			words, home := l.Words(string(list)), lay.RestingKeys()
 
 			for seed := int64(1); seed <= typists; seed++ {
 				stream := runOne(kStream, seed, words, home, cfg)

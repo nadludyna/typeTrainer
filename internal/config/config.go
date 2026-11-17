@@ -143,7 +143,6 @@ func Default() Config {
 		Words: engine.WordParams{
 			FloorWords:  10,
 			RampLetters: 10000,
-			LearnWords:  10000,
 		},
 		Freeplay: freeplay.Params{
 			PortionWords:  6,

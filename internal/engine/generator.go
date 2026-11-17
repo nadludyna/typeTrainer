@@ -24,15 +24,6 @@ type Generator struct {
 type WordParams struct {
 	FloorWords  int
 	RampLetters float64
-	LearnWords  int // Learn's list: this many of the long list's most common words
-}
-
-// LearnList is Learn's word list: the first LearnWords of the long list.
-func (wp WordParams) LearnList(long []string) []string {
-	if wp.LearnWords > 0 && wp.LearnWords < len(long) {
-		return long[:wp.LearnWords]
-	}
-	return long
 }
 
 func (g *Generator) SetWordParams(wp WordParams) {
@@ -339,6 +330,7 @@ func (pl *pool) pickFocus(r float64) string { return pl.open[WeightedPick(pl.let
 
 func (pl *pool) pickWord(focus string, uses []int, p Params, r float64, avoid ...int) int {
 	neighbour := func(idx int) bool { return contains(avoid, idx) }
+	used := func(idx int) bool { return neighbour(idx) || uses[idx] > 0 }
 	capped := func(idx int) bool { return p.MaxRepeats > 0 && uses[idx] >= p.MaxRepeats }
 	all := make([]int, len(pl.words))
 	for i := range all {
@@ -349,7 +341,8 @@ func (pl *pool) pickWord(focus string, uses []int, p Params, r float64, avoid ..
 		maxRank float64
 		banned  func(int) bool
 	}{
-		{pl.byLetter[focus], pl.letterMaxRank(focus), func(i int) bool { return neighbour(i) || capped(i) }},
+		{pl.byLetter[focus], pl.letterMaxRank(focus), used},
+		{all, pl.maxRank, used},
 		{all, pl.maxRank, func(i int) bool { return neighbour(i) || capped(i) }},
 		{all, pl.maxRank, neighbour},
 		{all, pl.maxRank, func(int) bool { return false }},

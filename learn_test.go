@@ -171,7 +171,7 @@ func TestApp_RareWordsAfterTheAlphabet(t *testing.T) {
 	}
 	list, _ := os.ReadFile("data/langs/en/free.txt")
 	rank := map[string]int{}
-	for i, w := range cfg.Words.LearnList(strings.Fields(string(list))) {
+	for i, w := range strings.Fields(string(list)) {
 		if _, ok := rank[w]; !ok {
 			rank[w] = i
 		}

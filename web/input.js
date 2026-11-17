@@ -29,7 +29,8 @@ window.addEventListener("resize", () => {
 });
 
 // ---------- screens: typing / stats ----------
-const statsOnly = isTouch();
+// Phones show the whole site for now, the same as a computer.
+const statsOnly = false;
 document.body.classList.toggle("stats-only", statsOnly);
 export function startView() {
   if (statsOnly) setView("stats");

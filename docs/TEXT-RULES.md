@@ -3,10 +3,15 @@
 How to write every text a user sees: labels, buttons, descriptions,
 tooltips, messages, the first-visit guide. All of them live in `web/i18n.js`.
 
-These rules apply to every change, new features included: whoever adds or
-changes something decides on their own what text it needs, how much and
-where, without waiting to be told. Check the text against them before
-calling the work done.
+**Who writes.** The maintainer writes the texts. An agent is the editor:
+it checks the facts and numbers against the code, fixes grammar, fits the
+text to these rules and to the place on screen, and says what it changed.
+It does not write new texts on its own. When a feature needs a text, the
+agent says where and what it must tell, and asks the maintainer for it; a
+short label may go in as a placeholder, marked as such.
+
+These rules apply to every change, new features included. Check the text
+against them before calling the work done.
 
 ## Principles
 
@@ -53,8 +58,8 @@ calling the work done.
     every button needs a tooltip, not every section needs a note.
     Consistency means the same reasoning, not the same structure.
 12. **Apply this on your own.** When adding or changing a feature, decide
-    what text it needs, how much and where. Remove what is unneeded and add
-    what is missing without being asked.
+    where a text is needed and how much, and point out what is unneeded or
+    missing; the words come from the maintainer.
 13. **Keep good text.** Change a text only when it gets clearer, more
     accurate, more consistent or easier to use.
 14. **Text is part of the interface.** Think of the phone: wrapping, how

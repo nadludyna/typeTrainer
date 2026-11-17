@@ -53,7 +53,7 @@ comments. How the parts fit together is in `docs/HOW-THE-CODE-WORKS.md`.
   for recalculation only). A round finished with Esc is saved and learned
   normally. The model is applied once per round, at its end.
 - Every text the user sees follows `docs/TEXT-RULES.md` and lives in
-  `web/i18n.js`; decide yourself what text a new feature needs. Never
+  `web/i18n.js`; the maintainer writes the words (`docs/TEXT-RULES.md`, "Who writes"). Never
   hard-code interface text in the other `.js` files or `index.html`; use
   `t("key")` or `data-i18n="key"`. The one exception is `web/file-check.js`
   (the page opened from disk, where modules cannot load).

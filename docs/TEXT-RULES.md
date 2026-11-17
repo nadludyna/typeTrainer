@@ -102,8 +102,8 @@ cheerleader.
   a toast ("Your fingers have earned a break."). The
   mascot may joke and tease more. Humour never hides a fact and never
   makes fun of the user's mistakes. Errors, the reset window and anything
-  that deletes data stay plain. Never emoji, never CAPS; an exclamation
-  mark only from the mascot.
+  that deletes data stay plain. An exclamation mark is fine wherever the
+  moment earns it ("Well done, you've mastered every letter!").
 - **Mistakes are information.** Never blame: a failed test is "Not passed
   yet", not "Failed". A setback says what to do next ("Twice in a row and
   you slide down one.").
@@ -141,8 +141,7 @@ Join parts with words or a comma, not "A · B"; only a tooltip uses "·",
 before its shortcut. Labels, buttons, headings and short name-like values ("New best",
 "Mastered", "≈ 3 rounds") have no full stop. Every text that is a
 sentence (a description, tooltip, message, news line, guide step, the
-mascot) ends with a full stop, a question mark or, for the mascot, an
-exclamation mark.
+mascot) ends with a full stop, a question mark or an exclamation mark.
 
 ## Word list
 

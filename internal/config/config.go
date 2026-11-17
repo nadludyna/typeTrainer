@@ -30,6 +30,7 @@ type Config struct {
 
 	MaxRoundWords   int
 	MaxRoundSeconds int
+	MaxTypedSeconds int
 
 	ConsistencyMinSeconds int
 	StreakAccuracies      []float64
@@ -81,6 +82,7 @@ func Default() Config {
 
 		MaxRoundWords:   500,
 		MaxRoundSeconds: 600,
+		MaxTypedSeconds: 3600,
 
 		ConsistencyMinSeconds: 5,
 		StreakAccuracies:      []float64{95, 97, 100},

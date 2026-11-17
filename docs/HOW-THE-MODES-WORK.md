@@ -246,9 +246,9 @@ checked on the raw values (not on the shrunk difficulty) so it can be
 explained to a user in one sentence. The state is remembered per letter
 (`KeyStat.Held`, updated by every sample in `Update`).
 
-**Next letter.** After each portion of the stream (section 7): if every open
+**Next letter.** When a round ends (section 7): if every open
 letter is mastered, the next letter in the order opens. At most one letter per
-portion. A new letter
+round. A new letter
 starts at the prior difficulty 0.7, which is higher than the difficulty of the
 mastered letters, so it automatically becomes the focus.
 
@@ -269,7 +269,7 @@ goal of lap n = min(TargetWPM + n * StepWPM, MaxWPM)
               = 30, 35, 40, 45, 50, 55, 60 wpm   (lap 0 .. 6; LastLap = 6)
 ```
 
-- **When.** After the presses of a portion (or of the round's end) are
+- **When.** After the presses of a round are
   applied, if every letter is open and mastered at the lap's goal
   (`LapDone`) and the lap is not the last, the next lap starts. The server
   keeps the lap per user and language (`Store.Lap`, `progress.lap`,
@@ -460,7 +460,8 @@ their own lists and are not affected.
 **Mistyped words come back.** Words the user typed with a mistake (a wrong or
 extra letter, or skipped letters; a mistake fixed with Backspace counts too)
 are typed again: up to `RetryWords = 2` of them are put into the next portion
-that is built, at random places, instead of new words. They are not repeated
+that is built, at random places, instead of new words, unless the word
+already came `MaxRepeats` times in the round. They are not repeated
 right away, because of the waiting portions (below), but about 2 portions
 later. Repeating a missed item after a short gap is the idea of spaced
 practice; here it is the simplest version, one repetition. A word the user
@@ -470,15 +471,17 @@ the fix.
 
 **Focus shown to the user** is the focus letter of the portion being typed.
 
-**When does the model react?** After every portion. When the space after its
-last word is typed, the portion's samples are sent, the statistics are
-updated (and maybe a letter opens), and the answer is one new portion built
-from the new values. It is added at the end of the text. `AheadPortions = 2`
+**When does the model react?** Once per round, when it ends: the round's
+presses go to `/results`, the statistics are updated and maybe a letter
+opens. Inside a round the letters' numbers stay as they were at its start:
+when the space after a portion's last word is typed, the browser asks for
+one new portion, built from those numbers and the words typed so far
+(mistyped words come back, the repeat cap holds). It is added at the end
+of the text. `AheadPortions = 2`
 portions always wait after the one being typed, so the user can read ahead
 (12 words, shown one more for each finished word) and **words already on the
 screen never change**. The cost
-is a delay: a new portion is typed about 12 words after the data it was built
-from.
+is that what a round teaches the model shows from the next round on.
 
 **The round.** The stream is cut into rounds of `RoundPortions = 5` portions
 (30 words), so the user always sees how much is left (`3 / 30` over the text) and

@@ -482,7 +482,7 @@ function abortRound() {
   if (!learning() || startTime === null || !round) return;
   const keys = records.filter(Boolean);
   if (!keys.length) return;
-  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length }).catch(console.error);
+  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length, seconds: typedSeconds(lastTime) }).catch(console.error);
 }
 
 export function checkLayout() {
@@ -499,6 +499,9 @@ function currentRaw(end = performance.now()) {
   if (startTime === null) return 0;
   const minutes = (end - startTime) / 60000;
   return minutes > 0 ? (presses / 5) / minutes : 0;
+}
+function typedSeconds(end) {
+  return startTime === null || end === null ? 0 : Math.max(0, (end - startTime) / 1000);
 }
 function fullSeconds(end) {
   const n = startTime === null ? 0 : Math.floor((end - startTime) / 1000);
@@ -530,17 +533,16 @@ setInterval(() => {
   const now = performance.now();
   if (limit.kind === "time") renderProgress();
   S.roundSeconds = (now - startTime) / 1000;
-  if (tickGoal()) { pauseRound(now, "goal"); return; }
+  tickGoal();
   if (timeUp(now)) finishRound();
   else if (now - lastTime > IDLE_PAUSE_MS) pauseRound(lastTime);
 }, 500);
 
-export function pauseRound(since, why) {
+export function pauseRound(since) {
   if (pausedAt !== null || S.busy || !S.text) return;
   if (S.view !== "type" || el.textBox.classList.contains("resulting")) return;
   pausedAt = typeof since === "number" ? since : performance.now();
   boxState(true, "paused");
-  el.textBox.classList.toggle("goal", why === "goal");
 }
 function resumeRound(now) {
   const away = now - pausedAt;
@@ -551,7 +553,6 @@ function resumeRound(now) {
   }
   pausedAt = null;
   boxState(false, "paused");
-  el.textBox.classList.remove("goal");
 }
 
 async function finishRound() {
@@ -572,7 +573,7 @@ async function finishRound() {
     if (!typed.length) { await loadExercise(); return; }
     if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
-    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round };
+    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end) };
     learnRound++;
     let res;
     try {
@@ -621,7 +622,7 @@ const roundId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b)
 async function finishFree(wpm, accuracy, keys, perSecond) {
   const before = S.climb?.sessions ?? [];
   const level = S.climbLevel;
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), level, round };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), level, round, seconds: typedSeconds(lastTime) };
   const saved = async (res) => {
     S.climbLevel = res.place.level;
     refreshActivity();
@@ -660,7 +661,7 @@ async function trySave(path, body, saved) {
 async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const variant = S.freetypeVariant, list = roundList();
   const before = S.freetype?.sessions ?? [];
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, round };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, round, seconds: typedSeconds(lastTime) };
   const done = wordsTyped;
   const saved = async () => {
     if (variant === "custom") customRoundDone(done);

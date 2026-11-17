@@ -26,6 +26,7 @@ type Session struct {
 	Device   string          `json:"device,omitempty"`
 	Epoch    int             `json:"epoch"`
 	Aborted  bool            `json:"aborted,omitempty"`
+	Seconds  float64         `json:"seconds,omitempty"`
 	Round    string          `json:"-"`
 }
 
@@ -75,6 +76,19 @@ type Day struct {
 	Rounds  int     `json:"rounds"`
 	Seconds float64 `json:"seconds"`
 	Chars   int     `json:"chars"`
+}
+
+// TypedSeconds is the time a round counts toward the daily goal: the time
+// the browser measured, or for rounds saved before it was sent, an estimate
+// from speed and characters (aborted ones then count nothing).
+func (s Session) TypedSeconds() float64 {
+	if s.Seconds > 0 {
+		return s.Seconds
+	}
+	if s.Aborted {
+		return 0
+	}
+	return RoundSeconds(s.WPM, s.Accuracy, s.Chars)
 }
 
 func RoundSeconds(wpm, accuracy float64, chars int) float64 {

@@ -275,17 +275,17 @@ func (m *MemoryStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, 
 		all = append(all, h...)
 	}
 	for _, s := range all {
-		if s.Aborted {
-			continue
-		}
 		date := s.FinishedAt.UTC().Add(tz).Format("2006-01-02")
 		day := byDate[date]
 		if day == nil {
 			day = &Day{Date: date}
 			byDate[date] = day
 		}
+		day.Seconds += s.TypedSeconds()
+		if s.Aborted {
+			continue
+		}
 		day.Rounds++
-		day.Seconds += RoundSeconds(s.WPM, s.Accuracy, s.Chars)
 		day.Chars += s.Chars
 	}
 	out := make([]Day, 0, len(byDate))

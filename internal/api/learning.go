@@ -235,9 +235,10 @@ func newLap(done learned, p engine.Params) float64 {
 }
 
 type abortRequest struct {
-	Round  string          `json:"round"`
-	Keys   []engine.Sample `json:"keys"`
-	Length string          `json:"length"`
+	Round   string          `json:"round"`
+	Keys    []engine.Sample `json:"keys"`
+	Length  string          `json:"length"`
+	Seconds float64         `json:"seconds"`
 }
 
 // A round dropped with Tab: its raw presses are kept, but it is not shown
@@ -265,7 +266,7 @@ func (s *Server) handleAbort(w http.ResponseWriter, r *http.Request, user string
 	defer s.writeMu.Unlock()
 	if err := s.store.AddSession(user, l.Info.ID, storage.Session{
 		Keys: req.Keys, Chars: len(req.Keys), FinishedAt: time.Now(),
-		Length: req.Length, Round: req.Round, Aborted: true,
+		Length: req.Length, Round: req.Round, Aborted: true, Seconds: s.typedSeconds(req.Seconds),
 	}); err != nil {
 		serverError(w, err)
 		return
@@ -286,6 +287,7 @@ type resultsRequest struct {
 	List      int             `json:"list"`
 	Variant   string          `json:"variant"`
 	Round     string          `json:"round"`
+	Seconds   float64         `json:"seconds"`
 }
 
 func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -334,8 +336,9 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	err = s.store.SaveLearned(user, l.Info.ID, done.record(&storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Group: group, Device: req.Device,
-		Lap:   done.lap,
-		Round: req.Round,
+		Lap:     done.lap,
+		Round:   req.Round,
+		Seconds: s.typedSeconds(req.Seconds),
 	}))
 	if err != nil {
 		serverError(w, err)
@@ -499,6 +502,12 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request, user str
 }
 
 const maxTZMinutes = 14 * 60
+
+// typedSeconds keeps a round's measured time in 0..MaxTypedSeconds: the
+// daily goal counts it, so a wrong clock can neither break nor fill it.
+func (s *Server) typedSeconds(x float64) float64 {
+	return min(max(x, 0), float64(s.cfg.MaxTypedSeconds))
+}
 
 func (s *Server) validLength(length string) bool {
 	return validLength(length, s.cfg.MaxRoundWords, s.cfg.MaxRoundSeconds)

@@ -383,7 +383,7 @@ func TestApp_PortionSentTwice(t *testing.T) {
 func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 	h, _, _ := newApp()
 	keys := `[{"char":"a","errors":1,"ms":300},{"char":"s","errors":0,"ms":400}]`
-	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30"}`
+	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30","seconds":19.5}`
 	for range 2 {
 		if code, out := call(t, h, "POST", "/api/v1/abort?lang=en", body); code != 200 {
 			t.Fatalf("abort: %d %v", code, out)
@@ -402,8 +402,9 @@ func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 		t.Fatalf("an aborted round must not be among the bests: %v", b)
 	}
 	_, out := call(t, h, "GET", "/api/v1/activity?lang=en", "")
-	if days := out["days"].([]any); len(days) != 0 {
-		t.Fatalf("an aborted round must not count as practice: %v", days)
+	if days := out["days"].([]any); len(days) != 1 || days[0].(map[string]any)["rounds"].(float64) != 0 ||
+		days[0].(map[string]any)["seconds"].(float64) != 19.5 {
+		t.Fatalf("an aborted round counts its time toward the daily goal, and nothing else: %v", days)
 	}
 	_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
 	if rounds := hist["rounds"].([]any); len(rounds) != 0 {

@@ -585,6 +585,13 @@ func testPracticeDays(t *testing.T, m Store) {
 	if len(days) != 2 || days[0].Rounds != 1 || days[1].Date != "2026-10-18" || days[1].Rounds != 2 {
 		t.Fatalf("UTC+2: %+v, want 1 round on the 17th and 2 on the 18th", days)
 	}
+	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 50, Chars: 300, Seconds: 95.5, FinishedAt: at("2026-10-18T10:00:00Z")})
+	m.AddSession(u, "en", Session{Chars: 40, Seconds: 19, Aborted: true, Round: "tab", FinishedAt: at("2026-10-18T10:05:00Z")})
+	m.AddSession(u, "en", Session{Chars: 40, Aborted: true, Round: "old-tab", FinishedAt: at("2026-10-18T10:06:00Z")})
+	days, _ = m.PracticeDays(u, "en", 0)
+	if d := days[1]; d.Rounds != 2 || d.Chars != 300 || math.Abs(d.Seconds-114.5) > 0.01 {
+		t.Fatalf("measured seconds: %+v, want 2 rounds, 300 letters, 95.5 + 19 s (a Tab-dropped round counts its time only)", d)
+	}
 	m.Reset(u, "en")
 	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 0 {
 		t.Fatalf("after reset: %v, want none", days)

@@ -371,7 +371,7 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 	placed := 0
 	for _, w := range retry {
 		idx, ok := pl.index[w]
-		if !ok || placed >= p.RetryWords || contains(slots, idx) {
+		if !ok || placed >= p.RetryWords || contains(slots, idx) || (p.MaxRepeats > 0 && uses[idx] >= p.MaxRepeats) {
 			continue
 		}
 		free := []int{}

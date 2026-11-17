@@ -146,11 +146,12 @@ func (s *Server) handleFreeplayResults(w http.ResponseWriter, r *http.Request, u
 	defer s.writeMu.Unlock()
 	err := s.store.AddFreeplaySession(user, l.Info.ID, storage.ModeClimb, storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys:   req.Keys,
-		Length: req.Length,
-		Device: req.Device,
-		Level:  req.Level,
-		Round:  req.Round,
+		Keys:    req.Keys,
+		Length:  req.Length,
+		Device:  req.Device,
+		Level:   req.Level,
+		Round:   req.Round,
+		Seconds: s.typedSeconds(req.Seconds),
 	})
 	if err != nil {
 		serverError(w, err)

@@ -17,7 +17,8 @@ calling the work done.
    only when the look doesn't say enough, and says what the thing means
    for you, not how it is computed.
 2. **Every text earns its place.** If removing it does not make the
-   interface less clear, remove it.
+   interface less clear, remove it. If a bar, a dot or a colour can show it, it
+   needs no text.
 3. **Don't explain the obvious.** Familiar labels such as "Caret" or "Your
    progress" need no description. Never add text to fill space or to keep a
    pattern.
@@ -129,6 +130,7 @@ exclamation mark.
 |---|---|
 | one typing run (10–50 words or 15–90 s) | round |
 | the learning mode, the main one | Learn |
+| the part after Learn, when every letter is open | Reinforce |
 | the second mode, harder as you get better | Climb |
 | how hard Climb is now, 1 to 10 (which words) | level |
 | the third mode, plain typing | Freetype |

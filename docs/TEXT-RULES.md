@@ -32,8 +32,7 @@ against them before calling the work done.
    interface less clear, remove it. If a bar, a dot or a colour can show it, it
    needs no text.
 4. **Don't explain the obvious.** Familiar labels such as "Caret" or "Your
-   progress" need no description. Never add text to fill space or to keep a
-   pattern.
+   progress" need no description.
 5. **Explain what isn't obvious:** unusual behaviour, unfamiliar ideas,
    important limits, and consequences the user might not expect.
 6. **Match detail to need.** A simple control needs little or nothing; a
@@ -49,8 +48,7 @@ against them before calling the work done.
    another. Count what is already around it: the heading, the controls, the
    icons, what the user likely knows.
 9. **Precise, natural language.** No repetition, filler, generic AI
-   phrasing or vague claims. Words from the code (dots, estimate, focus,
-   separate stats) never reach the screen. One thing has one name
+   phrasing or vague claims. One thing has one name
    everywhere (word list below).
 10. **Spell out consequences that matter.** "Load replaces your current
    progress with the one in the file". "This cannot be undone".
@@ -81,8 +79,7 @@ The site sounds like a friend who types well and is glad you came: warm,
 lively, with a bit of humour. It tells you how things work the way you'd
 tell a mate about something cool you found: with a little excitement, as
 if the thing is worth hearing about. Dry is a failure too: a correct
-sentence that bores the reader gets rewritten. Never a manual, never a
-cheerleader.
+sentence that bores the reader gets rewritten.
 
 - **Whole sentences, not fragments.** "Only words of 6 letters or more.",
   not "Words of 6+ letters. Separate stats". No "A: B" shorthand

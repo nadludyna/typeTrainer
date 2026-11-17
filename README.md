@@ -5,7 +5,7 @@
 <h1 align="center">typeTrainer</h1>
 
 <p align="center">
-  A typing trainer that finds your weak letters and builds the next words around them. Real words only.<br><br>
+  A typing trainer that finds your weak letters and builds the next words around them.<br><br>
   <a href="https://nadludyna.github.io/typeTrainer/"><b>Start typing</b></a>
   ·
   <a href="docs/HOW-THE-MODES-WORK.md">How it works</a>

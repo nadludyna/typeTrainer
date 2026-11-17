@@ -69,8 +69,6 @@ there is a reason not to).
   columns), 640 px (phone), 380 px (very small phone).
 - Sizes follow the window: the keyboard key size `--u` and the text width
   `--tw` are computed from the viewport, not picked from presets.
-- Phones and tablets show only the stats and the account (`docs/PRODUCT.md`): no typing screen, no navigation, a short line
-  says that practice needs a computer keyboard.
 - Long names are cut with "…" instead of pushing other things away.
 
 **Recommended**
@@ -97,7 +95,7 @@ there is a reason not to).
   theme, dark.
 - Surfaces in three steps: the page (`--bg`), cards (`--panel`) and small
   things on them (`--panel-2`). Depth is `--lift` (a hairline edge and a
-  short soft shadow), never a heavy shadow. Corners: `--r-sm`, `--r-md`, `--r-lg`.
+  short soft shadow). Corners: `--r-sm`, `--r-md`, `--r-lg`.
 - The typing screen has no card or frame around the text: the order of
   importance is shown by size and brightness alone. The text is the biggest
   and brightest.
@@ -111,10 +109,6 @@ there is a reason not to).
 **Recommended**
 - The most important thing on a screen is the first one the eye finds. On
   the typing screen that is the text; on the result, the speed.
-- Don't add colour, borders, icons or animation that carry no meaning. A
-  line separates sections; it is not decoration.
-- Don't introduce a new colour or font size when an existing variable or
-  class fits.
 
 ## 5. Text and labels
 
@@ -130,7 +124,7 @@ consequences, the same word for the same thing. All text lives in
   it are in `docs/CODE-RULES.md` ("Architecture rules") and `AGENTS.md`
   ("How we work"). Feel numbers live in `web/feel.js`.
 - A state changes at once. Only the caret, the line scroll and the keyboard's
-  lit key move (`docs/PRODUCT.md`, "Plain defaults").
+  lit key move (`docs/PRODUCT.md`, "Motion").
 - No `:has()` over a big part of the page (`body`, `#view-type`): any text
   that changes inside it (the hint, a counter) makes the browser restyle
   the whole typing screen on every key (measured:

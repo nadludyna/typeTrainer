@@ -1,7 +1,10 @@
 // Package engine is the adaptive learning model.
 package engine
 
-import "math"
+import (
+	"math"
+	"strings"
+)
 
 type Params struct {
 	Alpha         float64
@@ -42,7 +45,15 @@ type Params struct {
 	RankPenalty float64
 
 	PairBoost float64 // a word's weight grows by this for each weak pair in it (Reinforce)
+
+	// Accuracy rules of Learn (HOW-THE-MODES-WORK section 14); off while AccWindow is 0.
+	AccWindow int     // presses of a letter the accuracy looks at
+	AccPrior  float64 // imaginary misses added to them
+	AccMaster float64 // accuracy of a mastered letter
+	AccSlip   float64 // an older letter under this takes the focus
 }
+
+func (p Params) accuracyRules() bool { return p.AccWindow > 0 }
 
 func (p Params) TargetMs() float64 { return 12000 / p.TargetWPM }
 
@@ -60,6 +71,8 @@ type KeyStat struct {
 	TimeEMA    float64 `json:"timeEma"`
 	TimedCount int     `json:"timedCount"`
 	Held       bool    `json:"held,omitempty"`
+	Hits       string  `json:"hits,omitempty"`    // last AccWindow presses, 1 = correct
+	Slipped    bool    `json:"slipped,omitempty"` // under AccSlip, back at AccMaster clears it
 }
 
 func emaStep(n int, alpha float64) float64 {
@@ -79,7 +92,27 @@ func Update(s KeyStat, smp Sample, p Params) KeyStat {
 		s.TimedCount++
 		s.TimeEMA += emaStep(s.TimedCount, p.Alpha) * (smp.Ms - s.TimeEMA)
 	}
+	if p.accuracyRules() {
+		hit := "1"
+		if smp.Errors > 0 {
+			hit = "0"
+		}
+		s.Hits += hit
+		if len(s.Hits) > p.AccWindow {
+			s.Hits = s.Hits[len(s.Hits)-p.AccWindow:]
+		}
+	}
 	return s
+}
+
+// Accuracy: correct presses over the last AccWindow presses plus AccPrior
+// imaginary misses (Laplace's rule of succession); 0 for an unseen letter.
+func Accuracy(s KeyStat, p Params) float64 {
+	n := float64(len(s.Hits))
+	if n+p.AccPrior == 0 {
+		return 0
+	}
+	return float64(strings.Count(s.Hits, "1")) / (n + p.AccPrior)
 }
 
 func (p Params) errAlpha() float64 {
@@ -100,6 +133,16 @@ func Apply(stats map[string]KeyStat, samples []Sample, p Params) map[string]KeyS
 		touched[smp.Char] = true
 	}
 	for c := range touched {
+		if p.accuracyRules() {
+			s := out[c]
+			if a := Accuracy(s, p); a < p.AccSlip {
+				s.Slipped = true
+			} else if a >= p.AccMaster {
+				s.Slipped = false
+			}
+			out[c] = s
+			continue
+		}
 		if s := out[c]; !s.Held && MeetsGoal(s, p) {
 			s.Held = true
 			out[c] = s
@@ -120,6 +163,9 @@ func RawDifficulty(s KeyStat, p Params) float64 {
 }
 
 func Difficulty(s KeyStat, p Params) float64 {
+	if p.accuracyRules() {
+		return 1 - Accuracy(s, p)
+	}
 	n := float64(s.Count)
 	k := p.PriorStrength
 	if n+k == 0 {
@@ -138,10 +184,16 @@ func Level(s KeyStat, p Params) float64 {
 // Apply checks it once per batch of presses (a round); once met, the letter
 // stays mastered (KeyStat.Held).
 func MeetsGoal(s KeyStat, p Params) bool {
+	if p.accuracyRules() {
+		return Accuracy(s, p) >= p.AccMaster
+	}
 	return s.Count >= p.MasteryMinSamples && s.TimedCount > 0 && Level(s, p) >= p.MasteryLevel
 }
 
 func Mastered(s KeyStat, p Params) bool {
+	if p.accuracyRules() {
+		return MeetsGoal(s, p)
+	}
 	return s.Held || MeetsGoal(s, p)
 }
 

@@ -139,6 +139,11 @@ func Default() Config {
 			RankPenalty: 0.5,
 
 			PairBoost: 2,
+
+			AccWindow: 0,
+			AccPrior:  3,
+			AccMaster: 0.90,
+			AccSlip:   0.85,
 		},
 		Words: engine.WordParams{
 			FloorWords:  10,

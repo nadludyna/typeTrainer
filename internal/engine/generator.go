@@ -188,12 +188,52 @@ func (g *Generator) NextUnlocked(stats map[string]KeyStat, unlocked int, p Param
 	if unlocked == len(g.order) {
 		return unlocked
 	}
+	if p.accuracyRules() {
+		if Accuracy(stats[g.order[unlocked-1]], p) < p.AccMaster {
+			return unlocked
+		}
+		for _, c := range g.order[:unlocked] {
+			if Accuracy(stats[c], p) < p.AccSlip {
+				return unlocked
+			}
+		}
+		return unlocked + 1
+	}
 	for _, c := range g.order[:unlocked] {
 		if !Mastered(stats[c], p) {
 			return unlocked
 		}
 	}
 	return unlocked + 1
+}
+
+// FocusLetter is the focus of the accuracy rules (section 14.4): in the
+// first lesson the lowest letter under AccMaster; later a slipped letter,
+// the lowest first, else the newest letter.
+func (g *Generator) FocusLetter(stats map[string]KeyStat, unlocked int, p Params) string {
+	unlocked = g.Clamp(unlocked)
+	open := g.order[:unlocked]
+	lowest := func(keep func(KeyStat) bool) string {
+		best, bestAcc := "", 2.0
+		for _, c := range open {
+			if a := Accuracy(stats[c], p); keep(stats[c]) && a < bestAcc {
+				best, bestAcc = c, a
+			}
+		}
+		return best
+	}
+	if unlocked <= g.start {
+		if c := lowest(func(s KeyStat) bool { return Accuracy(s, p) < p.AccMaster }); c != "" {
+			return c
+		}
+		return lowest(func(KeyStat) bool { return true })
+	}
+	newest := open[unlocked-1]
+	open = open[:unlocked-1]
+	if c := lowest(func(s KeyStat) bool { return s.Slipped || Accuracy(s, p) < p.AccSlip }); c != "" {
+		return c
+	}
+	return newest
 }
 
 func (g *Generator) Words(unlocked int) []string { return g.eligible(g.Clamp(unlocked)) }
@@ -412,7 +452,11 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 		return por
 	}
 	por.Weakest = pl.weakest
-	por.Focus = pl.pickFocus(g.rng.Float64())
+	if p.accuracyRules() && unlocked < len(g.order) {
+		por.Focus = g.FocusLetter(stats, unlocked, p)
+	} else {
+		por.Focus = pl.pickFocus(g.rng.Float64())
+	}
 
 	uses := make([]int, len(pl.words))
 	if len(recent) > p.RecentWords {

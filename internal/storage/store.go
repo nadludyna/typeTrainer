@@ -141,10 +141,10 @@ var (
 
 // ImportData is one whole progress state for a language, applied all at once.
 type ImportData struct {
-	Keys     map[string]engine.KeyStat
-	Unlocked int
-	Lap      int
-	Group    string
+	Keys      map[string]engine.KeyStat
+	Unlocked  int
+	Lap       int
+	Group     string
 	Sessions  []Session
 	Freeplay  map[string][]Session
 	Placement Placement

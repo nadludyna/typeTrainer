@@ -133,8 +133,7 @@ consequences, the same word for the same thing. All text lives in
   lit key move (`docs/PRODUCT.md`, "Plain defaults").
 - No `:has()` over a big part of the page (`body`, `#view-type`): any text
   that changes inside it (the hint, a counter) makes the browser restyle
-  the whole typing screen on every key (measured:
-  `docs/thesis/06-interface-finger-layout-latency.md`). A state other parts
+  the whole typing screen on every key (measured with `perf.mjs`). A state other parts
   follow goes on `<body>` as a class instead (`boxState` in `state.js`).
 - When a round starts, nothing moves, dims or disappears just because typing
   began; only what has lost its meaning gives way (Learn's last round makes

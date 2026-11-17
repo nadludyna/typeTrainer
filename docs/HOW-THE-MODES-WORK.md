@@ -2,8 +2,7 @@
 
 How the trainer decides what you type next, as the code does it now. Every
 formula here is exactly what the code does, and every number comes from
-`internal/config/config.go`. Why each part is built this way:
-[docs/thesis/04-adaptive-algorithm.md](thesis/04-adaptive-algorithm.md).
+`internal/config/config.go`. Why each part is built this way: section 2.
 
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 (unlocking and word selection). Tests that check each claim:
@@ -32,7 +31,77 @@ feed this model.
 
 ## 2. Design decisions
 
-Moved to [docs/thesis/04-adaptive-algorithm.md](thesis/04-adaptive-algorithm.md), "Design decisions".
+| Decision | Alternative | Why this one |
+|---|---|---|
+| Real words only | Generated letter combinations (pseudo-words) | Words are what people type in real life, they are easier to read and read faster, and they keep motivation up. Cost: early lessons have fewer possible texts. Handled by the unlock order and the `MinWords` rule (section 6). |
+| Statistics per letter | Per key pair (bigram), per word | Simplest unit that can be explained and shown on the keyboard. Climb tracks pairs (section 12.1). |
+| Smoothed recent statistics (EMA) | Lifetime totals | Skill changes. A lifetime error rate remembers mistakes from weeks ago forever. |
+| Probabilistic choice (softmax) | Always train the single worst letter | Always drilling one letter is boring and over-fits; probabilities give focus *and* variety. |
+| Gradual unlocking | All 26 letters from the start | A beginner cannot learn 26 finger positions at once. Experienced typists go through the same steps, only much faster. |
+| Statistics, not a neural network | ML model | No training data is needed, every decision can be explained with a formula, and it runs instantly on the server. |
+
+### Why the home row first
+
+Touch typing courses start from the home row, so the fingers learn where they
+rest. Why a boost and not "all eight resting keys first": with real words a
+rare home letter would starve. `j` has one word among the first nine letters
+("jerk"), and a focus on it would repeat that one word. With the boost, the
+frequent home letters (`a s l d f`) come first and a rare one (`j`) keeps its
+place by frequency. 4 is the smallest boost that brings `f`, the left index
+finger's home, into the first lesson.
+
+### Why mastery has a margin
+
+Without it, one mistake (ErrEMA jumps by `Alpha` = 0.1, over the 0.05 goal)
+takes a mastered letter back for about 7 of its presses, and the next letter
+needs every open letter to be clean at the same moment, so the wait grows with
+every letter opened. A margin between "reach" and "keep" (hysteresis, as a
+thermostat has) makes the state stable: a letter is reached once and lost only
+for a clear reason.
+
+### Why the forecast counts mistakes
+
+One slip lifts `ErrEMA` by about `Alpha` = 0.1 at once (section 4). A line
+through the rounds would point up, as if the letter got worse. Counting the
+mistakes of the window and using the EMA's own formula is calm about a single
+slip and still honest: if the recent mistakes are not under 5 %, the EMA cannot
+get there either.
+
+### Why a straight line for the speed
+
+It is explainable in one sentence and needs no model of learning. Its weakness:
+how fast a letter improves changes (it gets more presses once it becomes the
+focus, and slows down near its limit), and a straight line sees that late.
+
+### Why UnmasteredBonus
+
+A letter a little too slow (450 ms, speed part 0.08) would otherwise get about
+the same share as any mastered letter, and could block every new letter for
+good.
+
+### Why common words first
+
+Without it, words are drawn evenly from the whole list: about half of the
+possible words are from the rare end (ranks 1000-2000), already in the first
+lesson. Common words are also short, so this rule makes the first lessons
+shorter too.
+
+### Flat while learning, ramp after
+
+One difficulty at a time: while letters open only the words change their
+letters, not their rarity; after the full alphabet only the rarity grows.
+
+### Why at most two uses of a word
+
+The repeat penalty alone is weak when a letter has few words: `z` and `q` have
+10 words each in the whole list. With the cap a round on them has about 20
+different words in 30. The price is a few percent more typing to the goal,
+because the focus letter gets fewer words when its words run out.
+
+### Why real sentences
+
+Marks sprinkled on random words read as nonsense, so Freetype's sentences are
+real ones.
 
 ## 3. What is measured
 
@@ -543,7 +612,8 @@ All in `internal/config/config.go`.
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
 The values were chosen by reasoning and the simulation (section 10), not
-fitted to real data; `docs/thesis/08-testing-and-verification.md` says how they could be.
+fitted to real data. Every round keeps its raw keys (`docs/HOW-THE-CODE-WORKS.md`,
+"Raw round records"), so other values can be tried on real typing later.
 
 ## 9. Known simplifications
 
@@ -643,6 +713,18 @@ no forgetting, and learning is the same exponential curve for every letter. The
 simulation compares strategies under the same assumptions; it does not predict
 how fast a real person learns. The variety numbers are simple proxies; how
 boring an exercise feels can only be measured with real users.
+
+### 10.1 Checking it on people
+
+A hidden control group lets the algorithm be compared with random words on
+real people. `?group=random` in the address puts that browser (or account)
+into the control group, `?group=adaptive` takes it back (`web/app.js`,
+`POST /api/v1/group`). The group is never shown. In the control group Learn
+works as usual except the word choice: `Generator.RandomPortion` draws the
+open words evenly, never the same word twice in a row, with no focus letter,
+no frequency penalty and no mistyped words coming back. Every Learn round
+stores its group (`Session.Group`, in `/export` too). A reset or a new
+browser drops the group.
 
 ## 11. Layout and word lists
 

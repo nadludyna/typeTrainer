@@ -1,11 +1,11 @@
 // Shared steps of the browser checks and the latency script.
 
 // The placement test is skipped unless `test` is set, so Learn opens on its
-// usual words.
+// usual words. A 404 means a server without the test.
 export async function openApp(page, storage = {}, { test = false } = {}) {
   if (!test) {
     const res = await page.request.post("/api/v1/placement?lang=en", { data: { skip: true } });
-    if (!res.ok() && res.status() !== 409) throw new Error("placement skip: " + res.status());
+    if (!res.ok() && res.status() !== 409 && res.status() !== 404) throw new Error("placement skip: " + res.status());
   }
   await page.addInitScript((s) => {
     localStorage.setItem("tt.introDone", "1");

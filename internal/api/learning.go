@@ -94,14 +94,15 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	stats, unlocked := done.stats, done.unlocked
-	p := s.params(user).ForLap(done.lapAfter, s.cfg.Laps)
+	gen := done.who.gen
+	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps)
 	group, err := s.store.Group(user, l.Info.ID)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	typed := 0
-	if all := len(l.Gen.Order()); unlocked == all {
+	if all := len(gen.Order()); unlocked == all {
 		if typed, err = s.store.LettersTyped(user, l.Info.ID, all); err != nil {
 			serverError(w, err)
 			return
@@ -122,11 +123,11 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 			if len(recent) > 0 {
 				last = recent[len(recent)-1]
 			}
-			out[i] = l.Gen.RandomPortion(unlocked, last, p)
+			out[i] = gen.RandomPortion(unlocked, last, p)
 			recent = append(recent, out[i].Words...)
 			continue
 		}
-		out[i] = l.Gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
+		out[i] = gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
 		recent = append(recent, out[i].Words...)
 		req.Retry = nil
 	}
@@ -172,14 +173,29 @@ func (s *Server) trimPortionsLocked(now time.Time) {
 	}
 }
 
-func (s *Server) lapParams(user, lang string) (engine.Params, int, error) {
+// learner is one user's Learn setup: the letter order, with the letters the
+// placement test found known moved into the first lesson, and the numbers.
+type learner struct {
+	gen  *engine.Generator
+	base engine.Params
+	pl   storage.Placement
+}
+
+func (s *Server) learner(user string, l *Language) (learner, error) {
+	pl, err := s.store.Placement(user, l.Info.ID)
+	if err != nil {
+		return learner{}, err
+	}
+	return learner{gen: l.Gen.WithKnown(strings.Split(pl.Known, "")), base: s.params(user, pl), pl: pl}, nil
+}
+
+func (s *Server) lapParams(user, lang string, who learner) (engine.Params, int, error) {
 	lap, err := s.store.Lap(user, lang)
 	if err != nil {
 		return engine.Params{}, 0, err
 	}
-	base := s.params(user)
-	lap = min(max(lap, 0), base.LastLap(s.cfg.Laps))
-	return base.ForLap(lap, s.cfg.Laps), lap, nil
+	lap = min(max(lap, 0), who.base.LastLap(s.cfg.Laps))
+	return who.base.ForLap(lap, s.cfg.Laps), lap, nil
 }
 
 type learned struct {
@@ -188,6 +204,7 @@ type learned struct {
 	newLetter     string
 	lap, lapAfter int
 	changed       bool
+	who           learner
 }
 
 func (done learned) record(round *storage.Session) storage.Learned {
@@ -200,7 +217,11 @@ func (done learned) record(round *storage.Session) storage.Learned {
 
 func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out learned, err error) {
 	id := l.Info.ID
-	p, lap, err := s.lapParams(user, id)
+	if out.who, err = s.learner(user, l); err != nil {
+		return
+	}
+	gen := out.who.gen
+	p, lap, err := s.lapParams(user, id, out.who)
 	if err != nil {
 		return
 	}
@@ -212,18 +233,18 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 	if err != nil {
 		return
 	}
-	before = l.Gen.Clamp(before)
+	before = gen.Clamp(before)
 	out.unlocked = before
 	if len(samples) == 0 {
 		return
 	}
 	out.changed = true
 	out.stats = engine.Apply(out.stats, samples, p)
-	out.unlocked = l.Gen.NextUnlocked(out.stats, before, p)
+	out.unlocked = gen.NextUnlocked(out.stats, before, p)
 	if out.unlocked > before {
-		out.newLetter = l.Gen.Order()[out.unlocked-1]
+		out.newLetter = gen.Order()[out.unlocked-1]
 	}
-	if lap < s.params(user).LastLap(s.cfg.Laps) && engine.LapDone(out.stats, l.Gen.Order(), out.unlocked, p) {
+	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), out.unlocked, p) {
 		out.stats, out.lapAfter = engine.StartLap(out.stats), lap+1
 	}
 	return
@@ -347,7 +368,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"unlocked": done.unlocked, "newLetter": done.newLetter, "consistency": consistency,
-		"newLap": newLap(done, s.params(user).ForLap(done.lapAfter, s.cfg.Laps))})
+		"newLap": newLap(done, done.who.base.ForLap(done.lapAfter, s.cfg.Laps))})
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -358,12 +379,17 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user str
 		badRequest(w, "invalid JSON")
 		return
 	}
-	n := l.Gen.Start()
-	if req.UnlockAll {
-		n = len(l.Gen.Order())
-	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	who, err := s.learner(user, l)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	n := who.gen.Start()
+	if req.UnlockAll {
+		n = len(who.gen.Order())
+	}
 	if err := s.store.SetUnlocked(user, l.Info.ID, n); err != nil {
 		serverError(w, err)
 		return
@@ -398,14 +424,20 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	unlocked = l.Gen.Clamp(unlocked)
-	p, lap, err := s.lapParams(user, id)
+	who, err := s.learner(user, l)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	gen := who.gen
+	unlocked = gen.Clamp(unlocked)
+	p, lap, err := s.lapParams(user, id, who)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	keys := []keyInfo{}
-	for i, c := range l.Gen.Order() {
+	for i, c := range gen.Order() {
 		st := stats[c]
 		keys = append(keys, keyInfo{
 			Char: c, Count: st.Count, ErrorRate: st.ErrEMA, AvgMs: st.TimeEMA,
@@ -450,16 +482,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	rounds := history.LetterTimeline(every, l.Gen.Order(), l.Gen.Start(), s.params(user), s.cfg.Laps)
+	rounds := history.LetterTimeline(every, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"forecast": history.NextForecast(rounds, l.Gen.Order(), stats, unlocked, p, s.cfg.Forecast),
-		"lap":      lap, "lastLap": s.params(user).LastLap(s.cfg.Laps),
+		"forecast": history.NextForecast(rounds, gen.Order(), stats, unlocked, p, s.cfg.Forecast),
+		"lap":      lap, "lastLap": who.base.LastLap(s.cfg.Laps),
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
-		"order":   l.Gen.Order(),
+		"order":   gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
 		"masteryMin": p.MasteryMinSamples, "masteryLevel": p.MasteryLevel,
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
+		"placed":      who.pl.Done, "known": who.pl.Known, "placementText": l.Placement,
 	})
 }
 
@@ -479,9 +512,14 @@ func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user
 		serverError(w, err)
 		return
 	}
+	who, err := s.learner(user, l)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"order":      l.Gen.Order(),
-		"rounds":     history.LetterTimeline(all, l.Gen.Order(), l.Gen.Start(), s.params(user), s.cfg.Laps),
+		"order":      who.gen.Order(),
+		"rounds":     history.LetterTimeline(all, who.gen.Order(), who.gen.Start(), who.base, s.cfg.Laps),
 		"confusions": history.Confusions(all, s.cfg.ConfusionMin, s.cfg.ConfusionShown),
 	})
 }

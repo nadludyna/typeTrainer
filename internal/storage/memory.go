@@ -374,7 +374,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	k := key{user, lang}
 	next := &langData{
 		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
-		unlocked: data.Unlocked, lap: data.Lap, group: data.Group,
+		unlocked: data.Unlocked, lap: data.Lap, group: data.Group, placed: data.Placement,
 		sessions: make([]Session, 0, len(data.Sessions)),
 		freeplay: make(map[string][]Session, len(data.Freeplay)),
 	}

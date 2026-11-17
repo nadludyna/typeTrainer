@@ -274,7 +274,7 @@ func addSession(db execer, user, lang, mode string, s Session) error {
 	s = s.WithLength()
 	_, err := db.Exec(`INSERT INTO sessions
 		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch, aborted, seconds)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18, NULLIF($19, 0))
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18, NULLIF($19::double precision, 0))
 		ON CONFLICT DO NOTHING`,
 		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds)
 	return err
@@ -460,9 +460,11 @@ func (p *PostgresStore) Import(user, lang string, data ImportData) error {
 		if err := saveKeyStats(tx, user, lang, data.Keys); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group) VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group`,
-			user, lang, data.Unlocked, data.Lap, data.Group); err != nil {
+		pl := data.Placement
+		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group, placed, goal, known) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group,
+			placed = EXCLUDED.placed, goal = EXCLUDED.goal, known = EXCLUDED.known`,
+			user, lang, data.Unlocked, data.Lap, data.Group, pl.Done, pl.Goal, pl.Known); err != nil {
 			return err
 		}
 		for _, s := range data.Sessions {

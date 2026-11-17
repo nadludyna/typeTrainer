@@ -33,7 +33,7 @@ export function roundMilestone(r) { bestLang = r.best ? S.lang : ""; }
 // ---------- drawing ----------
 let drawn = "";
 export function renderPanel() {
-  const show = learning() && !!S.lastStats && !!S.exercise;
+  const show = learning() && !!S.lastStats && !!S.exercise && !S.placing;
   goalBtn.hidden = !show;
   if (!show) { drawn = ""; cols.innerHTML = ""; return; }
   goalState();

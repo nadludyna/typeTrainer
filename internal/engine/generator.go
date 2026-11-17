@@ -114,6 +114,31 @@ func (g *Generator) firstLessonSize(p Params) int {
 	return n
 }
 
+// WithKnown is this generator for one learner: the letters the placement
+// test found known join the first lesson, in their usual order; the rest
+// keep theirs. Unknown letters and letters already in the first lesson
+// change nothing. The copy shares the words and the random source.
+func (g *Generator) WithKnown(known []string) *Generator {
+	set := map[string]bool{}
+	for _, c := range known {
+		set[c] = true
+	}
+	first, rest := append([]string{}, g.order[:g.start]...), []string{}
+	for _, c := range g.order[g.start:] {
+		if set[c] {
+			first = append(first, c)
+		} else {
+			rest = append(rest, c)
+		}
+	}
+	if len(first) == g.start {
+		return g
+	}
+	out := *g
+	out.order, out.start = append(first, rest...), len(first)
+	return &out
+}
+
 func (g *Generator) Order() []string { return g.order }
 
 func (g *Generator) Start() int { return g.start }

@@ -1,6 +1,12 @@
 // Shared steps of the browser checks and the latency script.
 
-export async function openApp(page, storage = {}) {
+// The placement test is skipped unless `test` is set, so Learn opens on its
+// usual words.
+export async function openApp(page, storage = {}, { test = false } = {}) {
+  if (!test) {
+    const res = await page.request.post("/api/v1/placement?lang=en", { data: { skip: true } });
+    if (!res.ok() && res.status() !== 409) throw new Error("placement skip: " + res.status());
+  }
   await page.addInitScript((s) => {
     localStorage.setItem("tt.introDone", "1");
     localStorage.setItem("tt.allModes", "1");

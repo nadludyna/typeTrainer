@@ -42,7 +42,9 @@ its own.
 
 - `internal/engine/model.go`: Per-letter statistics, EMA update, difficulty, mastery, softmax weight.
 
-- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection.
+- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection; `WithKnown`, one learner's order after the placement test.
+
+- `internal/engine/placement.go`: The placement test: the personal speed goal and the letters already known (`Place`).
 
 - `internal/engine/consistency.go`: Consistency of a round's speed (a measurement shown to the user; the model does not use it).
 
@@ -56,14 +58,15 @@ its own.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_placement.sql` (the placement test's result per user and language)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
 - `internal/api/handlers.go`: The `Server`, the route list (`Register`), `?lang=`, JSON helpers, locking around read-modify-write.
 
 - `internal/api/learning.go`: Learning routes: `/portion`, `/results`, `/stats`, `/activity`, `/progress`.
-- `internal/api/tune.go`: The hidden tuning panel's routes, `/tune`, and `params(user)`: Learn's numbers for one user, the config with that user's own values on top (kept in the server's memory only).
+- `internal/api/tune.go`: The hidden tuning panel's routes, `/tune`, and `params(user, placement)`: Learn's numbers for one user, the config with the placement test's goal and that user's own values on top (kept in the server's memory only).
+- `internal/api/placement.go`: `/placement` (the test before the first Learn round) and `/learn/reset` (Start Learn over).
 
 - `internal/api/data.go`: `/reset`, `/export`, `/import` (learning, Climb and Freetype data together).
 
@@ -88,6 +91,8 @@ its own.
 - `data/langs/en/words.txt`: Learn's word list, most frequent first.
 
 - `data/langs/en/free.txt`: The long list of Climb and Freetype (25 000 words, `tools/wordlists/free.py`).
+
+- `data/langs/en/placement.txt`: The placement test's phrase.
 
 - `data/langs/en/sentences.txt`: Freetype's real sentences, one per line (from Tatoeba, CC BY 2.0 FR, `tools/sentences/build.py`).
 
@@ -128,7 +133,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `minipop.js`: The Ring switch groups (`ring`, `ringBtn`; the settings window and the stats period switch use the same `.ring` look), and that small window itself (`openPop`): a few settings of one screen next to the control that opens it (the keyboard's gear, the daily goal on Learn's ring and in the stats activity legend).
 
-- `tools.js`: Tooltips, and the data buttons of the settings window: export / import, reset (with its confirm window).
+- `tools.js`: Tooltips, and the data buttons of the settings window: export / import, reset and Start Learn over (one confirm window for both).
 
 - `keyboard.js`: On-screen keyboard from the layout data, the next key, the small hand that stands on its top edge above the next key's column (moved by `translate` at once, no glide, no layout read) and shows the finger to use: the hand is a picture, one PNG per finger (or fingers) to light, drawn once from the SVG model in `index.html` for the theme and the layout, so a key only swaps the `src` of one `<img>` per hand (#148), shown by default only in Learn while letters are still locked (`autoKb`, called on a mode change and whenever the letters are drawn); alt+k shows or hides it, and that choice is kept per mode (`toggleKb`, `tt.kb.<mode>`: `on` or `off`, then it wins over the default; the same choice is Show keyboard in the settings; when it is hidden the body gets `kb-hidden` and the keyboard takes no room), a gear in the bottom right corner of the panel, beside the space bar, with the keyboard's own settings (next key, hand; `openSettingsPop`), the automatic size that fits the window (the hand's room stays when the hand is off; when even the smallest keys don't fit, the hand and its room go first, `kb-nohand`, and if that is not enough the keyboard hides and one line says to zoom out, `kb-nofit`, `#kb-away`), kept in CSS px when the browser zoom changes, so it zooms with the page.
 
@@ -136,7 +141,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `share.js`: The "image" button of the stats screen: a PNG card drawn on a canvas from what the screen shows.
 
-- `typing.js`: The text stream (portions added while you type), where the caret goes (`placeCaret`), `handleChar()` / `backspace()`, live WPM / accuracy (plain text set at the end of each word, #254), the "typing now" header mode, sending results.
+- `typing.js`: The text stream (portions added while you type), where the caret goes (`placeCaret`), `handleChar()` / `backspace()`, live WPM / accuracy (plain text set at the end of each word, #254), the "typing now" header mode, sending results; the placement test as a new learner's first Learn text (`S.placing`, its note in `#climb-note`, Tab skips it).
 
 - `caret.js`: The caret's own movements: the pace of its glide and the scroll of the text to the next line. At rest it stands still.
 
@@ -296,9 +301,11 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/progress` | `{unlockAll: true\|false}` | `{unlocked}`; for development only, the interface no longer calls it |
 | POST | `/api/v1/group` | `{group: "random"\|""}` | `{group}`; the study group (hidden: only the study link `?group=random` / `?group=adaptive` calls it, `web/app.js`). `/stats` returns `group`, every learning round stores it |
 | POST | `/api/v1/reset` | | `{ok: true}`; deletes all progress (the reset button) |
-| GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freeplay: {sessions (each with its level)}, climbLevels: 10, freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freeplay` and `freetype` are missing in older files; without `climbLevels` Climb's levels are the old 0..1, turned into 1..10 on import) |
+| POST | `/api/v1/placement` | `{keys: [{char, errors, ms}], wpm, accuracy}` or `{skip: true}` | `{goal, known, unlocked}`: the test's goal and known letters (HOW-THE-MODES-WORK.md 6); its presses go into the letter statistics; 409 once the test is done |
+| POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters, rounds and test go, the other modes stay |
+| GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freeplay: {sessions (each with its level)}, climbLevels: 10, freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}, placement: {done, goal, known} (only after the test)}`; everything stored for the language (`freeplay` and `freetype` are missing in older files; without `climbLevels` Climb's levels are the old 0..1, turned into 1..10 on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |
-| GET | `/api/v1/stats?length=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryErr (the mastery rule: at least masteryMin presses, under masteryErr % mistakes, for the texts)}`; no `length` = every length |
+| GET | `/api/v1/stats?length=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, level, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryLevel (the mastery rule: level masteryLevel after masteryMin presses, for the texts), placed, known, placementText (the test: done, the letters it opened, its phrase)}`; no `length` = every length |
 | GET | `/api/v1/learn/history` | | `{order: [the letters in unlock order], rounds: [{wpm, accuracy, unlocked, lap, letters: [{count, errorRate, avgMs, mastered} or null while locked, in order]}], confusions: [{want, typed, n}]}`: every Learn round oldest first, every length, with the letter model replayed over the rounds' raw keys (`history.LetterTimeline`); the pairs mixed up at least `ConfusionMin` times, at most `ConfusionShown` (`history.Confusions`) |
 | GET | `/api/v1/tune` | | `{params: [{name, value, default, min, max, step, override}]}`: Learn's tunable numbers for this user (`internal/api/tune.go`; memories in presses, the focus as a push = 1 / temperature) |
 | POST | `/api/v1/tune` | `{values: {name: value}}` | the same as GET; the whole set of this user's own values, `{}` = the defaults; an unknown name or a value out of range is a 400 |

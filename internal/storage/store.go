@@ -145,8 +145,9 @@ type ImportData struct {
 	Unlocked int
 	Lap      int
 	Group    string
-	Sessions []Session
-	Freeplay map[string][]Session
+	Sessions  []Session
+	Freeplay  map[string][]Session
+	Placement Placement
 }
 
 type Learned struct {

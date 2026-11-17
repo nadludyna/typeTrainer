@@ -29,6 +29,9 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
    word comes back two lines later.
 5. Only real words made of open letters. Learning has no settings: the
    model alone decides what to practise.
+6. Before the first round a **short test** (one fixed phrase) sets the
+   personal speed goal and opens the letters you already type well
+   (section 6, "Placement test").
 
 Climb and Freetype (sections 12-13) are hidden and not developed; they never
 feed this model.
@@ -271,10 +274,25 @@ round. A new letter
 starts at the prior difficulty 0.7 (level 30), which is higher than the
 difficulty of the mastered letters, so it automatically becomes the focus.
 
-**Experienced typists** start from the first letters too (there is no "open
-all letters" choice): typing well, they master the
-open letters quickly and unlock the rest in a short time. Once every letter is
-open the engine works only through focus.
+**Placement test** (`engine.Place`, `api/placement.go`). A new learner first
+types one fixed phrase (`data/langs/<id>/placement.txt`, a pangram of 18
+words); Tab skips it. The test decides two things:
+
+```
+goal  = test wpm rounded + 5, kept in 15..150          (PlacementParams)
+known = letters with no mistake, at least 2 timed presses,
+        and an average press at most 1.25 x the test's average press
+        (only when the test was at least 25 wpm and 90 % accurate)
+```
+
+The goal replaces `TargetWPM` for this learner, so "fast" means fast for
+them. The known letters join the first lesson (`Generator.WithKnown`): they
+open at once, in their usual order, and the rest of the order stays. The
+test's presses also go into the letter statistics like a round's. A letter
+that appears once in the phrase (`j m v q` in English) can not be known.
+The test runs once; "Start Learn over" in the settings deletes Learn's
+letters and rounds and brings the test back. A skipped test keeps the
+default goal and opens nothing extra.
 
 ### 6.1 Laps after Learn complete
 

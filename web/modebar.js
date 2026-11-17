@@ -11,7 +11,8 @@ const bar = $("mode-bar"), note = $("climb-note"), stand = $("stand");
 export function renderModeBar() {
   const cur = S.settings.length;
   const parts = [];
-  note.hidden = true;
+  note.hidden = !(S.mode === "learn" && S.placing);
+  if (!note.hidden) note.innerHTML = t("place.note");
   bar.hidden = S.mode === "learn";
   stand.innerHTML = S.mode === "climb" ? climbStand() : S.mode === "freetype" ? freetypeStand() : "";
   if (bar.hidden) {

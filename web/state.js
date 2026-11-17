@@ -27,6 +27,7 @@ export const S = {
   altBase: {},
   altgrEl: null,
   exercise: null,
+  placing: false,
   lastStats: null,
   roundSeconds: 0,
   text: "",

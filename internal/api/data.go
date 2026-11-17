@@ -30,6 +30,7 @@ type langExport struct {
 	Freeplay    *freeplayExport           `json:"freeplay,omitempty"`
 	ClimbLevels int                       `json:"climbLevels,omitempty"`
 	Freetype    map[string]freeplayExport `json:"freetype,omitempty"`
+	Placement   *storage.Placement        `json:"placement,omitempty"`
 }
 
 type freeplayExport struct {
@@ -101,10 +102,19 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 			freetype[key] = freeplayExport{Sessions: h}
 		}
 	}
-	writeJSON(w, http.StatusOK, langExport{
+	pl, err := s.store.Placement(user, id)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	out := langExport{
 		Unlocked: unlocked, Keys: keys, Sessions: oldestFirst(newestFirst), Group: group, Lap: lap,
 		Freeplay: &freeplayExport{Sessions: free}, ClimbLevels: len(s.cfg.Freeplay.Levels), Freetype: freetype,
-	})
+	}
+	if pl.Done {
+		out.Placement = &pl
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (s *Server) allFreeplay(user, lang, mode string) ([]storage.Session, error) {
@@ -131,6 +141,14 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		badRequest(w, msg)
 		return
 	}
+	var pl storage.Placement
+	if in.Placement != nil {
+		if msg := s.validPlacement(*in.Placement, l.Info.Alphabet); msg != "" {
+			badRequest(w, "placement: "+msg)
+			return
+		}
+		pl = *in.Placement
+	}
 	if in.Keys == nil {
 		in.Keys = map[string]engine.KeyStat{}
 	}
@@ -153,7 +171,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	defer s.writeMu.Unlock()
 	if err := s.store.Import(user, id, storage.ImportData{
 		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap, Group: in.Group,
-		Sessions: in.Sessions, Freeplay: histories,
+		Sessions: in.Sessions, Freeplay: histories, Placement: pl,
 	}); err != nil {
 		serverError(w, err)
 		return

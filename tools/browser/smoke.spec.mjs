@@ -331,7 +331,7 @@ test("settings: one window with every setting, a search and categories", async (
   const names = () => win.locator(".sw-name > span:first-child").allTextContents();
   expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret style", "Caret movement",
     "Stop on a mistake", "Round length", "Keys", "Mistakes", "Show keyboard", "Next key", "Hand",
-    "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Reset progress"]);
+    "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Start Learn over", "Reset progress"]);
   await expect(win.locator(".sw-row", { hasText: "Streak" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
 
   await page.keyboard.type("cursor");
@@ -991,4 +991,34 @@ test("a new visitor sees only Learn: Climb and Freetype are hidden", async ({ pa
   await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Climb");
   await page.locator("#btn-settings").click();
   await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
+});
+
+test("a new learner types the short test first: it sets the goal and opens known letters", async ({ page }) => {
+  await openApp(page, {}, { test: true });
+  await expect(page.locator("#climb-note"), "the test says what it is").toContainText("short test");
+  await expect(page.locator("#round-count")).toContainText("/ 18");
+  await page.locator("#text-box").click();
+  await typeRound(page, { delay: 60, done: async () => !(await page.locator("#climb-note").isVisible()) && await page.locator("#round-count").textContent().then((s) => s.includes("/ 30")) });
+  await expect(page.locator("#notice"), "the result is told").toContainText("Your goal is");
+  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
+  expect(s.placed).toBe(true);
+  expect(s.keys.filter((k) => k.unlocked).length, "known letters open at once").toBeGreaterThan(9);
+  await expect(page.locator("#climb-note")).toBeHidden();
+});
+
+test("Tab skips the short test, and Start Learn over brings it back", async ({ page }) => {
+  await openApp(page, {}, { test: true });
+  await expect(page.locator("#climb-note")).toBeVisible();
+  await page.locator("#text-box").click();
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#climb-note")).toBeHidden();
+  await expect(page.locator("#round-count")).toContainText("/ 30");
+  await page.keyboard.press("Escape");
+  await page.locator("#settings-q").fill("start over");
+  await page.locator("#btn-relearn").click();
+  await expect(page.locator("#reset-title")).toHaveText("Start Learn over?");
+  await page.locator("#reset-ok").click();
+  await page.waitForLoadState("load");
+  await waitForText(page);
+  await expect(page.locator("#climb-note"), "the test is back").toContainText("short test");
 });

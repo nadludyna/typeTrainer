@@ -21,7 +21,6 @@ comments. How the parts fit together is in `docs/HOW-THE-CODE-WORKS.md`.
 - One language: English. Its data lives in `data/` (`languages.json`,
   `layouts/`, `langs/en/`), not in code; the `lang` parameter of the API and
   the store stays.
-- Development machine: Windows, PowerShell.
 
 ## Architecture rules
 
@@ -65,7 +64,7 @@ comments. How the parts fit together is in `docs/HOW-THE-CODE-WORKS.md`.
 - The app runs in two ways from the same code: a normal server (`main.go`)
   and WebAssembly on GitHub Pages (`main_wasm.go`). Shared setup goes in
   `setup.go`. Do not add anything that only works with a real server (files on
-  disk, background goroutines tied to HTTP) without telling me.
+  disk, background goroutines tied to HTTP) without asking first.
 - Comments follow "Comments" below.
 
 How the parts fit together: `docs/HOW-THE-CODE-WORKS.md`.
@@ -117,8 +116,8 @@ end.
 
 For now the code carries only orientation comments: one line at the top of
 a file saying what it is, and section dividers (`// ---------- name
-----------`). The owner writes the other comments himself, file by file, by
-these rules; an agent adds none beyond these.
+----------`). Other comments are written by hand, file by file, by these
+rules; an agent adds none beyond these.
 
 ### The ten rules
 
@@ -165,7 +164,7 @@ these rules; an agent adds none beyond these.
 
 7. **Point to the source of an idea.** A formula, an algorithm, a borrowed
    trick: name where it comes from (a section of `docs/HOW-THE-MODES-WORK.md`, a
-   paper in `docs/thesis/01-existing-systems-and-literature.md`, a link).
+   paper, a link).
 
 8. **Keep comments true.** A wrong comment is worse than none. When the code
    changes, its comments change in the same commit. If a comment is hard to

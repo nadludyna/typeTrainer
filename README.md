@@ -25,9 +25,6 @@ word you could meet in a book.
 A computer keyboard is needed to practise. On a phone the site shows your
 stats only.
 
-typeTrainer started as an engineering thesis at the Lublin University of
-Technology; the thesis notes live in [docs/thesis](docs/thesis/).
-
 The project is changing fast right now, so this page stays short. To see
 what it does today, [open the site](https://nadludyna.github.io/typeTrainer/).
 

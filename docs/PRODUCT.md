@@ -1,23 +1,12 @@
 # Product
 
-What typeTrainer is and the decisions that shape it. Ask the owner before
+What typeTrainer is and the decisions that shape it. Ask the maintainer before
 changing any of them.
 
 ## What it is
 
 typeTrainer is a touch-typing trainer. It tracks every letter's mistakes and
 speed and builds the next words around your weak letters. Real words only.
-
-The product comes first. It is also an engineering thesis (2027), a side
-quest: its material collects in `docs/thesis/`, one file per item of the
-thesis plan (`01-...md` to `08-...md`, issue #146). A PR that yields
-material for an item (a number, a measurement, a decision) adds a few lines
-to that item's file. Product docs stay where they are; thesis files link to
-them instead of copying. Thesis notes do not limit what we build: if the
-code and a thesis note disagree, the code and `docs/` win. What the thesis
-needs does limit what we cut: the adaptive algorithm, the keyboard with the
-finger layout, input latency, PostgreSQL and the adaptive-vs-random check
-are thesis items and stay.
 
 ## Pillars
 
@@ -32,8 +21,9 @@ are thesis items and stay.
 - **Beginners first.** Learn is the main screen.
 - **The server with PostgreSQL is the main version.** GitHub Pages is a demo
   snapshot and need not have every feature.
-- **The keyboard with the hands stays.** It is part of the thesis: make it
-  cheap, hide it where it is not needed, never cut it.
+- **The keyboard with the hands stays.** It shows which finger presses
+  which key, the core of touch typing: make it cheap, hide it where it is
+  not needed, never cut it.
 - **Real words only.** No generated letter combinations.
 - **A computer keyboard is needed to practise.** Phones and tablets show only
   the stats and the account: thumbs on glass would skew the letter model.
@@ -67,15 +57,14 @@ are thesis items and stay.
   in the simulation (`go run ./tools/sim`) and ask.
 - **A hidden A/B switch.** `?group=random` makes Learn draw random open words
   instead of using the algorithm, so the algorithm can be compared against
-  it on real people (`docs/thesis/08-testing-and-verification.md`). Every round stores its
+  it on real people (`docs/HOW-THE-MODES-WORK.md`, section 10.1). Every round stores its
   group. It is never shown or offered in the interface.
-- **Try things freely:** build an idea, I test it, we keep it or drop it.
+- **Try things freely:** build an idea, try it by feel, keep it or drop it.
 
 ## Not now
 
 Leaderboards, public profile pages, more languages, more themes (there is
-one, dark, as CSS variables in `web/base.css`), frameworks. After the
-thesis defence: the mascot, a light theme, special word sets, Freetype with
+one, dark, as CSS variables in `web/base.css`), frameworks. Later: the mascot, a light theme, special word sets, Freetype with
 symbols and digits.
 Accounts exist (sign up / log in / log out on the normal server, kept in
 PostgreSQL when it is configured). Structure code so these can be added

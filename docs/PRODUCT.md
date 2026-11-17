@@ -61,6 +61,17 @@ are thesis items and stay.
   flow. *Climb* is hidden and goes once the stages are built; until then it
   never touches Learn's data, and every mode, list and round length keeps
   its own history.
+- **What adapts and what does not.** The trainer cannot bend to everyone,
+  so the line is drawn here:
+  - *The trainer adapts:* which letter is in focus, which words come, when
+    the next letter opens, the weak letter pairs, the speed goal.
+  - *You adapt to the method:* the path Learn, Reinforce, Freetype; fingers
+    rest on F and J (the bumps on the keys) and each finger owns its
+    column, because from there every finger reaches its keys equally; the
+    thresholds of 90 % and 85 %; a short drill with every new letter, no
+    skip; real words.
+  - *You choose:* going back to the finger tour, turning the on-screen
+    keyboard off, the step of the speed goal.
 - **Settings: quick ones at hand, the rest in the window.** What belongs to
   the stage you are in can be changed right on the typing screen, on the
   fly. The settings window holds what concerns the whole site. Which
@@ -87,5 +98,5 @@ are thesis items and stay.
 
 Leaderboards, public profile pages, more languages, more themes (a light
 one too), the mascot as a companion, special word sets, Freetype with
-symbols and digits. Accounts exist (sign up / log in / log out on the
+symbols and digits, other layouts (QWERTZ, Dvorak and more). Accounts exist (sign up / log in / log out on the
 normal server, kept in PostgreSQL when it is configured).

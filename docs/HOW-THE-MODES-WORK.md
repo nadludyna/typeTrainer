@@ -5,6 +5,10 @@ formula here is exactly what the code does, and every number comes from
 `internal/config/config.go`. Why each part is built this way:
 [docs/thesis/04-adaptive-algorithm.md](thesis/04-adaptive-algorithm.md).
 
+Section 14 is the next version of Learn, agreed with the owner and not
+built yet. When it is built it replaces what it names below, and this file
+again says only what the code does.
+
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 (unlocking and word selection). Tests that check each claim:
 `internal/engine/*_test.go`.
@@ -775,3 +779,107 @@ capitals and `. , ? ! ; : ' -`, every word among the 25 000 most common.
 subtitle frequencies (section 11) filtered by the Hunspell en_US dictionary
 in lower case (names drop out) and a list of offensive words; the first
 25 000 of about 30 800 that pass.
+
+## 14. Learn, the version to build
+
+Agreed, not built. Each stage adds one measure: Learn trains accuracy
+only, Reinforce adds speed, Freetype adds consistency
+(`docs/PRODUCT.md`, "One mode, three stages"). Learn below replaces the
+level, mastery, focus and unlock rules of sections 5-7.
+
+### 14.1 The intro: finger tour
+
+The first visit to Learn starts with the **finger tour**, before any word.
+The fingers rest on F and J (the bumps). The tour walks the keyboard
+**finger by finger**, from the left little finger to the right one: the
+little finger's column `q a z`, the ring finger's `w s x`, and so on; an
+index finger has two columns (`r f v t g b`). The finger has its colour
+on the on-screen keyboard and its column lights up.
+
+- Each key of the finger is one sub-step: press it once. A wrong key
+  shows the right one again; nothing is counted against you.
+- Progress on two levels: "fingers: 3 of 8" over the keyboard, and the
+  finger's own keys ticked off (`q ✓ a ✓ z ·`).
+- A "to words" button is there from the first second; whoever knows the
+  keyboard leaves at once.
+- The tour can be opened again at any time from Learn.
+- Its presses never enter the letter statistics: the site sees the key,
+  not the finger, so the tour can show the right finger but not check it.
+
+It takes under a minute.
+
+### 14.2 The key drill
+
+A letter gets a short **drill** when it opens: about 10 seconds of the
+letter alone and with the home key of its finger, then straight into
+words. For `r` (left index, home `f`): `r r fr rf ra`. The six start
+letters get their drill right after the tour. The drill has no skip; its
+presses never enter the letter statistics.
+
+The drill comes when the letter opens, not all of them at the start: a
+movement is kept when it is typed in words right after it is drilled. The
+order of practice goes from blocked (one movement repeated) to mixed
+(movements in words), which is remembered better (Shea & Morgan, 1979).
+
+### 14.3 Accuracy, the one number of a letter
+
+```
+accuracy = correct / (presses + 3)        over the letter's last 100 presses
+```
+
+A press is one sample of section 3; it is correct when the position was
+typed right with no error. The 3 imaginary misses keep a few lucky
+presses from looking like 100 % (Laplace's rule of succession). There is
+no fixed number of presses; how fast a letter is mastered depends on the
+typing:
+
+| Errors | Presses to 90 % |
+|---|---|
+| 0 | 27 |
+| 1 | 37 |
+| 2 | 47 |
+| 5 | 77 |
+
+With 100 presses in the window a letter stays at 90 % while it has at most
+7 errors in them; the best a letter can show is 100/103 = 97 %. Speed does
+not count in Learn. The letter row shows each letter's accuracy in %; it
+is all the progress Learn shows. The difficulty that weighs the words is
+`1 - accuracy`.
+
+### 14.4 Focus and the next letter
+
+- The **newest letter** is the focus until its accuracy reaches 90 %.
+- An older letter that falls **under 85 %** takes the focus and keeps it
+  until it is back at **90 %**. With several, the lowest goes first.
+- In the first lesson the focus is the lowest of the six under 90 %.
+- **The next letter opens** at the end of a round when the newest letter
+  is at 90 % or more and no open letter is under 85 %. At most one letter
+  per round.
+
+The two thresholds are hysteresis, as in a thermostat: a letter that
+wobbles around 90 % neither flips the focus back and forth nor holds back
+the next letter.
+
+### 14.5 Words
+
+Section 7 stays: the stream, portions, the whole 25 000-word list from
+open letters, no repeat while fresh words exist, the lesson floor, weak
+pairs. What changes: the focus letter comes from 14.4 instead of the
+softmax draw, and the weights use the difficulty of 14.3.
+
+### 14.6 What you adapt to, what adapts to you
+
+The trainer adapts the focus, the words, when the next letter opens, the
+weak pairs and the speed goal. You adapt to the path, the fingers on F
+and J with a column each, the thresholds of 90 % and 85 %, the drill with
+every new letter and real words. You choose to reopen the tour, to turn
+the on-screen keyboard off and the step of the speed goal
+(`docs/PRODUCT.md`).
+
+### 14.7 To check with the simulation before building
+
+- Variety: a fixed focus for many portions in a row may drum the same
+  words more than the softmax draw did.
+- How many rounds each typist of section 10 needs to open every letter.
+- Whether the thresholds 90 % and 85 % and the window of 100 presses hold
+  up, or need other numbers (measure first, then change).

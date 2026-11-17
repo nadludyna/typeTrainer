@@ -55,7 +55,9 @@ are thesis items and stay.
 
   **Built now:** Learn, and Reinforce with one word level at a time and a
   speed goal from 30 to 200 in steps of 10. Learn's letter level still
-  counts speed as well as accuracy. **To build:** Learn on accuracy only,
+  counts speed as well as accuracy. **To build:** Learn on accuracy only, with the finger tour, a key drill
+  for every new letter and a focus with two thresholds
+  (`docs/HOW-THE-MODES-WORK.md`, section 14),
   levels that add up, a level that can be passed, a goal step in the
   settings and no ceiling, Freetype as the third stage with word-to-word
   flow. *Climb* is hidden and goes once the stages are built; until then it

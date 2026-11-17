@@ -110,7 +110,7 @@ export function letterNeeds(k) {
 function letterTip(k) {
   if (!k?.count) return t("letter.noData");
   const parts = rule().accuracy
-    ? [t("letter.accuracy", { n: Math.round(k.level ?? 0) }), t("heat.count", { n: k.count })]
+    ? [t("letter.accuracy", { n: Math.floor(k.level ?? 0) }), t("heat.count", { n: k.count })]
     : [t("letter.level", { n: Math.round(k.level ?? 0) }), t("heat.count", { n: k.count }), t("letter.err", { e: Math.round(k.errorRate * 100) })];
   if (k.avgMs && !rule().accuracy) parts.push(t("letter.ms", { wpm: Math.round(12000 / k.avgMs) }));
   const needs = letterNeeds(k);

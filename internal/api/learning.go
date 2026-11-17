@@ -453,7 +453,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		st := stats[c]
 		keys = append(keys, keyInfo{
 			Char: c, Count: st.Count, ErrorRate: st.ErrEMA, AvgMs: st.TimeEMA,
-			Difficulty: engine.Difficulty(st, p), Level: math.Round(engine.Level(st, p)*10) / 10, Mastered: engine.Mastered(st, p),
+			Difficulty: engine.Difficulty(st, p), Level: shownLevel(engine.Level(st, p), p), Mastered: engine.Mastered(st, p),
 			Unlocked: i < unlocked,
 		})
 	}
@@ -569,4 +569,13 @@ func (s *Server) lengthParam(w http.ResponseWriter, r *http.Request) (string, bo
 		return "", false
 	}
 	return length, true
+}
+
+// shownLevel rounds the level to a tenth; an accuracy rounds down, so a
+// letter short of mastered never shows the mastered number.
+func shownLevel(level float64, p engine.Params) float64 {
+	if p.AccWindow > 0 {
+		return math.Floor(level*10) / 10
+	}
+	return math.Round(level*10) / 10
 }

@@ -219,7 +219,7 @@ consequences, the same word for the same thing. All text lives in
 
 **Established**
 - What must pass before a task is done: `AGENTS.md`, "Before you say a
-  task is done"; the commands: `CONTRIBUTING.md`.
+  task is done"; the commands: `DEVELOPMENT.md`.
 
 **Recommended**
 - Look at the real result in a browser, not just the code: the screen that

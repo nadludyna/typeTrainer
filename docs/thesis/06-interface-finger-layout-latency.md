@@ -8,7 +8,7 @@ is a thesis item: it is made cheap, never cut (docs/PRODUCT.md).
 
 ## Input latency
 
-Measured with `node tools/browser/perf.mjs` (CONTRIBUTING.md): style recalc
+Measured with `node tools/browser/perf.mjs` (docs/DEVELOPMENT.md): style recalc
 per key at full speed, key → caret start and slow frames (> 25 ms) with the
 CPU slowed 6× (a weak laptop).
 

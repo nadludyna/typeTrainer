@@ -183,7 +183,7 @@ these rules; an agent adds none beyond these.
 
 | What | Where |
 |---|---|
-| What the whole program does, how to run it | `README.md`, `CONTRIBUTING.md` |
+| What the whole program does, how to run it | `README.md`, `DEVELOPMENT.md` |
 | How the parts fit together, the API | `docs/HOW-THE-CODE-WORKS.md` |
 | How the three modes work, the formulas | `docs/HOW-THE-MODES-WORK.md` |
 | Rules for interface text | `docs/TEXT-RULES.md` |

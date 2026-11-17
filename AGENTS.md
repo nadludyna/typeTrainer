@@ -12,7 +12,7 @@ This file says how to work with me. Everything else has its own file:
 | touch Learn or Reinforce | `docs/HOW-THE-MODES-WORK.md`: how the trainer picks what you type |
 | change the interface | `docs/DESIGN-RULES.md`: how the screen looks and behaves |
 | write any text the user sees | `docs/TEXT-RULES.md` |
-| run, test or measure | `CONTRIBUTING.md` |
+| run, test or measure | `docs/DEVELOPMENT.md` |
 | add thesis material | `docs/thesis/README.md` |
 
 Where they differ, this file wins, then `docs/PRODUCT.md`, then the others.
@@ -48,7 +48,7 @@ I test by feel, on my own machine, and I do not touch the terminal.
    (c) how it was checked: what was run, on what, with which numbers.
 5. **A change to the typing screen is measured** before the PR, against
    `main`, with the numbers in the PR, and must not be worse. The canonical
-   measurement: `node tools/browser/perf.mjs` (CONTRIBUTING.md): style recalc
+   measurement: `node tools/browser/perf.mjs` (docs/DEVELOPMENT.md): style recalc
    per key at full speed, key → caret start and the share of slow frames with
    the CPU slowed 6×. The goal: under 2 ms of style recalc per key for the
    screen itself (`perf.mjs --bare`), caret start ≤ 40 ms and slow frames
@@ -69,7 +69,7 @@ is always my decision.
 
 ## Before you say a task is done
 
-1. The checks in `CONTRIBUTING.md` ("Test it", "Browser checks") all pass.
+1. The checks in `docs/DEVELOPMENT.md` ("Test it", "Browser checks") all pass.
 2. New engine logic has unit tests, including edge cases (no data yet, zero values).
 3. Docs updated if behaviour or the API changed.
 4. An interface change is checked in a browser at desktop width, and the

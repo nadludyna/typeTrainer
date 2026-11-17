@@ -275,21 +275,21 @@ starts at the prior difficulty 0.7 (level 30), which is higher than the
 difficulty of the mastered letters, so it automatically becomes the focus.
 
 **Placement test** (`engine.Place`, `api/placement.go`). A new learner first
-types one fixed phrase (`data/langs/<id>/placement.txt`, a pangram of 18
-words); Tab skips it. The test decides two things:
+types one fixed text (`data/langs/<id>/placement.txt`, three pangrams, 31
+words, every letter at least 3 times); Tab skips it. The test decides two things:
 
 ```
 goal  = test wpm rounded + 5, kept in 15..150          (PlacementParams)
-known = letters with no mistake, at least 2 timed presses,
+known = letters with at most 1 mistake, at least 2 timed presses,
         and an average press at most 1.25 x the test's average press
         (only when the test was at least 25 wpm and 90 % accurate)
 ```
 
+A good typist opens every letter at once and goes straight to the words.
 The goal replaces `TargetWPM` for this learner, so "fast" means fast for
 them. The known letters join the first lesson (`Generator.WithKnown`): they
 open at once, in their usual order, and the rest of the order stays. The
-test's presses also go into the letter statistics like a round's. A letter
-that appears once in the phrase (`j m v q` in English) can not be known.
+test's presses also go into the letter statistics like a round's.
 The test runs once; "Start Learn over" in the settings deletes Learn's
 letters and rounds and brings the test back. A skipped test keeps the
 default goal and opens nothing extra.

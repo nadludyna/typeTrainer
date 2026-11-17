@@ -11,12 +11,13 @@ type PlacementParams struct {
 	MaxGoal       float64
 	KnownWPM      float64 // below this speed no letter counts as known
 	KnownAccuracy float64 // below this accuracy, in %, no letter counts as known
-	KnownPresses  int     // a known letter was pressed at least this often
+	KnownPresses  int     // a known letter was pressed at least this often, timed
+	KnownMisses   int     // and mistyped at most this often
 	KnownSlack    float64 // a known letter is at most this many times slower than the test's average press
 }
 
 // Place reads a test: its speed, its accuracy and its presses. A known letter
-// had no mistake, enough timed presses, and an average press not much slower
+// had at most KnownMisses mistakes, enough timed presses, and an average press not much slower
 // than the whole test. Known letters keep the order they first appear in.
 func Place(samples []Sample, wpm, accuracy float64, p PlacementParams) (goal float64, known []string) {
 	goal = math.Min(math.Max(math.Round(wpm)+p.GoalAbove, p.MinGoal), p.MaxGoal)
@@ -27,7 +28,7 @@ func Place(samples []Sample, wpm, accuracy float64, p PlacementParams) (goal flo
 	type seen struct {
 		ms     float64
 		timed  int
-		missed bool
+		misses int
 	}
 	by := map[string]*seen{}
 	var order []string
@@ -42,7 +43,7 @@ func Place(samples []Sample, wpm, accuracy float64, p PlacementParams) (goal flo
 			order = append(order, s.Char)
 		}
 		if s.Errors > 0 {
-			c.missed = true
+			c.misses++
 		} else if s.Ms > 0 {
 			c.ms += s.Ms
 			c.timed++
@@ -50,7 +51,7 @@ func Place(samples []Sample, wpm, accuracy float64, p PlacementParams) (goal flo
 	}
 	for _, ch := range order {
 		c := by[ch]
-		if !c.missed && c.timed >= p.KnownPresses && c.ms/float64(c.timed) <= limit {
+		if c.misses <= p.KnownMisses && c.timed >= p.KnownPresses && c.ms/float64(c.timed) <= limit {
 			known = append(known, ch)
 		}
 	}

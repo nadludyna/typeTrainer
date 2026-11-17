@@ -141,6 +141,11 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
 @media (min-width: 900px) and (pointer: fine) {
   :root { --tw: min(100vw - 32px - 2 * var(--side), 56rem); --u-max: calc((var(--tw) - 24px) / 13.4); --text-l: 0px; --text-r: 0px; }
   .text-box, .text-box:focus-within, .text-box:focus { background: none; box-shadow: none; padding: 0 var(--text-r) 0 var(--text-l); }
+  .text-box { isolation: isolate; }
+  .text-box::before {
+    content: ""; position: absolute; inset: -10px -24px -6px; z-index: -1; pointer-events: none;
+    border-radius: var(--r-lg); background: color-mix(in srgb, var(--panel) 55%, transparent);
+  }
   .text { font-size: var(--text-size); }
   #view-type:not([hidden]) { flex: 1; display: flex; flex-direction: column; margin-block: 0; }
   #view-type > .letters { margin-top: clamp(8px, 3vh, 28px); }

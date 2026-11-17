@@ -996,7 +996,7 @@ test("a new visitor sees only Learn: Climb and Freetype are hidden", async ({ pa
 test("a new learner types the short test first: it sets the goal and opens known letters", async ({ page }) => {
   await openApp(page, {}, { test: true });
   await expect(page.locator("#climb-note"), "the test says what it is").toContainText("short test");
-  await expect(page.locator("#round-count")).toContainText("/ 18");
+  await expect(page.locator("#round-count")).toContainText("/ 31");
   await page.locator("#text-box").click();
   await typeRound(page, { delay: 60, done: async () => !(await page.locator("#climb-note").isVisible()) && await page.locator("#round-count").textContent().then((s) => s.includes("/ 30")) });
   await expect(page.locator("#notice"), "the result is told").toContainText("Your goal is");

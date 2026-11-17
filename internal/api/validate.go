@@ -113,8 +113,8 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		return msg
 	}
 	for _, sess := range in.Sessions {
-		if sess.Level != 0 {
-			return "sessions: a learning round has no level"
+		if sess.Level != 0 && (sess.Level != math.Trunc(sess.Level) || !inRange(sess.Level, 1, float64(levels))) {
+			return "sessions: a learning round's word level is 1 to the number of levels"
 		}
 	}
 	if in.Freeplay != nil {

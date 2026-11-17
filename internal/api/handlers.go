@@ -23,7 +23,8 @@ type Language struct {
 	Free       *freeplay.Picker
 	Freetype   *freeplay.Picker
 	Sentences  *freeplay.Sentences
-	Placement  string // the placement test's phrase; empty: no test
+	Placement  string              // the placement test's phrase; empty: no test
+	Levels     []*engine.Generator // Reinforce's word levels, the most frequent words first
 	LayoutJSON []byte
 }
 
@@ -75,6 +76,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/learn/history", s.withLang(s.handleLearnHistory))
 	mux.HandleFunc("POST /api/v1/placement", s.withLang(s.handlePlacement))
 	mux.HandleFunc("POST /api/v1/learn/reset", s.withLang(s.handleLearnReset))
+	mux.HandleFunc("POST /api/v1/learn/step", s.withLang(s.handleLearnStep))
 	mux.HandleFunc("GET /api/v1/tune", s.withLang(s.handleTuneGet))
 	mux.HandleFunc("POST /api/v1/tune", s.withLang(s.handleTuneSet))
 	mux.HandleFunc("POST /api/v1/freeplay/portion", s.withLang(s.handleFreeplayPortion))

@@ -18,6 +18,7 @@ type Generator struct {
 	wp    WordParams
 	floor map[string]int
 	rng   *rand.Rand
+	pairs []string
 }
 
 type WordParams struct {
@@ -112,6 +113,57 @@ func (g *Generator) firstLessonSize(p Params) int {
 		n++
 	}
 	return n
+}
+
+// WithWords is this generator over another word list, most frequent first:
+// a Reinforce word level. The letter order stays; words with a letter
+// outside it are dropped.
+func (g *Generator) WithWords(words []string, p Params) *Generator {
+	in := map[rune]bool{}
+	for _, c := range g.order {
+		in[letterRune(c)] = true
+	}
+	keep := make([]string, 0, len(words))
+	for _, w := range words {
+		ok := utf8.RuneCountInString(w) >= max(p.MinWordLetters, 1)
+		for _, r := range w {
+			ok = ok && in[r]
+		}
+		if ok {
+			keep = append(keep, w)
+		}
+	}
+	out := *g
+	out.words, out.rank = keep, map[string]int{}
+	for i, w := range keep {
+		if _, ok := out.rank[w]; !ok {
+			out.rank[w] = i
+		}
+	}
+	out.SetWordParams(g.wp)
+	return &out
+}
+
+// InOrderOf is this generator with the letter order and first lesson of o:
+// a word level for one learner.
+func (g *Generator) InOrderOf(o *Generator) *Generator {
+	out := *g
+	out.order, out.start = o.order, o.start
+	return &out
+}
+
+// Size is how many words the generator draws from.
+func (g *Generator) Size() int { return len(g.words) }
+
+// WithPairs is this generator with letter pairs that slow the learner down:
+// words with them come more often (PairBoost).
+func (g *Generator) WithPairs(pairs []string) *Generator {
+	if len(pairs) == 0 {
+		return g
+	}
+	out := *g
+	out.pairs = pairs
+	return &out
 }
 
 // WithKnown is this generator for one learner: the letters the placement
@@ -245,6 +297,11 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 			}
 		}
 		pl.diffW[i] = SoftmaxWeight(sum/float64(len(w)), p)
+		for _, pair := range g.pairs {
+			if strings.Contains(w, pair) {
+				pl.diffW[i] *= 1 + p.PairBoost
+			}
+		}
 		pl.rank[i] = g.rank[w]
 	}
 	return pl

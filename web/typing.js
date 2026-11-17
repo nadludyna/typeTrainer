@@ -2,7 +2,7 @@
 
 import { t } from "./i18n.js";
 import { FX } from "./fx.js";
-import { el, S, introOpen, isTouch, roundList, boxState } from "./state.js";
+import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel } from "./state.js";
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
@@ -181,7 +181,7 @@ function portionDone(k) {
   const samples = records.slice(sentUpTo, por.end + 1).filter(Boolean);
   sentUpTo = por.end + 1;
   showPortion(k + 1);
-  const body = { samples, retry: mistypedWords(por), last: !needMore(), round, portionIndex: k + 1, ack: portions.length };
+  const body = { samples, retry: mistypedWords(por), last: !needMore(), round, portionIndex: k + 1, ack: portions.length, level: learnLevel() };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -241,6 +241,8 @@ function resetStream() {
   el.text.replaceChildren(el.caret);
 }
 
+const learnLevel = () => (reinforcing() ? wordLevel() : 0);
+
 // The placement test: a new learner's first Learn text is one fixed phrase.
 const placementDue = () => {
   const s = S.lastStats;
@@ -255,7 +257,7 @@ export async function loadExercise() {
   let next = lengthOf(S.settings.length);
   const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
-  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.climbLevel ?? 0, round, portionIndex: 0, ack: 0 };
+  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.mode === "climb" ? S.climbLevel ?? 0 : learnLevel(), round, portionIndex: 0, ack: 0 };
   let res;
   if (S.placing) {
     const test = S.lastStats.placementText.split(" ");
@@ -591,7 +593,7 @@ async function finishRound() {
     if (S.placing) { await finishPlacement({ keys: typed, wpm, accuracy }); return; }
     if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
-    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end) };
+    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel() };
     learnRound++;
     let res;
     try {

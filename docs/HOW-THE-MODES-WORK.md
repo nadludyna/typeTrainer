@@ -32,6 +32,9 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 6. Before the first round a **short test** (one fixed phrase) sets the
    personal speed goal and opens the letters you already type well
    (section 6, "Placement test").
+7. Once every letter is open, Learn becomes **Reinforce**: you pick how many
+   common words to type (200 up to 25k), weak letters and letter pairs come
+   more often, and the speed goal grows in steps up to 200 wpm (section 6.1).
 
 Climb and Freetype (sections 12-13) are hidden and not developed; they never
 feed this model.
@@ -294,44 +297,57 @@ The test runs once; "Start Learn over" in the settings deletes Learn's
 letters and rounds and brings the test back. A skipped test keeps the
 default goal and opens nothing extra.
 
-### 6.1 Laps after Learn complete
+### 6.1 Reinforce: after every letter is open
 
-Once every letter is open and mastered
-(Learn complete), 30 WPM is no longer a goal: the typist reached it. So the
-goal goes up and the letters are learned again at it, a lap at a time
-(`engine.LapParams`, `lap.go`):
+Once the last letter opens, Learn becomes **Reinforce**: a bar over the
+letter row with the word level and the speed goal (`web/modebar.js`,
+`api/reinforce.go`). The model, the focus and the word weights of sections
+4-7 stay; two things change.
+
+**Word level.** The learner picks one of ten levels, the most common
+200, 500, 1k, 2k, 3k, 5k, 7.5k, 10k, 15k or 25k words of the long list
+(`free.txt`; the same sizes as Climb, `Freeplay.Levels`). The words come
+only from that level (`Generator.WithWords`), the whole level at once:
+no rank penalty inside it. The browser keeps the choice per language
+(`tt.wordLevel.<lang>`) and sends it with every portion; a round keeps its
+level (`sessions.level`).
+
+**Weak pairs.** The letter pairs that slow the last `WeakRounds` Learn
+rounds down the most (`freeplay.WeakPairs`, as in Climb) make their words
+more likely: the weight of a word grows by `PairBoost` (2, so 3 times) for
+each weak pair in it (`Generator.WithPairs`).
+
+**Speed goal steps** (`engine.LapParams`, `lap.go`):
 
 ```
-goal of lap n = min(TargetWPM + n * StepWPM, MaxWPM)
-              = 30, 35, 40, 45, 50, 55, 60 wpm   (lap 0 .. 6; LastLap = 6)
+goal of step n = min(goal + n * StepWPM, MaxWPM)
+               = goal, +10, +20, ... up to 200 wpm
 ```
 
-- **When.** After the presses of a round are
-  applied, if every letter is open and mastered at the lap's goal
-  (`LapDone`) and the lap is not the last, the next lap starts. The server
-  keeps the lap per user and language (`Store.Lap`, `progress.lap`,
-  migration 010) and every Learn round keeps the lap it was typed in
-  (`sessions.lap`).
-- **What changes.** Only `TargetWPM` (`Params.ForLap`): every formula of
-  sections 4-7 stays and simply gets the higher goal, so the difficulty of a
+`goal` is the placement test's personal goal, or 30 without it.
+
+- **When.** After the presses of a round are applied, if every letter is
+  open and mastered at the step's goal (`LapDone`) and the step is not the
+  last, the next step starts. The learner can also move a step up or down
+  by hand (the − and + of the bar, `/learn/step`). The server keeps the
+  step per user and language (`Store.Lap`, `progress.lap`) and every Learn
+  round keeps the step it was typed in (`sessions.lap`).
+- **What changes.** Only `TargetWPM` (`Params.ForLap`): the difficulty of a
   letter, its mastery and the word choice all follow it. `StartLap` turns
   `Held` off for every letter: each has to *reach* the new goal, since
   mastery is otherwise never taken back. The EMAs are kept, so a letter
   already good enough counts as mastered again at the end of its next round
   and the slow ones become the focus. No letter is closed again.
-- **Why to 60.** keybr raises its goal in the same way. Past about 60 WPM
-  the limit is no longer single letters but words and their rhythm, which
-  is what Climb trains.
-- **What stays separate.** The personal speed goal of the settings is a
-  line on the stats screen only; the algorithm never sees it.
-- **The stats screen** judges every round at the goal of its own lap
-  (`history.LetterTimeline`), and starts a new lap there as the trainer did.
+- **Why to 200.** Few typists pass 200 wpm even on common words; a higher
+  goal would mean nothing to almost anyone.
+- **The stats screen** judges every round at the goal of its own step
+  (`history.LetterTimeline`), and starts a new step there as the trainer did.
 
 ### 6.2 The forecast: rounds to the next letter
 
 The next letter's tooltip and the Learn stats screen say about how many
 rounds the next letter is away ("≈ 6 rounds"; with every letter
-open, on the stats screen, "Lap done in ≈ 6 rounds"). It only reads the numbers; nothing in the
+open, on the stats screen, "Next step in ≈ 6 rounds"). It only reads the numbers; nothing in the
 model or the word choice sees it (`engine.RoundsToMastery`,
 `history.NextForecast`).
 
@@ -572,7 +588,8 @@ All in `internal/config/config.go`.
 | `RampLetters` | 10 000 | letters typed after the full alphabet until every word comes freely | about 1700-1900 words (5.2-5.9 letters per word), ~60 rounds of 30 words, an hour at 30 WPM: the list grows by ~200 words every 6 minutes of typing |
 | `ConsistencyMinSeconds` | 5 | shortest round that gets a consistency (section 3) | a standard deviation of 2-3 numbers says little; 5 s is a few words even for a beginner |
 | `RankPenalty` | 0.5 | weight multiplier per `RankStep` over the limit | halving is easy to explain; with `T = 0.1` one step equals about 0.07 of difficulty, so weak letters still decide first |
-| `Laps.StepWPM` / `Laps.MaxWPM` | 5 / 60 | after Learn complete the goal goes up 5 WPM a lap, up to 60 (section 6.1) | as keybr; past 60 WPM single letters are no longer the limit, Climb is for that |
+| `Laps.StepWPM` / `Laps.MaxWPM` | 10 / 200 | in Reinforce the goal goes up 10 WPM a step, up to 200 (section 6.1) | ten wpm is a step a typist feels; about 200 wpm is the top of real typing |
+| `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
 The values were chosen by reasoning and the simulation (section 10), not

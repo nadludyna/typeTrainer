@@ -40,6 +40,8 @@ type Params struct {
 	RankStart   int
 	RankStep    float64
 	RankPenalty float64
+
+	PairBoost float64 // a word's weight grows by this for each weak pair in it (Reinforce)
 }
 
 func (p Params) TargetMs() float64 { return 12000 / p.TargetWPM }

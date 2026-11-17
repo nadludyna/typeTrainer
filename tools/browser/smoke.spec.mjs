@@ -1022,3 +1022,26 @@ test("Tab skips the short test, and Start Learn over brings it back", async ({ p
   await waitForText(page);
   await expect(page.locator("#climb-note"), "the test is back").toContainText("short test");
 });
+
+test("Reinforce: with every letter open, Learn offers word levels and speed goal steps", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator("#mode-bar"), "no Reinforce bar while letters are locked").toBeHidden();
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k, placement: { done: true, goal: 0, known: "" } }) }), keys);
+  await page.reload();
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await page.locator('#mode-bar button[data-wlevel="1"]').waitFor();
+  const top = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()).then((s) => s.wordLevels));
+  expect(top[0]).toBe(200);
+  await page.locator('#mode-bar button[data-wlevel="10"]').click();
+  await expect(page.locator('#mode-bar button[data-wlevel="10"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('#mode-bar button[data-step="1"]').click();
+  await expect(page.locator("#mode-bar output")).toHaveText("40 wpm");
+  const asked = page.waitForRequest((r) => r.url().includes("/api/v1/portion") && r.postDataJSON()?.portionIndex === 1);
+  await page.locator("#text-box").click();
+  for (let i = 0; i < 80 && !(await page.evaluate(() => document.querySelectorAll("#text > span.ok").length > 60)); i++) {
+    const ch = await nextChar(page);
+    if (ch) await page.keyboard.type(ch);
+  }
+  expect((await asked).postDataJSON().level, "the next words come from the chosen level").toBe(10);
+});

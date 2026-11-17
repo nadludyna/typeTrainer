@@ -23,6 +23,7 @@ type portionRequest struct {
 	Retry   []string        `json:"retry"`
 	Start   bool            `json:"start"`
 	Last    bool            `json:"last"`
+	Level   int             `json:"level"` // Reinforce's word level, 1..; 0 = Learn's own words
 
 	Round        string `json:"round"`
 	PortionIndex int    `json:"portionIndex"`
@@ -67,6 +68,10 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		badRequest(w, "round: at most 64 letters, digits and -")
 		return
 	}
+	if req.Level != 0 && !s.validWordLevel(l, req.Level) {
+		badRequest(w, "level: a word level, 1 to the number of levels")
+		return
+	}
 	if req.Round != "" && (req.PortionIndex < 0 || req.PortionIndex > s.cfg.MaxEvents || req.Ack < 0 || req.Ack > s.cfg.MaxEvents) {
 		badRequest(w, "portionIndex or ack: out of range")
 		return
@@ -102,7 +107,13 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	typed := 0
-	if all := len(gen.Order()); unlocked == all {
+	if all := len(gen.Order()); unlocked == all && s.validWordLevel(l, req.Level) {
+		if gen, err = s.reinforce(user, l, gen, req.Level); err != nil {
+			serverError(w, err)
+			return
+		}
+		typed = math.MaxInt32
+	} else if unlocked == all {
 		if typed, err = s.store.LettersTyped(user, l.Info.ID, all); err != nil {
 			serverError(w, err)
 			return
@@ -250,6 +261,15 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 	return
 }
 
+// reinforceLevel is the word level a round was typed at: only once every
+// letter was open, 0 otherwise.
+func reinforceLevel(done learned, level float64, levels int) float64 {
+	if level < 1 || level > float64(levels) || level != math.Trunc(level) || done.unlocked < len(done.who.gen.Order()) {
+		return 0
+	}
+	return level
+}
+
 func newLap(done learned, p engine.Params) float64 {
 	if done.lapAfter > done.lap {
 		return p.TargetWPM
@@ -360,6 +380,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Group: group, Device: req.Device,
 		Lap:     done.lap,
+		Level:   reinforceLevel(done, req.Level, len(l.Levels)),
 		Round:   req.Round,
 		Seconds: s.typedSeconds(req.Seconds),
 	}))
@@ -493,6 +514,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
 		"placed":      who.pl.Done, "known": who.pl.Known, "placementText": l.Placement,
+		"wordLevels": s.wordLevels(l),
 	})
 }
 

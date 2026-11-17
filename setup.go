@@ -95,9 +95,13 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	if data, err := files.ReadFile("data/langs/" + info.ID + "/sentences.txt"); err == nil {
 		sentences = freeplay.NewSentences(freeplay.ParseSentences(string(data)), rand.New(rand.NewSource(seed+3)))
 	}
+	var levels []*engine.Generator
+	for _, n := range cfg.Freeplay.Levels {
+		levels = append(levels, gen.WithWords(long[:min(n, len(long))], cfg.Engine))
+	}
 	placement := ""
 	if data, err := files.ReadFile("data/langs/" + info.ID + "/placement.txt"); err == nil {
 		placement = strings.Join(strings.Fields(string(data)), " ")
 	}
-	return &api.Language{Info: info, Gen: gen, Free: free, Freetype: freetype, Sentences: sentences, Placement: placement, LayoutJSON: layoutJSON}, nil
+	return &api.Language{Info: info, Gen: gen, Free: free, Freetype: freetype, Sentences: sentences, Placement: placement, Levels: levels, LayoutJSON: layoutJSON}, nil
 }

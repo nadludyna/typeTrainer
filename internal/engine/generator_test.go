@@ -2,6 +2,7 @@ package engine
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -266,5 +267,51 @@ func TestWithKnown_KnownLettersJoinTheFirstLesson(t *testing.T) {
 	}
 	if all := g.WithKnown(g.Order()); all.Start() != len(g.Order()) {
 		t.Fatalf("every letter known: start %d", all.Start())
+	}
+}
+
+func TestWithWords_ALevelDrawsOnlyItsWords(t *testing.T) {
+	g := newTestGen(1)
+	level := g.WithWords([]string{"then", "the", "a", "x9", "when", "the"}, testParams)
+	if level.Size() != 4 || g.Size() == 4 {
+		t.Fatalf("level size %d (want then, the, when, the: no 1-letter word, no foreign letter), base %d", level.Size(), g.Size())
+	}
+	all := len(g.Order())
+	seen := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		for _, w := range level.Portion(nil, all, 1<<30, nil, nil, testParams).Words {
+			seen[w] = true
+		}
+	}
+	for w := range seen {
+		if w != "then" && w != "the" && w != "when" {
+			t.Errorf("a word from outside the level: %q", w)
+		}
+	}
+	if !slices.Equal(level.Order(), g.Order()) {
+		t.Error("the letter order changed")
+	}
+}
+
+func TestWithPairs_WeakPairsComeMoreOften(t *testing.T) {
+	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
+	p := testParams
+	p.PairBoost = 20
+	count := func(gen *Generator) (n int) {
+		for i := 0; i < 200; i++ {
+			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
+				if strings.Contains(w, "th") {
+					n++
+				}
+			}
+		}
+		return
+	}
+	plain, weak := count(g), count(g.WithPairs([]string{"th"}))
+	if weak <= plain*3/2 {
+		t.Errorf("words with the weak pair: %d with it, %d without", weak, plain)
+	}
+	if g.WithPairs(nil) != g {
+		t.Error("no pairs: the same generator")
 	}
 }

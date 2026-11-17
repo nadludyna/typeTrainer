@@ -103,6 +103,7 @@ func Default() Config {
 		},
 		Engine: engine.Params{
 			Alpha:         0.1,
+			ErrAlpha:      0.05,
 			MaxIntervalMs: 2000,
 
 			TargetWPM:    30,
@@ -116,10 +117,8 @@ func Default() Config {
 
 			Temperature: 0.1,
 
-			MasteryMinSamples: 20,
-			MasteryErrorRate:  0.05,
-			KeepErrorRate:     0.10,
-			KeepSlowdown:      0.10,
+			MasteryMinSamples: 40,
+			MasteryLevel:      80,
 			UnmasteredBonus:   0.2,
 			HomeBoost:         4,
 
@@ -178,6 +177,8 @@ func Default() Config {
 			TimeFloor: 200,
 			LearnRate: 0.02,
 			TimeNoise: 0.25,
+
+			GoalErrorRate: 0.05,
 
 			ExpertErrMax:   0.05,
 			ExpertTimeMin:  150,

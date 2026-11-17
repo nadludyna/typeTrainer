@@ -17,19 +17,30 @@ type Point struct {
 	TimeEMA  float64
 }
 
+func (pt Point) level(p Params) float64 {
+	s := KeyStat{Count: pt.Count, ErrEMA: pt.ErrEMA, TimeEMA: pt.TimeEMA}
+	if pt.TimeEMA > 0 {
+		s.TimedCount = 1
+	}
+	return Level(s, p)
+}
+
+// RoundsToMastery: the presses still missing at the recent presses per
+// round, and the level still missing at the slope of the least-squares
+// line through its last rounds; the slower of the two. No answer while the
+// level does not grow.
 func RoundsToMastery(points []Point, p Params, fp ForecastParams) (rounds int, ok bool) {
 	if len(points) == 0 {
 		return 0, false
 	}
 	last := points[len(points)-1]
-	errOK := last.ErrEMA <= p.MasteryErrorRate
-	timeOK := last.TimeEMA > 0 && last.TimeEMA <= p.TargetMs()
 	countOK := last.Count >= p.MasteryMinSamples
-	if errOK && timeOK && countOK {
+	levelOK := last.TimeEMA > 0 && last.level(p) >= p.MasteryLevel
+	if countOK && levelOK {
 		return 0, true
 	}
 	w := points[max(0, len(points)-max(fp.Window, 2)):]
-	if len(w) < max(fp.MinRounds, 2) || last.TimeEMA <= 0 || p.Alpha <= 0 || p.Alpha >= 1 {
+	if len(w) < max(fp.MinRounds, 2) || last.TimeEMA <= 0 {
 		return 0, false
 	}
 	presses := last.Count - w[0].Count
@@ -41,20 +52,12 @@ func RoundsToMastery(points []Point, p Params, fp ForecastParams) (rounds int, o
 	if !countOK {
 		need = float64(p.MasteryMinSamples-last.Count) / per
 	}
-	if !errOK {
-		q := float64(last.Mistakes-w[0].Mistakes) / float64(presses)
-		if q >= p.MasteryErrorRate {
+	if !levelOK {
+		slope := lineSlope(w, func(pt Point) float64 { return pt.level(p) })
+		if slope <= 0 {
 			return 0, false
 		}
-		n := math.Log((p.MasteryErrorRate-q)/(last.ErrEMA-q)) / math.Log(1-p.Alpha)
-		need = math.Max(need, n/per)
-	}
-	if !timeOK {
-		slope := lineSlope(w, func(pt Point) float64 { return pt.TimeEMA })
-		if slope >= 0 {
-			return 0, false
-		}
-		need = math.Max(need, (last.TimeEMA-p.TargetMs())/-slope)
+		need = math.Max(need, (p.MasteryLevel-last.level(p))/slope)
 	}
 	if need > float64(fp.MaxRounds) {
 		return fp.MaxRounds + 1, true

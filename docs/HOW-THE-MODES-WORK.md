@@ -14,13 +14,16 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 ## 1. The idea in plain words
 
 1. For every letter the program remembers two numbers: how often you make a
-   mistake on it and how long it takes you. Recent presses weigh more than
-   old ones (about the last 20 count).
-2. The two numbers make one **difficulty** from 0 to 1. A new letter starts
-   as fairly hard, so it gets practised.
-3. A letter is **mastered** at under 5 % mistakes and 30 WPM or faster. The
-   next letter opens only when every open letter is mastered. The home row
-   and the most frequent letters come first.
+   mistake on it (about the last 40 presses count) and how long it takes you
+   (about the last 20). Recent presses weigh more than old ones.
+2. The two numbers make one **difficulty** from 0 to 1, and the letter's
+   **level** is the same number turned around: `level = 100 * (1 - difficulty)`.
+   A new letter starts at level 30, so it gets practised.
+3. A letter is **mastered** once it reaches level 80 after at least 40
+   presses, checked at the end of each round. Mastered stays mastered: later
+   slips only lower the level, so its words come more often. The next letter
+   opens when every open letter is mastered. The home row and the most
+   frequent letters come first.
 4. Every 6 words the program picks one **focus** letter, more likely a weak
    one, and all 6 words contain it. Common words come first; a mistyped
    word comes back two lines later.
@@ -143,8 +146,13 @@ Each new sample `x` updates the value:
 
 ```
 value_new = value_old + a * (x - value_old)
-a = max(Alpha, 1 / n)              n = number of samples so far, Alpha = 0.1
+a = max(Alpha, 1 / n)              n = number of samples so far
+Alpha = 0.1 for time, ErrAlpha = 0.05 for mistakes
 ```
+
+Mistakes use the smaller `ErrAlpha`: they are rare events, so the error rate
+needs more presses to mean something, and one slip moves it by at most 5
+points instead of 10.
 
 For errors `x = 1` if the occurrence had a mistake, otherwise `0`. For time
 `x = ms`.
@@ -231,26 +239,32 @@ by hand (first lesson in bold):
 at least `MinWords = 30` real words can be built from them: 7 letters (39 words).
 Without this rule the first lesson would cycle through a handful of words.
 
-**Mastery** of a letter is a plain yes/no rule on the smoothed values, with
-a margin once it is reached (`engine.MeetsGoal`, `Mastered`):
+**Level and mastery** (`engine.Level`, `MeetsGoal`, `Mastered`):
 
 ```
-meets the goal = n >= 20  and  ErrEMA <= 0.05  and  TimeEMA <= TargetMs (400 ms)
-stays mastered =             ErrEMA <= 0.10  and  TimeEMA <= TargetMs * 1.1 (440 ms)
+level          = 100 * (1 - difficulty)                     0..100, section 5
+meets the goal = n >= MasteryMinSamples (40)  and  a timed press  and  level >= MasteryLevel (80)
 ```
 
-In words: at least 20 occurrences, under 5 % mistakes, at 30 WPM or faster;
-after that the letter stays mastered until it is clearly worse: over 10 %
-mistakes or slower than about 27 WPM (`KeepErrorRate`, `KeepSlowdown`). It is
-checked on the raw values (not on the shrunk difficulty) so it can be
-explained to a user in one sentence. The state is remembered per letter
-(`KeyStat.Held`, updated by every sample in `Update`).
+The level is the difficulty of section 5 seen from the other side, so the
+number the user sees is the number that picks the words. Mistakes weigh 0.6
+and speed 0.4, so level 80 is reached by few mistakes at a speed near the
+goal; it can not be reached by speed alone. Examples with many presses:
+no mistakes at 400 ms (30 WPM) or faster is level 100; 4 % mistakes at the goal
+speed is about 90; no mistakes at 700 ms (17 WPM) is about 80.
+
+The rule is checked once per round, on the presses of the whole round
+(`engine.Apply`), and once met the letter **stays mastered**
+(`KeyStat.Held`): mastery is never taken back. A letter that gets worse later
+only has a lower level, which makes it the focus more often (section 7).
+Checking once per round keeps one lucky stretch inside a round from
+deciding it.
 
 **Next letter.** When a round ends (section 7): if every open
 letter is mastered, the next letter in the order opens. At most one letter per
 round. A new letter
-starts at the prior difficulty 0.7, which is higher than the difficulty of the
-mastered letters, so it automatically becomes the focus.
+starts at the prior difficulty 0.7 (level 30), which is higher than the
+difficulty of the mastered letters, so it automatically becomes the focus.
 
 **Experienced typists** start from the first letters too (there is no "open
 all letters" choice): typing well, they master the
@@ -278,11 +292,10 @@ goal of lap n = min(TargetWPM + n * StepWPM, MaxWPM)
 - **What changes.** Only `TargetWPM` (`Params.ForLap`): every formula of
   sections 4-7 stays and simply gets the higher goal, so the difficulty of a
   letter, its mastery and the word choice all follow it. `StartLap` turns
-  `Held` off for every letter: each has to *reach* the new goal, not only
-  *keep* the old one (the margin of section 6 would otherwise keep a 30 WPM
-  letter "mastered" at 35). The EMAs are kept, so a letter already fast
-  enough counts as mastered again at its next press and the slow ones become
-  the focus. No letter is closed again.
+  `Held` off for every letter: each has to *reach* the new goal, since
+  mastery is otherwise never taken back. The EMAs are kept, so a letter
+  already good enough counts as mastered again at the end of its next round
+  and the slow ones become the focus. No letter is closed again.
 - **Why to 60.** keybr raises its goal in the same way. Past about 60 WPM
   the limit is no longer single letters but words and their rhythm, which
   is what Climb trains.
@@ -300,19 +313,15 @@ model or the word choice sees it (`engine.RoundsToMastery`,
 `history.NextForecast`).
 
 For each open letter that is not mastered, its numbers after each of its
-last `Window = 10` rounds (presses `n`, presses with a mistake `m`,
-`ErrEMA`, `TimeEMA`; the rounds are the replay of the stats screen, the
-last point the model as it is now). Each of the three parts of the mastery
-rule gets its own estimate, and the slowest decides:
+last `Window = 10` rounds (presses `n`, `ErrEMA`, `TimeEMA`, and from them
+the level; the rounds are the replay of the stats screen, the last point
+the model as it is now). The two parts of the mastery rule each get an
+estimate, and the slower decides:
 
 ```
 per round = presses in the window / rounds in the window
-presses:  (20 - n) / per round
-mistakes: q = mistakes / presses in the window   (the recent mistake rate)
-          ErrEMA moves towards q by Alpha a press: E_k = q + (E - q)(1 - Alpha)^k,
-          so it is under 0.05 after k = ln((0.05 - q) / (E - q)) / ln(1 - Alpha) presses;
-          rounds = k / per round
-speed:    (TimeEMA - TargetMs) / (fall of the least-squares line through TimeEMA, per round)
+presses:  (MasteryMinSamples - n) / per round
+level:    (MasteryLevel - level) / (rise of the least-squares line through the level, per round)
 
 rounds for the letter = ceil(max of the parts not met yet), at least 1
 rounds to the next letter = max over the letters still waiting
@@ -323,11 +332,11 @@ The least-squares slope over the points `(i, y_i)` is
 
 **No answer** rather than a wrong one: a letter with fewer than
 `MinRounds = 3` rounds (a line through two points is noise), with no timed
-press yet, not typed in the window, with recent mistakes at 5 % or more,
-or whose time line does not fall (not getting faster). One letter without
-an answer means no answer for the next letter either, since it waits for
-all of them; the panel then shows nothing (the letter line already says
-what the gold letter needs). More than `MaxRounds = 50` is shown as "50+".
+press yet, not typed in the window, or whose level does not rise. One
+letter without an answer means no answer for the next letter either, since
+it waits for all of them; the panel then shows nothing (the letter line
+already says what the gold letter needs). More than `MaxRounds = 50` is
+shown as "50+".
 
 **Why the slowest letter.** A letter opens only when every open letter is
 mastered (section 6), so the next letter is as far away as the letter
@@ -511,7 +520,8 @@ All in `internal/config/config.go`.
 
 | Name | Value | Meaning | Reason for the value |
 |---|---|---|---|
-| `Alpha` | 0.1 | EMA smoothing | half-life ≈ 6.6 occurrences, memory ≈ 20 |
+| `Alpha` | 0.1 | EMA smoothing of the time | half-life ≈ 6.6 occurrences, memory ≈ 20 |
+| `ErrAlpha` | 0.05 | EMA smoothing of the mistakes | memory ≈ 40 presses: one slip moves the error rate by at most 5 points (section 4) |
 | `MaxIntervalMs` | 2000 | longer gaps are pauses | a 2 s gap is far slower than any real keystroke |
 | `TargetWPM` | 30 | goal speed (400 ms / char) | reachable goal for a beginner; raise it for advanced users |
 | `SlowMs` | 1000 | "maximally slow" | 1 s per letter = hunting for the key |
@@ -520,10 +530,8 @@ All in `internal/config/config.go`.
 | `PriorDifficulty` | 0.7 | assumption about an unseen letter | new letters must get practised |
 | `PriorStrength` | 5 | how many samples the prior is worth | a few presses are not yet evidence |
 | `Temperature` | 0.1 | focus strength | chosen with the simulation (section 10): fastest learning at a small loss of variety |
-| `MasteryMinSamples` | 20 | evidence needed for mastery | ≈ one EMA memory length |
-| `MasteryErrorRate` | 0.05 | max mistakes for mastery | 95 % accuracy, a common minimum goal |
-| `KeepErrorRate` | 0.10 | a mastered letter stays mastered up to this error rate | twice the goal: one slip (+0.1 at most) is not enough to lose it, a real problem is (section 6) |
-| `KeepSlowdown` | 0.10 | ...and up to TargetMs · 1.1 (440 ms, ~27 WPM) | the running average wobbles about ±15 ms around a steady speed; 40 ms is clearly more |
+| `MasteryMinSamples` | 40 | presses needed for mastery | a new letter gets about 30 presses a round as the focus: about two rounds |
+| `MasteryLevel` | 80 | level needed for mastery (section 6) | few mistakes near the goal speed; with the simulation, a fast typist opens every letter in about 46 rounds instead of 348 |
 | `UnmasteredBonus` | 0.2 | added to the difficulty of a letter not mastered yet, for the choice only | e^(0.2/0.1) ≈ 7 times the weight of an equal mastered letter: a blocking letter gets about half the portions among ten (section 7) |
 | `HomeBoost` | 4 | a resting key counts this many times as frequent in the unlock order | the smallest boost that starts English with the home row and `f` (section 6) |
 | `StartLetters` / `MinWords` | 6 / 30 | first lesson | enough variety from the first minute |
@@ -635,11 +643,25 @@ Median exercises to the goal (20 typists), and the stream's variety:
 
 | Language | Random words | Best of 20 | Adaptive, T = 0.1 | Stream (the app) | Stream, no frequency penalty | Stream variety, first 30 | Stream variety, expert |
 |---|---|---|---|---|---|---|---|
-| en | 2179 | 280 | 144 | 134 | 132 | 79 / 40 / 86 | 97 / 5 / 67 |
+| en | 2142 | 247 | 96 | 92 | 96 | 81 / 40 / 88 | 97 / 5 / 63 |
 
-The stream needs 16 times fewer exercises than random words and 2.1
+The stream needs 23 times fewer exercises than random words and 2.7
 times fewer than best of 20. The forecast is within
-max(2, 25 %) in 79-87 % of cases (mean error 1.2-1.5 rounds).
+max(2, 25 %) in 87 % of cases (mean error 1.8 rounds).
+
+**Unlock pace.** The same tool also types Learn exactly as the app does
+(rounds of 30 words, the model learns once per round) for three kinds of
+typist and counts the rounds until every letter is open (median of 20):
+
+| Typist | Mistakes | Time per press | Learns | Rounds to 13 letters | Rounds to all 26 |
+|---|---|---|---|---|---|
+| beginner | 3-30 % | 350-900 ms | yes | 20 | 58 |
+| middle | 4-8 % | 250-450 ms | yes | 15 | 44 |
+| fast | 2-4 % | 120-250 ms | no, already fast | 15 | 46 |
+
+Before the level and "mastered stays mastered" (section 6) these were 104,
+69 and 348 rounds: a fast typist waited for a round in which every open
+letter was under 5 % mistakes at the same moment.
 
 Limits: the typist is invented. Letters do not influence each other, there is
 no forgetting, and learning is the same exponential curve for every letter. The

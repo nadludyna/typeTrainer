@@ -95,8 +95,8 @@ func presses(c string, n int, ms float64) []engine.Sample {
 func TestLetterTimelineLaps(t *testing.T) {
 	cfg := config.Default()
 	s := []storage.Session{
-		{Unlocked: 1, Keys: presses("a", 30, 380)},
-		{Unlocked: 1, Lap: 1, Keys: presses("a", 1, 380)},
+		{Unlocked: 1, Keys: presses("a", 45, 380)},
+		{Unlocked: 1, Lap: 1, Keys: presses("a", 30, 700)},
 		{Unlocked: 1, Lap: 1, Keys: presses("a", 40, 300)},
 	}
 	got := LetterTimeline(s, []string{"a"}, 1, cfg.Engine, cfg.Laps)
@@ -117,20 +117,20 @@ func TestNextForecast(t *testing.T) {
 	for i := 0; i < 8; i++ {
 		rounds = append(rounds, Round{Unlocked: 2, Letters: []*LetterState{
 			{Count: 100, ErrorRate: 0.01, AvgMs: 300, Mastered: true},
-			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(640 - 20*i)},
-			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(570 - 10*i)},
+			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(880 - 20*i)},
+			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(800 - 10*i)},
 		}})
 	}
 	now := map[string]engine.KeyStat{
 		"a": {Count: 100, ErrEMA: 0.01, TimeEMA: 300, TimedCount: 100, Held: true},
-		"b": {Count: 100, ErrEMA: 0.02, TimeEMA: 500, TimedCount: 100},
-		"c": {Count: 100, ErrEMA: 0.02, TimeEMA: 500, TimedCount: 100},
+		"b": {Count: 100, ErrEMA: 0.02, TimeEMA: 740, TimedCount: 100},
+		"c": {Count: 100, ErrEMA: 0.02, TimeEMA: 730, TimedCount: 100},
 	}
-	if got := NextForecast(rounds, order, now, 2, p, fp); !got.Known || got.Rounds != 5 || got.Letter != "b" {
-		t.Errorf("a and b open: %+v, want 5 rounds for b", got)
+	if got := NextForecast(rounds, order, now, 2, p, fp); !got.Known || got.Rounds != 6 || got.Letter != "b" {
+		t.Errorf("a and b open: %+v, want 6 rounds for b", got)
 	}
-	if got := NextForecast(rounds, order, now, 3, p, fp); !got.Known || got.Rounds != 10 || got.Letter != "c" {
-		t.Errorf("all open: %+v, want 10 rounds for c", got)
+	if got := NextForecast(rounds, order, now, 3, p, fp); !got.Known || got.Rounds != 8 || got.Letter != "c" {
+		t.Errorf("all open: %+v, want 8 rounds for c", got)
 	}
 	if got := NextForecast(rounds[:fp.MinRounds-1], order, now, 2, p, fp); got.Known || got.Letter != "b" || !got.Few {
 		t.Errorf("%d rounds: %+v, want no answer, too few rounds of b", fp.MinRounds-1, got)

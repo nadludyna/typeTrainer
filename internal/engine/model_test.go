@@ -10,8 +10,8 @@ var testParams = Params{
 	TargetWPM: 30, SlowMs: 1000, MaxErrorRate: 0.25, ErrorWeight: 0.6, SpeedWeight: 0.4,
 	PriorDifficulty: 0.7, PriorStrength: 5,
 	Temperature:       0.1,
-	MasteryMinSamples: 20, MasteryErrorRate: 0.05,
-	KeepErrorRate: 0.10, KeepSlowdown: 0.10, UnmasteredBonus: 0.2, HomeBoost: 4,
+	MasteryMinSamples: 20, MasteryLevel: 80,
+	UnmasteredBonus: 0.2, HomeBoost: 4,
 	StartLetters: 6, MinWords: 30, RepeatPenalty: 0.3, MinWordLetters: 2, MaxRepeats: 2, ExerciseWords: 20,
 	PortionWords: 6, AheadPortions: 2, RecentWords: 24, RetryWords: 2, RoundPortions: 5,
 	RankStart: 200, RankStep: 200, RankPenalty: 0.5,
@@ -100,8 +100,8 @@ func TestMastered(t *testing.T) {
 	if Mastered(repeat(KeyStat{}, Sample{Ms: 300}, 19), testParams) {
 		t.Error("19 samples is below MasteryMinSamples")
 	}
-	if Mastered(repeat(KeyStat{}, Sample{Ms: 600}, 50), testParams) {
-		t.Error("600 ms is slower than the 400 ms target")
+	if Mastered(repeat(KeyStat{}, Sample{Ms: 800}, 50), testParams) {
+		t.Error("800 ms, twice the 400 ms target, should be below the mastery level")
 	}
 }
 
@@ -120,60 +120,55 @@ func TestSoftmaxWeight_TemperatureControlsFocus(t *testing.T) {
 	}
 }
 
+func cleanPresses(n int, ms float64) []Sample {
+	out := make([]Sample, n)
+	for i := range out {
+		out[i] = Sample{Char: "a", Ms: ms}
+	}
+	return out
+}
+
 func clean(s KeyStat, ms float64, n int) KeyStat {
 	return repeat(s, Sample{Char: "a", Ms: ms}, n)
 }
 
-func TestHeld_OneSlipKeepsMastery(t *testing.T) {
-	s := clean(KeyStat{}, 300, 25)
+func TestHeld_MasteredIsNeverTakenBack(t *testing.T) {
+	s := Apply(nil, cleanPresses(25, 300), testParams)["a"]
 	if !s.Held || !Mastered(s, testParams) {
 		t.Fatalf("25 clean presses at 300 ms: want mastered and held, got %+v", s)
 	}
-	s = Update(s, Sample{Char: "a", Errors: 1}, testParams)
-	if MeetsGoal(s, testParams) {
-		t.Fatalf("after a mistake the letter should be below the goal right now (ErrEMA %.3f)", s.ErrEMA)
+	before := Level(s, testParams)
+	bad := []Sample{}
+	for i := 0; i < 5; i++ {
+		bad = append(bad, Sample{Char: "a", Errors: 1})
+	}
+	bad = append(bad, cleanPresses(30, 900)...)
+	s = Apply(map[string]KeyStat{"a": s}, bad, testParams)["a"]
+	if Level(s, testParams) >= before || MeetsGoal(s, testParams) {
+		t.Fatalf("mistakes and slow presses should lower the level: %.1f -> %.1f", before, Level(s, testParams))
 	}
 	if !Mastered(s, testParams) {
-		t.Errorf("one mistake took the mastery back (ErrEMA %.3f, keep up to %.2f)", s.ErrEMA, testParams.KeepErrorRate)
+		t.Errorf("a mastered letter lost its mastery (level %.1f)", Level(s, testParams))
 	}
 }
 
-func TestHeld_ClearlyWorseLosesMastery(t *testing.T) {
-	s := clean(KeyStat{}, 300, 25)
-	for i := 0; i < 3; i++ {
-		s = Update(s, Sample{Char: "a", Errors: 1}, testParams)
+func TestLevel_OneSlipMovesItALittle(t *testing.T) {
+	p := testParams
+	p.ErrAlpha = 0.05
+	s := repeat(KeyStat{}, Sample{Char: "a", Ms: 300}, 60)
+	before := Level(s, p)
+	s = Update(s, Sample{Char: "a", Errors: 1}, p)
+	if d := before - Level(s, p); d <= 0 || d > 15 {
+		t.Errorf("one slip after 60 clean presses moved the level by %.1f, want a little", d)
 	}
-	if Mastered(s, testParams) {
-		t.Errorf("three mistakes in a row (ErrEMA %.3f): still mastered", s.ErrEMA)
-	}
-	s = clean(KeyStat{}, 300, 25)
-	s = clean(s, 520, 30)
-	if Mastered(s, testParams) {
-		t.Errorf("TimeEMA %.0f ms, over the keep limit: still mastered", s.TimeEMA)
-	}
-	s = clean(KeyStat{}, 300, 25)
-	s = clean(s, 430, 30)
-	if !Mastered(s, testParams) {
-		t.Errorf("TimeEMA %.0f ms, inside the keep limit: lost the mastery", s.TimeEMA)
+	if !near(Level(KeyStat{}, p), 100*(1-p.PriorDifficulty)) {
+		t.Errorf("no data: level %.1f, want 100 - prior", Level(KeyStat{}, p))
 	}
 }
 
 func TestHeld_NeedsTheGoalFirst(t *testing.T) {
-	s := clean(KeyStat{}, 430, 40)
+	s := clean(KeyStat{}, 900, 40)
 	if s.Held || Mastered(s, testParams) {
-		t.Errorf("a letter at %.0f ms that never met the goal counts as mastered", s.TimeEMA)
-	}
-}
-
-func TestHeld_NoMarginIsThePlainGoal(t *testing.T) {
-	p := testParams
-	p.KeepErrorRate, p.KeepSlowdown = 0, 0
-	s := KeyStat{}
-	for i := 0; i < 25; i++ {
-		s = Update(s, Sample{Char: "a", Ms: 300}, p)
-	}
-	s = Update(s, Sample{Char: "a", Errors: 1}, p)
-	if Mastered(s, p) {
-		t.Errorf("no margin: one mistake should take the mastery back (ErrEMA %.3f)", s.ErrEMA)
+		t.Errorf("a letter at %.0f ms (level %.1f) counts as mastered", s.TimeEMA, Level(s, testParams))
 	}
 }

@@ -4,6 +4,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -375,6 +376,7 @@ type keyInfo struct {
 	ErrorRate  float64 `json:"errorRate"`
 	AvgMs      float64 `json:"avgMs"`
 	Difficulty float64 `json:"difficulty"`
+	Level      float64 `json:"level"`
 	Mastered   bool    `json:"mastered"`
 	Unlocked   bool    `json:"unlocked"`
 }
@@ -406,7 +408,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		st := stats[c]
 		keys = append(keys, keyInfo{
 			Char: c, Count: st.Count, ErrorRate: st.ErrEMA, AvgMs: st.TimeEMA,
-			Difficulty: engine.Difficulty(st, p), Mastered: engine.Mastered(st, p),
+			Difficulty: engine.Difficulty(st, p), Level: math.Round(engine.Level(st, p)*10) / 10, Mastered: engine.Mastered(st, p),
 			Unlocked: i < unlocked,
 		})
 	}
@@ -454,7 +456,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
 		"order":   l.Gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
-		"masteryMin": p.MasteryMinSamples, "masteryErr": p.MasteryErrorRate * 100,
+		"masteryMin": p.MasteryMinSamples, "masteryLevel": p.MasteryLevel,
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
 	})

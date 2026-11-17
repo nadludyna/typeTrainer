@@ -72,10 +72,10 @@ export async function refreshStats() {
   S.lastStats = await getJSON(`/stats?length=${lengthFor("learn")}`);
   activityStale = true;
   learnStatsStale();
-  const vars = [S.lastStats.targetWpm, S.lastStats.masteryMin, Math.round(S.lastStats.masteryErr)];
+  const vars = [S.lastStats.targetWpm, S.lastStats.masteryMin, Math.round(S.lastStats.masteryLevel)];
   if (vars.join() !== introVars) {
     introVars = vars.join();
-    [i18nVars.target, i18nVars.min, i18nVars.err] = vars;
+    [i18nVars.target, i18nVars.min, i18nVars.level] = vars;
     applyI18n(el.intro);
   }
   if (S.view === "stats") renderStats();

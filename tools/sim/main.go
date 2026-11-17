@@ -176,6 +176,66 @@ func runLanguage(id string, words, home []string, cfg config.Config, temps []flo
 		fmt.Println(row(name, res, vs))
 	}
 	forecast(words, home, cfg)
+	unlockPace(words, home, cfg)
+}
+
+// unlockPace types Learn as the app does (rounds of RoundPortions portions,
+// the model learns once per round) and counts the rounds until every
+// letter is open, for three kinds of typist.
+func unlockPace(words, home []string, cfg config.Config) {
+	ep := cfg.Engine
+	kind := func(errMin, errMax, timeMin, timeMax, learn float64) sim.Params {
+		q := cfg.Sim
+		q.ErrMin, q.ErrMax, q.TimeMin, q.TimeMax, q.LearnRate = errMin, errMax, timeMin, timeMax, learn
+		return q
+	}
+	kinds := []struct {
+		name string
+		p    sim.Params
+	}{
+		{"beginner", cfg.Sim},
+		{"middle", kind(0.04, 0.08, 250, 450, cfg.Sim.LearnRate)},
+		{"fast, steady", kind(0.02, 0.04, 120, 250, 0)},
+	}
+	fmt.Println("unlock pace, rounds of the app (median of", cfg.Sim.Runs, "typists):")
+	for _, k := range kinds {
+		var half, all []int
+		for run := 0; run < cfg.Sim.Runs; run++ {
+			seed := int64(run + 1)
+			gen := engine.NewGenerator(words, rand.New(rand.NewSource(seed)), ep)
+			gen.SetHome(home, ep)
+			gen.SetWordParams(cfg.Words)
+			t := sim.NewTypist(gen.Order(), k.p, rand.New(rand.NewSource(seed))).Clone(rand.New(rand.NewSource(seed + 1000)))
+			s := &sim.Stream{Gen: gen, EP: ep}
+			stats := map[string]engine.KeyStat{}
+			unlocked, n := gen.Start(), len(gen.Order())
+			h, rounds := 0, 0
+			for rounds < cfg.Sim.MaxExercises && unlocked < n {
+				var round []engine.Sample
+				for i := 0; i < ep.RoundPortions; i++ {
+					samples := t.Type(s.Text(stats, unlocked, 0))
+					s.Observe(samples)
+					round = append(round, samples...)
+				}
+				stats = engine.Apply(stats, round, ep)
+				unlocked = gen.NextUnlocked(stats, unlocked, ep)
+				rounds++
+				if h == 0 && unlocked >= (n+1)/2 {
+					h = rounds
+				}
+			}
+			half, all = append(half, h), append(all, rounds)
+		}
+		sort.Ints(half)
+		sort.Ints(all)
+		fmt.Printf("  %-14s half the letters: %3d rounds, all %d: %3d rounds\n", k.name, half[len(half)/2], len(gen0(words, home, cfg).Order()), all[len(all)/2])
+	}
+}
+
+func gen0(words, home []string, cfg config.Config) *engine.Generator {
+	g := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
+	g.SetHome(home, cfg.Engine)
+	return g
 }
 
 func forecast(words, home []string, cfg config.Config) {

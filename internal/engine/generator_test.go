@@ -231,10 +231,10 @@ func TestUnmasteredBonus_SlowLetterGetsTheFocus(t *testing.T) {
 	open := g.Order()[:10]
 	stats := map[string]KeyStat{}
 	for _, c := range open {
-		stats[c] = repeat(KeyStat{}, Sample{Char: c, Ms: 380}, 40)
+		stats[c] = KeyStat{Count: 200, TimeEMA: 700, TimedCount: 200, Held: true}
 	}
 	slow := open[3]
-	stats[slow] = repeat(KeyStat{}, Sample{Char: slow, Ms: 450}, 40)
+	stats[slow] = KeyStat{Count: 200, TimeEMA: 730, TimedCount: 200}
 	share := func(p Params) float64 {
 		pl := g.newPool(stats, 10, 0, p)
 		total := 0.0

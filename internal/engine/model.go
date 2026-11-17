@@ -5,6 +5,7 @@ import "math"
 
 type Params struct {
 	Alpha         float64
+	ErrAlpha      float64
 	MaxIntervalMs float64
 
 	TargetWPM    float64
@@ -19,9 +20,7 @@ type Params struct {
 	Temperature float64
 
 	MasteryMinSamples int
-	MasteryErrorRate  float64
-	KeepErrorRate     float64
-	KeepSlowdown      float64
+	MasteryLevel      float64
 
 	UnmasteredBonus float64
 
@@ -74,18 +73,20 @@ func Update(s KeyStat, smp Sample, p Params) KeyStat {
 		miss = 1
 		s.Mistakes++
 	}
-	s.ErrEMA += emaStep(s.Count, p.Alpha) * (miss - s.ErrEMA)
+	s.ErrEMA += emaStep(s.Count, p.errAlpha()) * (miss - s.ErrEMA)
 
 	if smp.Errors == 0 && smp.Ms > 0 && smp.Ms <= p.MaxIntervalMs {
 		s.TimedCount++
 		s.TimeEMA += emaStep(s.TimedCount, p.Alpha) * (smp.Ms - s.TimeEMA)
 	}
-	if s.Held {
-		s.Held = keeps(s, p)
-	} else {
-		s.Held = MeetsGoal(s, p)
-	}
 	return s
+}
+
+func (p Params) errAlpha() float64 {
+	if p.ErrAlpha > 0 {
+		return p.ErrAlpha
+	}
+	return p.Alpha
 }
 
 func Apply(stats map[string]KeyStat, samples []Sample, p Params) map[string]KeyStat {
@@ -93,8 +94,16 @@ func Apply(stats map[string]KeyStat, samples []Sample, p Params) map[string]KeyS
 	for k, v := range stats {
 		out[k] = v
 	}
+	touched := map[string]bool{}
 	for _, smp := range samples {
 		out[smp.Char] = Update(out[smp.Char], smp, p)
+		touched[smp.Char] = true
+	}
+	for c := range touched {
+		if s := out[c]; !s.Held && MeetsGoal(s, p) {
+			s.Held = true
+			out[c] = s
+		}
 	}
 	return out
 }
@@ -119,15 +128,17 @@ func Difficulty(s KeyStat, p Params) float64 {
 	return (n*RawDifficulty(s, p) + k*p.PriorDifficulty) / (n + k)
 }
 
-func MeetsGoal(s KeyStat, p Params) bool {
-	return s.Count >= p.MasteryMinSamples &&
-		s.ErrEMA <= p.MasteryErrorRate &&
-		s.TimedCount > 0 && s.TimeEMA <= p.TargetMs()
+// Level is a letter's progress from 0 to 100: the same number as the
+// difficulty, turned around (100 = no mistakes at the goal speed or faster).
+func Level(s KeyStat, p Params) float64 {
+	return 100 * (1 - Difficulty(s, p))
 }
 
-func keeps(s KeyStat, p Params) bool {
-	return s.ErrEMA <= max(p.KeepErrorRate, p.MasteryErrorRate) &&
-		s.TimedCount > 0 && s.TimeEMA <= p.TargetMs()*(1+max(0, p.KeepSlowdown))
+// MeetsGoal: enough presses, one of them timed, and the level high enough.
+// Apply checks it once per batch of presses (a round); once met, the letter
+// stays mastered (KeyStat.Held).
+func MeetsGoal(s KeyStat, p Params) bool {
+	return s.Count >= p.MasteryMinSamples && s.TimedCount > 0 && Level(s, p) >= p.MasteryLevel
 }
 
 func Mastered(s KeyStat, p Params) bool {

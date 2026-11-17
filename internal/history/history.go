@@ -42,6 +42,7 @@ type LetterState struct {
 	Mistakes  int     `json:"mistakes"`
 	ErrorRate float64 `json:"errorRate"`
 	AvgMs     float64 `json:"avgMs"`
+	Level     float64 `json:"level"`
 	Mastered  bool    `json:"mastered"`
 }
 
@@ -72,7 +73,7 @@ func LetterTimeline(sessions []storage.Session, order []string, first int, p eng
 				break
 			}
 			k := stats[c]
-			r.Letters[i] = &LetterState{Count: k.Count, Mistakes: k.Mistakes, ErrorRate: round3(k.ErrEMA), AvgMs: math.Round(k.TimeEMA), Mastered: engine.Mastered(k, p)}
+			r.Letters[i] = &LetterState{Count: k.Count, Mistakes: k.Mistakes, ErrorRate: round3(k.ErrEMA), AvgMs: math.Round(k.TimeEMA), Level: math.Round(engine.Level(k, p)*10) / 10, Mastered: engine.Mastered(k, p)}
 		}
 		out = append(out, r)
 	}

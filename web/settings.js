@@ -1,7 +1,7 @@
 // The settings: loading, saving, the window with its search, and the small windows of single screens.
 
 import { t } from "./i18n.js";
-import { $, S, store, isTouch } from "./state.js";
+import { $, S, store, isTouch, shownMode } from "./state.js";
 import { openPop, ring, ringBtn } from "./minipop.js";
 import { SETTINGS, CATEGORIES, LENGTHS, DAILY } from "./settings-list.js";
 
@@ -148,7 +148,7 @@ q.setAttribute("aria-label", t("settings.search"));
 
 let cur = 0, shown = [], query = "", cat = "";
 const attr = (s) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
-const usable = (s) => (s.show?.() ?? true) && !(s.touch === false && isTouch());
+const usable = (s) => (s.show?.() ?? true) && !(s.touch === false && isTouch()) && (!s.modes || s.modes.some(shownMode));
 function searchText(s) {
   const values = choicesOf(s).map((v) => (s.kind === "action" ? "" : valueLabel(s, s.kind === "switch" ? v === "1" : v)));
   const buttons = s.buttons?.map((b) => t(b[2])) ?? [];

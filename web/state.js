@@ -68,3 +68,8 @@ export function focusText() {
   if (isTouch() && document.activeElement !== el.input) el.input.focus({ preventScroll: true });
   el.textBox.classList.remove("blurred");
 }
+
+// Climb and Freetype are hidden: their code and saved rounds stay.
+// tt.allModes = "1" shows them again (browser checks only).
+export const SHOWN_MODES = store.get("tt.allModes") === "1" ? ["learn", "climb", "freetype"] : ["learn"];
+export const shownMode = (m) => SHOWN_MODES.includes(m);

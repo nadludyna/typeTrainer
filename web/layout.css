@@ -110,6 +110,7 @@ body:not(.typing-now) .live:not(.final) > .streak { opacity: 0; }
 .rail-group { display: flex; }
 .rail .switch { grid-auto-flow: column; grid-auto-columns: 1fr; }
 .nav-switch { --n: 4; }
+.rail .nav-switch > [hidden] { display: none; }
 .rail .switch button, .rail-btn {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   width: 72px; height: 50px; padding: 0 2px; border-radius: var(--r-md); background: none; color: var(--sub);

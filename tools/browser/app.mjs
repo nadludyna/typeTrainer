@@ -3,6 +3,7 @@
 export async function openApp(page, storage = {}) {
   await page.addInitScript((s) => {
     localStorage.setItem("tt.introDone", "1");
+    localStorage.setItem("tt.allModes", "1");
     for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);
   }, storage);
   await page.goto("/");

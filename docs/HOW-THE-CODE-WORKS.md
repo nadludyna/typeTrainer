@@ -165,7 +165,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result. It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
 
-- `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: learn · climb · freetype · stats), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
+- `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 
 - `ambient.js`: The falling keycaps in the empty fields left and right of the text: square ones with the open letters, F and J with their bump, wide ones with their name such as Shift or Tab, some filled a little. Decoration only, on by default, a switch in the settings window. One `element.animate` per keycap with plain numbers on a bare wrapper, the look on the element inside; they stop where they are while you type (`typing-now` on the body) and go on after, so typing costs what it costs without them (`perf.mjs`). Switching it fades the layer in or out over `FADE_MS`. Not drawn when the sides are too narrow or the system asks for reduced motion.
 
@@ -426,7 +426,10 @@ the page there, so there are no cookies, and the only guest is `local`.
 
 ## Modes
 
-Three modes, all open to everyone (`web/modes.js`). They
+Three modes in the code (`web/modes.js`); only Learn is shown. Climb and
+Freetype are hidden: no tab, no setting, no stats switch, and a saved
+hidden mode opens Learn (`SHOWN_MODES` in `web/state.js`). The browser
+checks turn them back on with `localStorage` `tt.allModes = "1"`. They
 share no data: Climb and Freetype have their own routes and histories
 (the `AddFreeplaySession` family of the store, with a mode: `ModeClimb`, or
 `FreetypeMode(n, variant)` for each Freetype list and kind of text).

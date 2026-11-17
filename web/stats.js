@@ -1,7 +1,7 @@
 // The stats screen.
 
 import { i18nVars, t, applyI18n } from "./i18n.js";
-import { $, el, S, store, listLabel, listless } from "./state.js";
+import { $, el, S, store, listLabel, listless, shownMode } from "./state.js";
 import { getJSON } from "./api.js";
 import { LENGTHS, lengthLabel, lengthFor, setSetting, pickDaily } from "./settings.js";
 import { ring, ringBtn } from "./minipop.js";
@@ -81,9 +81,9 @@ export async function refreshStats() {
   if (S.view === "stats") renderStats();
 }
 
-const pick = { mode: "climb", list: 0, variant: "", length: "" };
+const pick = { mode: "learn", list: 0, variant: "", length: "" };
 export function resetStatsPick() {
-  const mode = ["learn", "climb", "freetype"].includes(S.mode) ? S.mode : "climb";
+  const mode = shownMode(S.mode) ? S.mode : "learn";
   Object.assign(pick, { mode, list: S.freetypeList, variant: S.freetypeVariant, length: lengthFor(mode) });
 }
 let other = null;
@@ -272,8 +272,8 @@ const pickEl = $("stats-pick");
 function renderPick(mode, list, variant) {
   const ft = mode === "freetype", lists = ft && !listless(variant) ? (S.freetype?.lists ?? []) : [];
   const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"];
-  pickEl.innerHTML = ring(t("stats.modes"), [["learn", "mode.learn"], ["climb", "mode.free"], ["freetype", "mode.freetype"]].map(([m, key]) =>
-    ringBtn(`data-mode="${m}"`, t(key), m === mode))) +
+  const modes = [["learn", "mode.learn"], ["climb", "mode.free"], ["freetype", "mode.freetype"]].filter(([m]) => shownMode(m));
+  pickEl.innerHTML = (modes.length > 1 ? ring(t("stats.modes"), modes.map(([m, key]) => ringBtn(`data-mode="${m}"`, t(key), m === mode))) : "") +
     (ft ? ring(t("ft.kind"), kinds.map((k) => ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), variant === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""))) : "") +
     (lists.length ? ring(t("freetype.list"), lists.map((n) => ringBtn(`data-list="${n}"`, listLabel(n), n === list, t("freetype.listN", { n })))) : "");
 }

@@ -981,3 +981,14 @@ test("the streak shows only in Freetype and only when it is on", async ({ page }
   await openApp(page, { "tt.mode.en": "freetype", "tt.streak.free": "0" });
   await expect(page.locator("#streak")).toBeHidden();
 });
+
+test("a new visitor sees only Learn: Climb and Freetype are hidden", async ({ page }) => {
+  await openApp(page, { "tt.allModes": "", "tt.mode.en": "climb" });
+  await expect(page.locator("body"), "a saved hidden mode opens Learn").toHaveAttribute("data-mode", "learn");
+  await expect(page.locator("#tab-climb")).toBeHidden();
+  await expect(page.locator("#tab-freetype")).toBeHidden();
+  await page.locator("#tab-stats").click();
+  await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Climb");
+  await page.locator("#btn-settings").click();
+  await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
+});

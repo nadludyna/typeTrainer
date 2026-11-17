@@ -154,7 +154,7 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
   .text { font-size: var(--text-size); }
   #view-type:not([hidden]) { flex: 1; display: flex; flex-direction: column; margin-block: 0; }
   #view-type > .letters { margin-top: clamp(8px, 3vh, 28px); }
-  #keyboard { transition: opacity .2s var(--ease), translate .2s var(--ease), display .2s allow-discrete; }
+  #keyboard { transition: opacity .2s var(--ease), translate .2s var(--ease), visibility .2s, display .2s allow-discrete; }
   body.kb-hidden #keyboard { display: none; opacity: 0; translate: 0 8px; }
   @starting-style { body:not(.kb-hidden) #keyboard { opacity: 0; translate: 0 8px; } }
 }

@@ -78,7 +78,7 @@ func main() {
 		if *only != "" && l.ID != *only {
 			continue
 		}
-		list, err := os.ReadFile("data/langs/" + l.ID + "/words.txt")
+		list, err := os.ReadFile("data/langs/" + l.ID + "/free.txt")
 		if err != nil {
 			fail(err)
 		}
@@ -90,7 +90,7 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		runLanguage(l.ID, l.Words(string(list)), lay.RestingKeys(), cfg, ts)
+		runLanguage(l.ID, cfg.Words.LearnList(l.Words(string(list))), lay.RestingKeys(), cfg, ts)
 	}
 }
 

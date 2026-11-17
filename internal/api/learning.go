@@ -108,16 +108,17 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	}
 	typed := 0
 	if all := len(gen.Order()); unlocked == all && s.validWordLevel(l, req.Level) {
-		if gen, err = s.reinforce(user, l, gen, req.Level); err != nil {
-			serverError(w, err)
-			return
-		}
+		gen = l.Levels[req.Level-1]
 		typed = math.MaxInt32
 	} else if unlocked == all {
 		if typed, err = s.store.LettersTyped(user, l.Info.ID, all); err != nil {
 			serverError(w, err)
 			return
 		}
+	}
+	if gen, err = s.withWeakPairs(user, l, gen); err != nil {
+		serverError(w, err)
+		return
 	}
 	recent := append([]string{}, req.Recent...)
 	count := 1

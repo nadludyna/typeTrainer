@@ -260,11 +260,11 @@ func TestSummarize(t *testing.T) {
 
 func TestForecasts(t *testing.T) {
 	ep := cfg.Engine
-	list, err := os.ReadFile("../../data/langs/en/words.txt")
+	list, err := os.ReadFile("../../data/langs/en/free.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	gen := engine.NewGenerator(strings.Fields(string(list)), rand.New(rand.NewSource(1)), ep)
+	gen := engine.NewGenerator(cfg.Words.LearnList(strings.Fields(string(list))), rand.New(rand.NewSource(1)), ep)
 	run := sim.Forecasts(gen, &sim.Stream{Gen: gen, EP: ep}, newTypist(gen.Order(), 1), ep, cfg.Forecast, 2000)
 	if run.Rounds == 0 || run.Answered == 0 || run.Answered > run.Rounds || len(run.Checks) == 0 {
 		t.Fatalf("run: %d rounds, %d answered, %d checks", run.Rounds, run.Answered, len(run.Checks))

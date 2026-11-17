@@ -42,7 +42,7 @@ its own.
 
 - `internal/engine/model.go`: Per-letter statistics, EMA update, difficulty, mastery, softmax weight.
 
-- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection; `WithWords` and `WithPairs`, Reinforce's word levels and weak pairs.
+- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection; `WithWords` and `WithPairs`, Reinforce's word levels and the weak pairs of Learn and Reinforce.
 
 - `internal/engine/consistency.go`: Consistency of a round's speed (a measurement shown to the user; the model does not use it).
 
@@ -64,7 +64,7 @@ its own.
 
 - `internal/api/learning.go`: Learning routes: `/portion`, `/results`, `/stats`, `/activity`, `/progress`.
 - `internal/api/tune.go`: The hidden tuning panel's routes, `/tune`, and `params(user)`: Learn's numbers for one user, the config with that user's own values on top (kept in the server's memory only).
-- `internal/api/reinforce.go`: Reinforce: a word level for one learner with their weak pairs, `/learn/step` (the speed goal by hand).
+- `internal/api/reinforce.go`: Reinforce: word levels, a learner's weak pairs (Learn uses them too), `/learn/step` (the speed goal by hand).
 
 - `internal/api/data.go`: `/reset`, `/learn/reset` (Start Learn over), `/export`, `/import` (learning, Climb and Freetype data together).
 
@@ -86,9 +86,7 @@ its own.
 
 - `data/layouts/*.json`: Keys, rows, finger per key, AltGr letters, finger colors.
 
-- `data/langs/en/words.txt`: Learn's word list, most frequent first.
-
-- `data/langs/en/free.txt`: The long list of Climb and Freetype (25 000 words, `tools/wordlists/free.py`).
+- `data/langs/en/free.txt`: The word list, most frequent first (25 000 words, `tools/wordlists/free.py`): Learn takes the first 10 000, Reinforce, Climb and Freetype all of it.
 
 - `data/langs/en/sentences.txt`: Freetype's real sentences, one per line (from Tatoeba, CC BY 2.0 FR, `tools/sentences/build.py`).
 
@@ -166,7 +164,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `result.js`: The result screen in the text window: `showResult(r)` shows the result of Climb and Freetype (the level's move is shown by the bar above, not in words); Learn has none (its rounds follow one another; `learnpanel.js` shows the last one). Speed and accuracy carry their unit instead of a label; beside them, each word's speed on a line chart (a dot's tooltip gives its speed); under them, the words coloured by speed (five bands, slow to fast; red is for mistakes only), then one line of facts (consistency, time, correct characters, and wrong, extra and missed only when not zero). The words of the round with their own speed come from `typedWords()` in `typing.js`, the characters and the time from `roundFacts()`. A small ↻ button (and Enter / Tab, shown in the hint line) starts the next round. A new best shows "New best" under the speed.
 
-- `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result. It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
+- `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result, and like the Stats tab only once Learn has become Reinforce (`statsShown`). It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
 
 - `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 

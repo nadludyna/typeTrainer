@@ -9,7 +9,7 @@ import { refreshStats } from "./stats.js";
 import { showResult } from "./result.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal } from "./learnpanel.js";
-import { learning, refreshFreeplay } from "./modes.js";
+import { learning, refreshFreeplay, renderNav } from "./modes.js";
 import { renderModeBar, climbAnswer } from "./modebar.js";
 import { lengthOf } from "./settings.js";
 import { keySound, missSound, eraseSound } from "./sound.js";
@@ -247,6 +247,7 @@ export async function loadExercise() {
   const id = streamId;
   renderModeBar();
   const next = lengthOf(S.settings.length);
+  if (S.view === "type") renderNav();
   const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
   const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.mode === "climb" ? S.climbLevel ?? 0 : learnLevel(), round, portionIndex: 0, ack: 0 };

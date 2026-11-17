@@ -77,5 +77,7 @@ export const shownMode = (m) => SHOWN_MODES.includes(m);
 // Reinforce: Learn once every letter is open. The word level is this
 // browser's choice per language.
 export const reinforcing = () => S.mode === "learn" && !!S.lastStats?.keys?.length && S.lastStats.keys.every((k) => k.unlocked);
+// The stats screen opens with Reinforce: while letters are learned it would only distract.
+export const statsShown = () => SHOWN_MODES.length > 1 || S.mode !== "learn" || reinforcing();
 export const wordLevel = () => Math.min(Math.max(Number(store.get(`tt.wordLevel.${S.lang}`)) || 1, 1), S.lastStats?.wordLevels?.length || 1);
 export const setWordLevel = (n) => store.set(`tt.wordLevel.${S.lang}`, String(n));

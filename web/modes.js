@@ -1,6 +1,6 @@
 // The three modes and their tabs.
 
-import { el, S, store, shownMode } from "./state.js";
+import { el, S, store, shownMode, statsShown } from "./state.js";
 import { getJSON } from "./api.js";
 import { autoKb } from "./keyboard.js";
 import { lengthFor } from "./settings.js";
@@ -67,6 +67,7 @@ el.tabClimb.hidden = !shownMode("climb");
 el.tabFreetype.hidden = !shownMode("freetype");
 
 export function renderNav() {
+  el.tabStats.hidden = !statsShown();
   const tabs = [el.tabLearn, el.tabClimb, el.tabFreetype, el.tabStats];
   const mine = S.view === "stats" ? el.tabStats : tabs[MODES.indexOf(S.mode)];
   const shown = tabs.filter((b) => !b.hidden);

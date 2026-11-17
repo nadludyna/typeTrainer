@@ -121,8 +121,8 @@ func Default() Config {
 			MasteryLevel:      80,
 			UnmasteredBonus:   0.2,
 
-			StartLetters:   8,
-			MinWords:       30,
+			StartLetters:   6,
+			MinWords:       40,
 			RepeatPenalty:  0.3,
 			MinWordLetters: 2,
 			MaxRepeats:     2,
@@ -143,6 +143,7 @@ func Default() Config {
 		Words: engine.WordParams{
 			FloorWords:  10,
 			RampLetters: 10000,
+			LearnWords:  10000,
 		},
 		Freeplay: freeplay.Params{
 			PortionWords:  6,

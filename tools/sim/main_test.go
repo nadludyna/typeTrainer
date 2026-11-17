@@ -37,7 +37,7 @@ func TestAdaptiveBeatsRandom(t *testing.T) {
 	for _, l := range langs {
 		t.Run(l.ID, func(t *testing.T) {
 			t.Parallel()
-			list, err := os.ReadFile("../../data/langs/" + l.ID + "/words.txt")
+			list, err := os.ReadFile("../../data/langs/" + l.ID + "/free.txt")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -49,7 +49,7 @@ func TestAdaptiveBeatsRandom(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			words, home := l.Words(string(list)), lay.RestingKeys()
+			words, home := cfg.Words.LearnList(l.Words(string(list))), lay.RestingKeys()
 
 			for seed := int64(1); seed <= typists; seed++ {
 				stream := runOne(kStream, seed, words, home, cfg)

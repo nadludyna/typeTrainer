@@ -73,21 +73,17 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	if err != nil {
 		return nil, err
 	}
-	wordData, err := files.ReadFile("data/langs/" + info.ID + "/words.txt")
+	data, err := files.ReadFile("data/langs/" + info.ID + "/free.txt")
 	if err != nil {
 		return nil, err
 	}
-	words := info.Words(string(wordData))
-	if len(words) == 0 {
+	long := info.Words(string(data))
+	if len(long) == 0 {
 		return nil, fmt.Errorf("word list is empty")
 	}
-	gen := engine.NewGenerator(words, rand.New(rand.NewSource(seed)), cfg.Engine)
+	gen := engine.NewGenerator(cfg.Words.LearnList(long), rand.New(rand.NewSource(seed)), cfg.Engine)
 	gen.SetHome(lay.RestingKeys(), cfg.Engine)
 	gen.SetWordParams(cfg.Words)
-	long := words
-	if data, err := files.ReadFile("data/langs/" + info.ID + "/free.txt"); err == nil {
-		long = info.Words(string(data))
-	}
 	free := freeplay.NewPicker(freeplay.Longer(long, cfg.Freeplay.MinLetters), rand.New(rand.NewSource(seed+1)))
 	freetype := freeplay.NewPicker(long, rand.New(rand.NewSource(seed+2)))
 	var sentences *freeplay.Sentences

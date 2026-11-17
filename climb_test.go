@@ -31,9 +31,9 @@ func TestApp_Climb(t *testing.T) {
 			}
 		}
 	}
-	list, _ := os.ReadFile("data/langs/en/words.txt")
+	list, _ := os.ReadFile("data/langs/en/free.txt")
 	short := map[string]bool{}
-	for _, w := range strings.Fields(string(list)) {
+	for _, w := range strings.Fields(string(list))[:2000] {
 		short[w] = true
 	}
 	beyond := 0
@@ -54,7 +54,7 @@ func TestApp_Climb(t *testing.T) {
 		}
 	}
 	if beyond < 20 {
-		t.Fatalf("level 10 drew only %d of 30 words past words.txt", beyond)
+		t.Fatalf("level 10 drew only %d of 30 words past the 2000 most common", beyond)
 	}
 	for _, bad := range []string{`{"level":11}`, `{"level":-1}`, `{"start":true,"words":61}`, `{"start":true,"words":-1}`} {
 		if code, _ := call(t, h, "POST", "/api/v1/freeplay/portion?lang=en", bad); code != 400 {

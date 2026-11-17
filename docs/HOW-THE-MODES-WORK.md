@@ -234,18 +234,20 @@ other letter by how often it occurs in the word list of the language
 (`Generator.SetHome`). The resting keys come from the layout data
 (`layout.RestingKeys`): in the row with the home bumps, one key per finger,
 `a s d f j k l ;` on QWERTY. Inside each group the more frequent letter
-comes first. The order is computed from the data, not written by hand
-(first lesson in bold):
+comes first. One exception: the most common other letter takes the last
+place of the first lesson, before the rarest resting letters, because
+without a vowel there are hardly any words (the home row alone makes 21).
+The order is computed from the data, not written by hand (first lesson in
+bold):
 
-**a s l d f k j e r** t i n o c g h u p m y w b v x z q
+**s a l d f e** k j i r n t o c p g u m h b y v w x z q
 
 So the fingers start where they rest, and every later letter is one step
-from home, in the order real words need it.
+from home, in the order real words need it. After the first lesson the
+letters open one at a time.
 
-**First lesson.** At least `StartLetters = 8` letters, and more if needed until
-at least `MinWords = 30` real words can be built from them: the home row and
-`e` make 27 words, so `r` comes too, 9 letters (47 words).
-Without this rule the first lesson would cycle through a handful of words.
+**First lesson.** `StartLetters = 6` letters, more only if fewer than
+`MinWords = 40` real words can be built from them: these six make 74.
 
 **Level and mastery** (`engine.Level`, `MeetsGoal`, `Mastered`):
 
@@ -294,7 +296,7 @@ no rank penalty inside it. The browser keeps the choice per language
 (`tt.wordLevel.<lang>`) and sends it with every portion; a round keeps its
 level (`sessions.level`).
 
-**Weak pairs.** The letter pairs that slow the last `WeakRounds` Learn
+**Weak pairs** (in Learn too, from its first rounds). The letter pairs that slow the last `WeakRounds` Learn
 rounds down the most (`freeplay.WeakPairs`, as in Climb) make their words
 more likely: the weight of a word grows by `PairBoost` (2, so 3 times) for
 each weak pair in it (`Generator.WithPairs`).
@@ -425,7 +427,7 @@ With `RankStart = 200`, `RankStep = 200` and `RankPenalty = 0.5`, every lesson
 before the full alphabet allows the 200 most common words freely, and every
 200 places further down the list halve a word's chance (rank 1000: 1/16).
 When the last letter opens, the limit grows in a straight line and reaches the
-whole list (about 2000) after `RampLetters = 10 000` letters, about 1700-1900
+whole list (10 000) after `RampLetters = 10 000` letters, about 1700-1900
 words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 
 - **The ramp counts typed letters, not rounds.** Rounds have different
@@ -452,16 +454,20 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
   repeat. The words are counted in the whole list, not only among the open
   words: in the first lessons every letter has few open words, and counting
   only those would let rare words in exactly where common ones matter most. Letters with many common words are not affected: their 10th word is
-  inside the top 200. Affected (rank of the 10th word): `j` 1222, `p` 275,
-  `q` 1823, `x` 851, `z` (8 words in all).
+  inside the top 200. Affected (rank of the 10th word): `j` 1217, `p` 273,
+  `q` 1807, `x` 847, `z` 2170.
   The penalty only shapes which words of the focus letter are taken: the
   focus letter itself (step 1) does not depend on it, so a rare letter is
   never trained less because its words are rare.
 - **A soft penalty, not a ban.** The weight is never 0, so rare words stay
   possible, and a letter whose words are all rare still gets practised. Early
-  lessons have few words at all (in English 49 in the first lesson, only 9 of
+  lessons have few words at all (in English 74 in the first lesson, only 4 of
   them among the 200 most common), so a hard limit would leave the user with
-  a handful of words. The penalty only makes the common ones much more likely.
+  a handful of words.
+- **A floor for a lesson.** For the same reason the limit is never below the
+  rank of the `MinWords`-th open word: the 40 most common words the open
+  letters can make come freely (in the first lesson up to rank 3810), so
+  a round of 30 words is not the same few words again.
 - `RankPenalty` outside `(0, 1)` or `RankStep <= 0` turns the penalty off.
   A word list shorter than `RankStart` gets no penalty at all.
 
@@ -482,8 +488,8 @@ out of learning when the generator is made (`NewGenerator`): `a` and
 `i`. They are among the most common words of the list, so they came up often, and a lone letter is not a word to
 practise. They are left out before anything is
 counted, so they take no part in the unlock order, the first lesson or the
-ranks. The word lists keep them (section 11): Climb and Freetype draw from
-their own lists and are not affected.
+ranks. The word list keeps them (section 11): Climb and Freetype are not
+affected.
 
 **Mistyped words come back.** Words the user typed with a mistake (a wrong or
 extra letter, or skipped letters; a mistake fixed with Backspace counts too)
@@ -552,7 +558,8 @@ All in `internal/config/config.go`.
 | `MasteryMinSamples` | 40 | presses needed for mastery | a new letter gets about 30 presses a round as the focus: about two rounds |
 | `MasteryLevel` | 80 | level needed for mastery (section 6) | few mistakes near the goal speed; with the simulation, a fast typist opens every letter in about 46 rounds instead of 348 |
 | `UnmasteredBonus` | 0.2 | added to the difficulty of a letter not mastered yet, for the choice only | e^(0.2/0.1) ≈ 7 times the weight of an equal mastered letter: a blocking letter gets about half the portions among ten (section 7) |
-| `StartLetters` / `MinWords` | 8 / 30 | first lesson | the home row and one more letter, with enough variety from the first minute |
+| `StartLetters` / `MinWords` | 6 / 40 | first lesson; the open words that always come freely | letters open one by one from early on; a round of 30 words without the same few words |
+| `LearnWords` | 10 000 | Learn's word list, the most common words of the long list | enough words for the first lessons (74 from six letters) |
 | `RepeatPenalty` | 0.3 | less repetition of recent words | variety |
 | `MaxRepeats` | 2 | a word comes at most this many times in a round | the penalty alone let a rare letter's 10 words come 5-6 times in 30 (section 7); 2 still lets a mistyped word come back |
 | `MinWordLetters` | 2 | shorter words never appear in learning | `a`, `i`, `в` are filler, not practice (section 7) |
@@ -569,7 +576,7 @@ All in `internal/config/config.go`.
 | `ConsistencyMinSeconds` | 5 | shortest round that gets a consistency (section 3) | a standard deviation of 2-3 numbers says little; 5 s is a few words even for a beginner |
 | `RankPenalty` | 0.5 | weight multiplier per `RankStep` over the limit | halving is easy to explain; with `T = 0.1` one step equals about 0.07 of difficulty, so weak letters still decide first |
 | `Laps.StepWPM` / `Laps.MaxWPM` | 10 / 200 | in Reinforce the goal goes up 10 WPM a step, up to 200 (section 6.1) | ten wpm is a step a typist feels; about 200 wpm is the top of real typing |
-| `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
+| `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Learn and Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
 The values were chosen by reasoning and the simulation (section 10), not
@@ -662,11 +669,11 @@ Median exercises to the goal (20 typists), and the stream's variety:
 
 | Language | Random words | Best of 20 | Adaptive, T = 0.1 | Stream (the app) | Stream, no frequency penalty | Stream variety, first 30 | Stream variety, expert |
 |---|---|---|---|---|---|---|---|
-| en | 2038 | 236 | 108 | 116 | 120 | 80 / 49 / 76 | 97 / 6 / 63 |
+| en | 1424 | 208 | 126 | 143 | 129 | 85 / 38 / 82 | 99 / 4 / 66 |
 
-The stream needs 18 times fewer exercises than random words and 2
+The stream needs 10 times fewer exercises than random words and 1.5
 times fewer than best of 20. The forecast is within
-max(2, 25 %) in 63 % of cases (mean error 4.7 rounds): `j` and `k` come early
+max(2, 25 %) in 54 % of cases (mean error 5.1 rounds): `j` and `k` come early
 and have few words, so their waits are long and hard to foresee.
 
 **Unlock pace.** The same tool also types Learn exactly as the app does
@@ -675,16 +682,17 @@ typist and counts the rounds until every letter is open (median of 20):
 
 | Typist | Mistakes | Time per press | Learns | Rounds to 13 letters | Rounds to all 26 |
 |---|---|---|---|---|---|
-| beginner | 3-30 % | 350-900 ms | yes | 39 | 77 |
-| middle | 4-8 % | 250-450 ms | yes | 27 | 57 |
-| fast | 2-4 % | 120-250 ms | no, already fast | 27 | 58 |
+| beginner | 3-30 % | 350-900 ms | yes | 52 | 88 |
+| middle | 4-8 % | 250-450 ms | yes | 35 | 65 |
+| fast | 2-4 % | 120-250 ms | no, already fast | 35 | 65 |
 
 Before the level and "mastered stays mastered" (section 6) these were 104,
 69 and 348 rounds: a fast typist waited for a round in which every open
 letter was under 5 % mistakes at the same moment. The home row first
-(section 6) costs about a quarter more rounds than the order by frequency
-(58, 44, 46): `j` and `k` have few words, so they collect their presses
-slowly. The simulated typist has no fingers, so what the home row gives
+(section 6) costs more rounds than the order by frequency: `j` and `k`
+have few words, so they collect their presses slowly. A small first lesson
+(6 letters, then one at a time) costs about 10 more rounds than the 9 of a
+home-row-and-`e` start; it is chosen for the step-by-step feel. The simulated typist has no fingers, so what the home row gives
 (fingers in place from the first lesson) is not in these numbers.
 
 Limits: the typist is invented. Letters do not influence each other, there is
@@ -704,24 +712,13 @@ switch the layout. Caps Lock is detected the same way. Wrong-layout presses
 would otherwise ruin the statistics for reasons that have nothing to do with
 typing skill.
 
-**Word lists** (`data/langs/<id>/words.txt`) come from FrequencyWords
-(Hermit Dave), word frequencies counted in the OpenSubtitles 2018 corpus
+**Word list.** Learn takes the `LearnWords = 10 000` most common words of
+the long list (`data/langs/<id>/free.txt`, section 13), one-letter words
+left out (`MinWordLetters`, section 7). Word frequencies come from
+FrequencyWords (Hermit Dave), counted in the OpenSubtitles 2018 corpus
 (CC BY-SA 4.0). Subtitle frequencies are a good model of everyday language
-(Brysbaert & New, 2009). `tools/wordlists/build.py` rebuilds the lists and
-documents every filtering step:
-
-1. lowercase;
-2. only words made of the language's alphabet;
-3. one-letter words only if they are real words (a, i);
-   learning leaves even those out (`MinWordLetters`, section 7), the lists keep them;
-4. no tokens without a vowel (encoding garbage in the source);
-5. a hand-made block list in `tools/wordlists/block_en.txt`: names, places,
-   profanity, sound tags ("sighs") and fragments ("don" from "don't");
-6. keep the first 2000;
-7. a letter that is in fewer than 10 of them (the `FloorWords` of section 7)
-   gets its next most frequent words appended at the end, until it has 10.
-   This adds 2 words (`z`: `zero`, `magazine`). The added words are the rarest
-   in the list for the app.
+(Brysbaert & New, 2009). A large list keeps the early lessons, which can
+only use a few letters, from repeating the same words.
 
 ## 12. Climb, hidden
 

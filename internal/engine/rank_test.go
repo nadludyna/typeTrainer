@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -279,4 +280,24 @@ func TestPortion_NoCommonWords(t *testing.T) {
 	if len(por.Words) != p.PortionWords {
 		t.Fatalf("got %v, want %d words", por.Words, p.PortionWords)
 	}
+}
+
+func TestPool_LessonFloor(t *testing.T) {
+	words := make([]string, 0, 600)
+	for i := 0; i < 600; i++ {
+		words = append(words, "ab"+strings.Repeat("a", i%5)+strings.Repeat("b", i/5))
+	}
+	g := NewGenerator(words, newRng(1), testParams)
+	g.SetWordParams(WordParams{RampLetters: 1e9})
+	p := testParams
+	p.RankStart, p.MinWords = 200, 300
+	if got := g.newPool(nil, len(g.Order()), 0, p).maxRank; got < 299 {
+		t.Errorf("maxRank %v, want at least the rank of the 300th open word", got)
+	}
+	p.MinWords = 0
+	if got := g.newPool(nil, len(g.Order()), 0, p).maxRank; got != 200 {
+		t.Errorf("no floor: maxRank %v, want RankStart", got)
+	}
+	empty := NewGenerator([]string{"xy"}, newRng(1), testParams)
+	_ = empty.newPool(nil, 0, 0, testParams)
 }

@@ -40,8 +40,9 @@ are thesis items and stay.
   The phone layout of the typing screen is not maintained.
 - **One mode: Learn, then Reinforce.** *Learn* teaches from zero: letters
   open one by one from the home row, and the algorithm alone decides what to
-  practise (no difficulty switches, no "open all letters"). When every letter
-  is open, *Reinforce* begins: you choose what to type (a word level or real
+  practise (no difficulty switches, no "open all letters"). The letter row
+  is all the progress Learn shows; the stats screen opens with Reinforce.
+  When every letter is open, *Reinforce* begins: you choose what to type (a word level or real
   sentences), and inside that choice the algorithm brings your weak letters
   and transitions. *Climb* and *Freetype* are not part of this path: they get
   hidden, and Climb is removed once Reinforce has real sentences. Until then

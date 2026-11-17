@@ -296,3 +296,19 @@ func TestWithPairs_WeakPairsComeMoreOften(t *testing.T) {
 		t.Error("no pairs: the same generator")
 	}
 }
+
+func TestSetHome_MostCommonOtherLetterClosesTheFirstLesson(t *testing.T) {
+	words := []string{"eee", "eee", "ttt", "aaaa", "sss", "dd", "ff"}
+	g := NewGenerator(words, newRng(1), testParams)
+	p := testParams
+	p.StartLetters, p.MinWords = 3, 0
+	g.SetHome([]string{"a", "s", "d", "f"}, p)
+	if got := strings.Join(g.Order(), ""); got != "asedft" {
+		t.Errorf("got %s, want a s (home), e (most common other), then d f, then t", got)
+	}
+	p.StartLetters = 5
+	g.SetHome([]string{"a", "s", "d", "f"}, p)
+	if got := strings.Join(g.Order(), ""); got != "asdfet" {
+		t.Errorf("a first lesson past the home letters: got %s, want the plain asdfet", got)
+	}
+}

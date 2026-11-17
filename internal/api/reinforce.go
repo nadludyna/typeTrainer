@@ -16,9 +16,9 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 	return level >= 1 && level <= len(l.Levels)
 }
 
-// reinforce is the generator of one word level for this learner, with the
-// pairs that slow their last Learn rounds down.
-func (s *Server) reinforce(user string, l *Language, gen *engine.Generator, level int) (*engine.Generator, error) {
+// withWeakPairs is gen weighted to the letter pairs that slow this learner's
+// last Learn rounds down.
+func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) (*engine.Generator, error) {
 	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Freeplay.WeakRounds)
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func (s *Server) reinforce(user string, l *Language, gen *engine.Generator, leve
 	for _, p := range s.pairsOf(rounds) {
 		pairs = append(pairs, p.Pair)
 	}
-	return l.Levels[level-1].WithPairs(pairs), nil
+	return gen.WithPairs(pairs), nil
 }
 
 // wordLevels is the levels' names: how many of the most common words each

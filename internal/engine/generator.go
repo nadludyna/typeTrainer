@@ -24,6 +24,15 @@ type Generator struct {
 type WordParams struct {
 	FloorWords  int
 	RampLetters float64
+	LearnWords  int // Learn's list: this many of the long list's most common words
+}
+
+// LearnList is Learn's word list: the first LearnWords of the long list.
+func (wp WordParams) LearnList(long []string) []string {
+	if wp.LearnWords > 0 && wp.LearnWords < len(long) {
+		return long[:wp.LearnWords]
+	}
+	return long
 }
 
 func (g *Generator) SetWordParams(wp WordParams) {
@@ -70,14 +79,25 @@ func NewGenerator(words []string, rng *rand.Rand, p Params) *Generator {
 }
 
 // SetHome puts the letters under the resting fingers first, then every
-// other letter by how often it occurs. The first lesson is the home row and
-// the next letter or two (at least StartLetters, enough for MinWords words).
+// other letter by how often it occurs. The first lesson is StartLetters
+// letters: the most common resting ones and the most common other letter
+// (a vowel in practice, without which there are hardly any words), more if
+// needed for MinWords words; the other resting letters come next.
 func (g *Generator) SetHome(home []string, p Params) {
 	set := map[string]bool{}
 	for _, c := range home {
 		set[c] = true
 	}
 	g.order = letterOrder(g.words, set)
+	homes := 0
+	for homes < len(g.order) && set[g.order[homes]] {
+		homes++
+	}
+	if at := p.StartLetters - 1; at >= 0 && at < homes && homes < len(g.order) {
+		first := g.order[homes]
+		copy(g.order[at+1:homes+1], g.order[at:homes])
+		g.order[at] = first
+	}
 	g.start = g.firstLessonSize(p)
 }
 
@@ -236,6 +256,9 @@ type pool struct {
 func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Params) *pool {
 	pl := &pool{open: g.order[:unlocked], words: g.eligible(unlocked), index: map[string]int{}, byLetter: map[string][]int{},
 		maxRank: g.MaxRank(unlocked, typed, p), floor: g.floor}
+	if n := p.MinWords; n > 0 && len(pl.words) > 0 {
+		pl.maxRank = max(pl.maxRank, float64(g.rank[pl.words[min(n, len(pl.words))-1]]))
+	}
 	diff := map[rune]float64{}
 	pl.letterW = make([]float64, len(pl.open))
 	best := -1.0

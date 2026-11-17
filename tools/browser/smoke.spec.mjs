@@ -983,11 +983,16 @@ test("the streak shows only in Freetype and only when it is on", async ({ page }
   await expect(page.locator("#streak")).toBeHidden();
 });
 
-test("a new visitor sees only Learn: Climb and Freetype are hidden", async ({ page }) => {
+test("a new visitor sees only Learn: Climb, Freetype and the stats wait", async ({ page }) => {
   await openApp(page, { "tt.allModes": "", "tt.mode.en": "climb" });
   await expect(page.locator("body"), "a saved hidden mode opens Learn").toHaveAttribute("data-mode", "learn");
   await expect(page.locator("#tab-climb")).toBeHidden();
   await expect(page.locator("#tab-freetype")).toBeHidden();
+  await expect(page.locator("#tab-stats"), "no stats while the letters are learned").toBeHidden();
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+  await page.reload();
+  await waitForText(page);
   await page.locator("#tab-stats").click();
   await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Climb");
   await page.locator("#btn-settings").click();
@@ -1009,7 +1014,7 @@ test("Start Learn over in the settings: Learn's rounds go, the first lesson come
   await waitForText(page);
   await expect(page.locator("#mode-bar"), "back to the first letters").toBeHidden();
   const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
-  expect(s.keys.filter((k) => k.unlocked).length).toBe(9);
+  expect(s.keys.filter((k) => k.unlocked).length).toBe(6);
 });
 
 test("Reinforce: with every letter open, Learn offers word levels and speed goal steps", async ({ page }) => {

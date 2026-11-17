@@ -4,7 +4,7 @@ import os
 import re
 import sys
 
-from build import ALPHABET, ONE_LETTER, VOWELS, HERE, blocklist, load
+from common import ALPHABET, ONE_LETTER, VOWELS, HERE, blocklist, load
 
 FREE_MAX = 25000
 

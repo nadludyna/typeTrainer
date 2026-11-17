@@ -56,7 +56,7 @@ const I18N = {
     "intro.do1": "Press space",
     "intro.kicker2": "Eyes up",
     "intro.title2": "Watch the text, not your hands",
-    "intro.p2": "The highlighted key is the one to press next, and the little hand shows which finger to use. Don't worry about mistakes: we use them to give you more of the letters you miss.",
+    "intro.p2": "The highlighted key is the one to press next, and the little hand shows which finger to use. Don't worry about mistakes: the letters you miss simply come up more often.",
     "intro.do2": "Press any key",
     "intro.kicker3": "Ready",
     "intro.title3": "Start with a few letters",

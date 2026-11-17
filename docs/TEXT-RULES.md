@@ -86,11 +86,14 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
   needs: a limit, a consequence, what to do next. "Try Save again before
   you move on, or the round is lost." keeps the consequence; dropping it to
   sound friendly is wrong.
-- **Contractions everywhere:** you've, isn't, can't, we'll, I'll. "I will
+- **Contractions everywhere:** you've, isn't, can't, you'll, I'll. "I will
   have something to say" sounds like a robot.
-- **"You" and "we".** Talk to the user as "you". The site may speak as
-  "we", and often does ("We'll mix in more of these."). The mascot speaks
-  as "I". Present tense, active voice.
+- **"You", never "we".** Talk to the user as "you". There is no "we":
+  one person sits at the screen, and "we" only makes them ask who that is.
+  What the site does is said about the thing itself: "Words are picked
+  from the letters you miss.", not "We pick words from your mistakes.".
+  The mascot is the one character and speaks as "I". Present tense, active
+  voice where a person acts ("You open a new letter.").
 - **A little humour everywhere.** A light touch fits any text: a tooltip,
   a toast ("Your fingers have earned a break."). The
   mascot may joke and tease more. Humour never hides a fact and never
@@ -113,6 +116,7 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
 | {m} minutes of typing. Time for a short break | {m} minutes straight. Your fingers have earned a break. |
 | Learn: 26 letters, one by one | First you learn the letters, a few at the start and then one at a time. |
 | focus e, pair el | This round leans on e, and on e followed by l, where you slow down. |
+| We pick the words from your mistakes | Words are picked from the letters you miss and the pairs where you slow down. |
 | Not saved: no connection. Leaving this screen drops the round | No connection, so this round isn't saved yet. Try Save again before you move on, or the round is lost. |
 | Type a round and I will have something to say | Nothing to say yet. Type something and I'll judge it. |
 

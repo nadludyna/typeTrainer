@@ -9,7 +9,7 @@ This file says how to work with me. Everything else has its own file:
 | start any task | `docs/PRODUCT.md`: what the product is, its principles, what is not built now |
 | change code | `docs/CODE-RULES.md`: the stack, the architecture rules, comments |
 | need to know where something is | `docs/HOW-THE-CODE-WORKS.md`: packages, modules, the API, the database |
-| touch Learn, Climb or Freetype | `docs/HOW-THE-MODES-WORK.md`: how each mode picks what you type |
+| touch Learn or Reinforce | `docs/HOW-THE-MODES-WORK.md`: how the trainer picks what you type |
 | change the interface | `docs/DESIGN-RULES.md`: how the screen looks and behaves |
 | write any text the user sees | `docs/TEXT-RULES.md` |
 | run, test or measure | `CONTRIBUTING.md` |
@@ -25,11 +25,13 @@ Where they differ, this file wins, then `docs/PRODUCT.md`, then the others.
 - Work in small steps. For anything bigger than one feature, show a short plan
   first and wait for my OK.
 - Commits in your own branch are fine. `git push` and pull requests only when I
-  say so.
+  say so. My short word for it is «пр».
 - `main` is protected: changes reach it only through a pull request. I merge it
   myself. Never push to `main` directly.
 
 ## How we work
+
+The plan is issue #305: tasks go one at a time, top down, each its own issue.
 
 I test by feel, on my own machine, and I do not touch the terminal.
 

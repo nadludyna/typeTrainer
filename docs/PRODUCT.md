@@ -19,6 +19,14 @@ needs does limit what we cut: the adaptive algorithm, the keyboard with the
 finger layout, input latency, PostgreSQL and the adaptive-vs-random check
 are thesis items and stay.
 
+## Pillars
+
+1. **One path.** First you learn the letters (Learn), then you polish (Reinforce).
+2. **It adapts to you.** The next words bring your weak letters and transitions.
+3. **Real words and real sentences only.**
+4. **Fast and calm.** Nothing jumps while you type.
+5. **Clear without words.** Bars and dots show what is going on.
+
 ## Principles
 
 - **Beginners first.** Learn is the main screen.
@@ -30,14 +38,16 @@ are thesis items and stay.
 - **A computer keyboard is needed to practise.** Phones and tablets show only
   the stats and the account: thumbs on glass would skew the letter model.
   The phone layout of the typing screen is not maintained.
-- **Three modes, open to everyone, kept apart.** *Learn* teaches from zero:
-  letters open one by one from the home row, and the algorithm alone decides
-  what to practise (no difficulty switches, no "open all letters").
-  *Climb* is for people who can already type: levels of ever rarer words,
-  judged by accuracy. *Freetype* is plain typing: nothing adapts. Climb and
-  Freetype never touch Learn's data, and every mode, list and round length
-  keeps its own history: rounds of different kinds are never mixed in one
-  chart or record. How each mode works: `docs/HOW-THE-MODES-WORK.md`.
+- **One mode: Learn, then Reinforce.** *Learn* teaches from zero: letters
+  open one by one from the home row, and the algorithm alone decides what to
+  practise (no difficulty switches, no "open all letters"). When every letter
+  is open, *Reinforce* begins: you choose what to type (a word level or real
+  sentences), and inside that choice the algorithm brings your weak letters
+  and transitions. *Climb* and *Freetype* are not part of this path: they get
+  hidden, and Climb is removed once Reinforce has real sentences. Until then
+  they never touch Learn's data, and every mode, list and round length keeps
+  its own history: rounds of different kinds are never mixed in one chart or
+  record. How each mode works: `docs/HOW-THE-MODES-WORK.md`.
 - **Settings change how much and how it looks, never what is practised.**
   What a round is belongs to each mode and sits in the round bar above the
   text (`web/modebar.js`). The settings window (`web/settings.js`) holds
@@ -64,7 +74,9 @@ are thesis items and stay.
 ## Not now
 
 Leaderboards, public profile pages, more languages, more themes (there is
-one, dark, as CSS variables in `web/base.css`), frameworks.
+one, dark, as CSS variables in `web/base.css`), frameworks. After the
+thesis defence: the mascot, a light theme, special word sets, Freetype with
+symbols and digits.
 Accounts exist (sign up / log in / log out on the normal server, kept in
 PostgreSQL when it is configured). Structure code so these can be added
 later, but do not build them yet.

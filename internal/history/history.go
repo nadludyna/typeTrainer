@@ -62,7 +62,7 @@ func LetterTimeline(sessions []storage.Session, order []string, first int, p eng
 		if s.Lap > lap {
 			stats, lap = engine.StartLap(stats), s.Lap
 		}
-		p := p.ForLap(s.Lap, lp)
+		p := p.ForLap(s.Lap, lp).ForStage(open, len(order))
 		stats = engine.Apply(stats, s.Keys, p)
 		if s.Unlocked > 0 {
 			open = s.Unlocked
@@ -92,18 +92,23 @@ type Forecast struct {
 
 func NextForecast(rounds []Round, order []string, stats map[string]engine.KeyStat, unlocked int, p engine.Params, fp engine.ForecastParams) Forecast {
 	out := Forecast{}
-	for i, c := range order[:min(unlocked, len(order))] {
+	open := order[:min(unlocked, len(order))]
+	blocking := map[string]bool{}
+	for _, c := range engine.Blocking(stats, open, p) {
+		blocking[c] = true
+	}
+	for i, c := range open {
 		now := stats[c]
-		if engine.Mastered(now, p) {
+		if !blocking[c] {
 			continue
 		}
 		var pts []engine.Point
 		for _, r := range rounds {
 			if k := r.Letters[i]; k != nil && k.Count > 0 {
-				pts = append(pts, engine.Point{Count: k.Count, Mistakes: k.Mistakes, ErrEMA: k.ErrorRate, TimeEMA: k.AvgMs})
+				pts = append(pts, engine.Point{Count: k.Count, Mistakes: k.Mistakes, ErrEMA: k.ErrorRate, TimeEMA: k.AvgMs, Accuracy: k.Level})
 			}
 		}
-		last := engine.Point{Count: now.Count, Mistakes: now.Mistakes, ErrEMA: now.ErrEMA, TimeEMA: now.TimeEMA}
+		last := engine.Point{Count: now.Count, Mistakes: now.Mistakes, ErrEMA: now.ErrEMA, TimeEMA: now.TimeEMA, Accuracy: engine.Level(now, p)}
 		if len(pts) > 0 {
 			pts[len(pts)-1] = last
 		} else {

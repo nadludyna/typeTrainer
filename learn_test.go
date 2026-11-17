@@ -445,21 +445,21 @@ func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 func TestApp_TuneChangesOnlyThisUsersNumbers(t *testing.T) {
 	h, _, _ := newApp()
 	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["masteryMin"].(float64) != 40 {
-		t.Fatalf("default masteryMin %v", st["masteryMin"])
+	if st["masteryLevel"].(float64) != 90 || st["accuracy"] != true {
+		t.Fatalf("default masteryLevel %v, accuracy %v", st["masteryLevel"], st["accuracy"])
 	}
-	for _, bad := range []string{`{"values":{"Nope":1}}`, `{"values":{"MasteryMinSamples":1000}}`} {
+	for _, bad := range []string{`{"values":{"Nope":1}}`, `{"values":{"AccMaster":1000}}`} {
 		if code, _ := call(t, h, "POST", "/api/v1/tune?lang=en", bad); code != 400 {
 			t.Fatalf("%s: got %d, want 400", bad, code)
 		}
 	}
-	code, out := call(t, h, "POST", "/api/v1/tune?lang=en", `{"values":{"MasteryMinSamples":60,"Push":5}}`)
+	code, out := call(t, h, "POST", "/api/v1/tune?lang=en", `{"values":{"AccMaster":95,"Push":5}}`)
 	if code != 200 {
 		t.Fatalf("tune: %d %v", code, out)
 	}
 	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["masteryMin"].(float64) != 60 {
-		t.Fatalf("after tuning masteryMin %v, want 60", st["masteryMin"])
+	if st["masteryLevel"].(float64) != 95 {
+		t.Fatalf("after tuning masteryLevel %v, want 95", st["masteryLevel"])
 	}
 	for _, p := range out["params"].([]any) {
 		if p := p.(map[string]any); p["name"] == "Push" && (p["value"].(float64) != 5 || p["default"].(float64) != 10 || p["override"] != true) {
@@ -468,8 +468,8 @@ func TestApp_TuneChangesOnlyThisUsersNumbers(t *testing.T) {
 	}
 	call(t, h, "POST", "/api/v1/tune?lang=en", `{"values":{}}`)
 	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["masteryMin"].(float64) != 40 {
-		t.Fatalf("after defaults masteryMin %v, want 40", st["masteryMin"])
+	if st["masteryLevel"].(float64) != 90 {
+		t.Fatalf("after defaults masteryLevel %v, want 90", st["masteryLevel"])
 	}
 }
 

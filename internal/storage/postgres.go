@@ -104,7 +104,7 @@ func (p *PostgresStore) inTx(f func(tx *sql.Tx) error) error {
 }
 
 func (p *PostgresStore) KeyStats(user, lang string) (map[string]engine.KeyStat, error) {
-	rows, err := p.db.Query(`SELECT ch, count, mistakes, err_ema, time_ema, timed_count, held
+	rows, err := p.db.Query(`SELECT ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped
 		FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (p *PostgresStore) KeyStats(user, lang string) (map[string]engine.KeyStat, 
 	for rows.Next() {
 		var ch string
 		var k engine.KeyStat
-		if err := rows.Scan(&ch, &k.Count, &k.Mistakes, &k.ErrEMA, &k.TimeEMA, &k.TimedCount, &k.Held); err != nil {
+		if err := rows.Scan(&ch, &k.Count, &k.Mistakes, &k.ErrEMA, &k.TimeEMA, &k.TimedCount, &k.Held, &k.Hits, &k.Slipped); err != nil {
 			return nil, err
 		}
 		out[ch] = k
@@ -132,9 +132,9 @@ func saveKeyStats(tx *sql.Tx, user, lang string, stats map[string]engine.KeyStat
 	}
 	for ch, k := range stats {
 		if _, err := tx.Exec(`INSERT INTO key_stats
-			(user_id, lang, ch, count, mistakes, err_ema, time_ema, timed_count, held)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			user, lang, ch, k.Count, k.Mistakes, k.ErrEMA, k.TimeEMA, k.TimedCount, k.Held); err != nil {
+			(user_id, lang, ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			user, lang, ch, k.Count, k.Mistakes, k.ErrEMA, k.TimeEMA, k.TimedCount, k.Held, k.Hits, k.Slipped); err != nil {
 			return err
 		}
 	}

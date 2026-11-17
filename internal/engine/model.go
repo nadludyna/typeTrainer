@@ -93,6 +93,11 @@ func Update(s KeyStat, smp Sample, p Params) KeyStat {
 		s.TimeEMA += emaStep(s.TimedCount, p.Alpha) * (smp.Ms - s.TimeEMA)
 	}
 	if p.accuracyRules() {
+		if s.Hits == "" && s.Count > 1 {
+			before := s
+			before.Count--
+			s.Hits = seedHits(before, p)
+		}
 		hit := "1"
 		if smp.Errors > 0 {
 			hit = "0"
@@ -108,11 +113,32 @@ func Update(s KeyStat, smp Sample, p Params) KeyStat {
 // Accuracy: correct presses over the last AccWindow presses plus AccPrior
 // imaginary misses (Laplace's rule of succession); 0 for an unseen letter.
 func Accuracy(s KeyStat, p Params) float64 {
-	n := float64(len(s.Hits))
+	hits := s.Hits
+	if hits == "" && s.Count > 0 {
+		hits = seedHits(s, p)
+	}
+	n := float64(len(hits))
 	if n+p.AccPrior == 0 {
 		return 0
 	}
-	return float64(strings.Count(s.Hits, "1")) / (n + p.AccPrior)
+	return float64(strings.Count(hits, "1")) / (n + p.AccPrior)
+}
+
+// seedHits stands in for the presses of a letter typed before the accuracy
+// rules: as many of the last presses as it has, missed at its error rate.
+func seedHits(s KeyStat, p Params) string {
+	n := min(s.Count, p.AccWindow)
+	miss := int(math.Round(float64(n) * clamp01(s.ErrEMA)))
+	return strings.Repeat("0", miss) + strings.Repeat("1", n-miss)
+}
+
+// ForStage turns the accuracy rules off once every letter is open: they are
+// Learn's; Reinforce adds speed (docs/PRODUCT.md, "One mode, three stages").
+func (p Params) ForStage(unlocked, all int) Params {
+	if unlocked >= all {
+		p.AccWindow = 0
+	}
+	return p
 }
 
 func (p Params) errAlpha() float64 {

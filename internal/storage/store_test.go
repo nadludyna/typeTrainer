@@ -81,7 +81,7 @@ func testRoundSentTwice(t *testing.T, m Store) {
 
 func testSaveLearned(t *testing.T, m Store) {
 	m.SetGroup(u, "en", GroupRandom)
-	stats := map[string]engine.KeyStat{"a": {Count: 3}, "s": {Count: 1}}
+	stats := map[string]engine.KeyStat{"a": {Count: 3, Hits: "101", Slipped: true}, "s": {Count: 1}}
 	round := Session{WPM: 40, Chars: 2, Round: "r1"}
 	if err := m.SaveLearned(u, "en", Learned{Stats: stats, Unlocked: 7, Lap: 1, Session: &round}); err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func testSaveLearned(t *testing.T, m Store) {
 		unlocked, _ := m.Unlocked(u, "en")
 		lap, _ := m.Lap(u, "en")
 		n, _ := m.SessionCount(u, "en", "")
-		if len(got) != 2 || got["a"].Count != 3 || unlocked != 7 || lap != 1 || n != rounds {
+		if len(got) != 2 || got["a"].Count != 3 || got["a"].Hits != "101" || !got["a"].Slipped || unlocked != 7 || lap != 1 || n != rounds {
 			t.Fatalf("%s: stats %v, unlocked %d, lap %d, %d rounds", when, got, unlocked, lap, n)
 		}
 	}

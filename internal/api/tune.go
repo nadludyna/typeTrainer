@@ -30,6 +30,10 @@ func tunables() []tunable {
 	return []tunable{
 		{Name: "TargetWPM", Min: 10, Max: 150, Step: 5,
 			get: func(p engine.Params) float64 { return p.TargetWPM }, set: func(p *engine.Params, v float64) { p.TargetWPM = v }},
+		{Name: "AccMaster", Min: 70, Max: 97, Step: 1,
+			get: func(p engine.Params) float64 { return 100 * p.AccMaster }, set: func(p *engine.Params, v float64) { p.AccMaster = v / 100 }},
+		{Name: "AccSlip", Min: 50, Max: 95, Step: 1,
+			get: func(p engine.Params) float64 { return 100 * p.AccSlip }, set: func(p *engine.Params, v float64) { p.AccSlip = v / 100 }},
 		{Name: "MasteryLevel", Min: 50, Max: 98, Step: 1,
 			get: func(p engine.Params) float64 { return p.MasteryLevel }, set: func(p *engine.Params, v float64) { p.MasteryLevel = v }},
 		{Name: "MasteryMinSamples", Min: 10, Max: 150, Step: 5,

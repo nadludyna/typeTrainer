@@ -140,7 +140,7 @@ func Default() Config {
 
 			PairBoost: 2,
 
-			AccWindow: 0,
+			AccWindow: 100,
 			AccPrior:  3,
 			AccMaster: 0.90,
 			AccSlip:   0.85,

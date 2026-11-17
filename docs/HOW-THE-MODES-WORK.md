@@ -5,9 +5,11 @@ formula here is exactly what the code does, and every number comes from
 `internal/config/config.go`. Why each part is built this way:
 [docs/thesis/04-adaptive-algorithm.md](thesis/04-adaptive-algorithm.md).
 
-Section 14 is the next version of Learn, agreed with the owner and not
-built yet. When it is built it replaces what it names below, and this file
-again says only what the code does.
+Section 14 is Learn's accuracy rules: its accuracy, focus and next letter
+are built and on (`AccWindow = 100`) and replace the level, mastery, focus
+and unlock rules of sections 5-7 while letters are still closed; the
+finger tour and the key drill are not built yet. Once every letter is open
+(Reinforce) the rules of sections 5-7 apply as written.
 
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 (unlocking and word selection). Tests that check each claim:
@@ -583,6 +585,8 @@ All in `internal/config/config.go`.
 | `ConsistencyMinSeconds` | 5 | shortest round that gets a consistency (section 3) | a standard deviation of 2-3 numbers says little; 5 s is a few words even for a beginner |
 | `RankPenalty` | 0.5 | weight multiplier per `RankStep` over the limit | halving is easy to explain; with `T = 0.1` one step equals about 0.07 of difficulty, so weak letters still decide first |
 | `Laps.StepWPM` / `Laps.MaxWPM` | 10 / 200 | in Reinforce the goal goes up 10 WPM a step, up to 200 (section 6.1) | ten wpm is a step a typist feels; about 200 wpm is the top of real typing |
+| `AccWindow` / `AccPrior` | 100 / 3 | a letter's accuracy reads its last 100 presses plus 3 imaginary misses (section 14.3); 0 turns the rules off | 27 clean presses reach 90 %; a few lucky presses are not 100 % |
+| `AccMaster` / `AccSlip` | 0.90 / 0.85 | mastered; an older letter under the second takes the focus until it is back at the first (section 14.4) | the owner's choice; two thresholds keep a letter near 90 % from flipping the focus |
 | `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Learn and Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
@@ -782,7 +786,8 @@ in lower case (names drop out) and a list of offensive words; the first
 
 ## 14. Learn, the version to build
 
-Agreed, not built. Each stage adds one measure: Learn trains accuracy
+Built: 14.3 to 14.5. Not built: the tour (14.1) and the drill (14.2).
+Each stage adds one measure: Learn trains accuracy
 only, Reinforce adds speed, Freetype adds consistency
 (`docs/PRODUCT.md`, "One mode, three stages"). Learn below replaces the
 level, mastery, focus and unlock rules of sections 5-7.
@@ -878,8 +883,9 @@ the on-screen keyboard off and the step of the speed goal
 
 ### 14.7 The simulation
 
-The rules are in the engine behind a switch (`AccWindow`, 0 = off, as in
-the app); `go run ./tools/sim -apply round -acc 100` turns them on. Once
+The rules are in the engine behind a switch (`AccWindow`, 0 = off; the
+app has 100); `go run ./tools/sim -apply round -acc 100` turns them on in
+the simulation (without `-acc` it runs the rules of sections 5-7). Once
 every letter is open the focus goes back to the softmax draw of section 7:
 "the newest letter" would stay on the last one for good (a first run gave
 96 % of the words with `q`).
@@ -893,6 +899,12 @@ every letter is open the focus goes back to the softmax draw of section 7:
 A typist who makes few mistakes opens the letters sooner, one who makes
 many takes longer: accuracy now decides alone. The goal of the simulation
 includes speed, which Learn no longer trains, so it is reached later;
-Reinforce is meant to train it. The forecast "rounds to the next letter"
-(section 6.2) reads the level and shows nothing under these rules: it has
-to be built again on accuracy.
+Reinforce is meant to train it.
+
+**In the app.** A letter keeps its last presses (`KeyStat.Hits`) and its
+slip (`KeyStat.Slipped`). A letter typed before the rules starts from as
+many presses as it has (up to 100), missed at its error rate. The letter
+row shows the accuracy as the level and its tip says "N% accurate". The
+forecast "rounds to the next letter" (section 6.2) follows the accuracy of
+the letters that hold the next one back (`engine.Blocking`): the newest
+under 90 % and any older one under 85 %.

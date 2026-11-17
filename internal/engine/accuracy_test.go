@@ -159,3 +159,15 @@ func TestFocusLetter(t *testing.T) {
 		t.Fatalf("focus %q, want the lowest slipped %q", f, first[1])
 	}
 }
+
+func TestAccuracy_LetterTypedBeforeTheRules(t *testing.T) {
+	p := accParams()
+	old := KeyStat{Count: 50, ErrEMA: 0.1}
+	if a := Accuracy(old, p); !near(a, 45.0/53) {
+		t.Fatalf("seeded accuracy %v, want 45/53", a)
+	}
+	s := Update(old, Sample{Char: "a"}, p)
+	if len(s.Hits) != 51 || strings.Count(s.Hits, "0") != 5 {
+		t.Fatalf("hits %q: want the 50 earlier presses and the new one", s.Hits)
+	}
+}

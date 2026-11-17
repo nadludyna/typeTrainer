@@ -54,7 +54,7 @@ test("Learn: a round can be typed to the end and is saved", async ({ page }) => 
   await expect(page.locator("body")).toHaveAttribute("data-mode", "learn");
   await expect(page.locator("#round-count"), "one round length: an old 15 becomes 30").toHaveText("0 / 30");
   await expect(page.locator("#letters .locked.next").first(), "before the first round: how to open the next letter")
-    .toHaveAttribute("data-tip-text", /Mastered means level 80 after 40 presses: few mistakes first, then speed up to 30 wpm\.$/);
+    .toHaveAttribute("data-tip-text", /Mastered means 90% accurate over your last 100 presses of the letter\.$/);
   await expect(page.locator("#lp-cols .lp-cell"), "the last round waits for the first round").toHaveCount(0);
   await typeRound(page, { done: async () => saved });
   await expect(page.locator("#round-count")).toHaveText("0 / 30");

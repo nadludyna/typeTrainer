@@ -15,9 +15,29 @@ type Point struct {
 	Mistakes int
 	ErrEMA   float64
 	TimeEMA  float64
+	Accuracy float64 // the level under Learn's accuracy rules, 0..100
+}
+
+// Blocking: the open letters that hold the next one back.
+func Blocking(stats map[string]KeyStat, open []string, p Params) []string {
+	var out []string
+	for i, c := range open {
+		s := stats[c]
+		if p.accuracyRules() {
+			if a := Accuracy(s, p); (i == len(open)-1 && a < p.AccMaster) || a < p.AccSlip {
+				out = append(out, c)
+			}
+		} else if !Mastered(s, p) {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func (pt Point) level(p Params) float64 {
+	if p.accuracyRules() {
+		return pt.Accuracy
+	}
 	s := KeyStat{Count: pt.Count, ErrEMA: pt.ErrEMA, TimeEMA: pt.TimeEMA}
 	if pt.TimeEMA > 0 {
 		s.TimedCount = 1
@@ -34,13 +54,17 @@ func RoundsToMastery(points []Point, p Params, fp ForecastParams) (rounds int, o
 		return 0, false
 	}
 	last := points[len(points)-1]
-	countOK := last.Count >= p.MasteryMinSamples
-	levelOK := last.TimeEMA > 0 && last.level(p) >= p.MasteryLevel
+	minCount, target, timed := p.MasteryMinSamples, p.MasteryLevel, last.TimeEMA > 0
+	if p.accuracyRules() {
+		minCount, target, timed = 0, 100*p.AccMaster, true
+	}
+	countOK := last.Count >= minCount
+	levelOK := timed && last.level(p) >= target
 	if countOK && levelOK {
 		return 0, true
 	}
 	w := points[max(0, len(points)-max(fp.Window, 2)):]
-	if len(w) < max(fp.MinRounds, 2) || last.TimeEMA <= 0 {
+	if len(w) < max(fp.MinRounds, 2) || !timed {
 		return 0, false
 	}
 	presses := last.Count - w[0].Count
@@ -50,14 +74,14 @@ func RoundsToMastery(points []Point, p Params, fp ForecastParams) (rounds int, o
 	per := float64(presses) / float64(len(w)-1)
 	need := 0.0
 	if !countOK {
-		need = float64(p.MasteryMinSamples-last.Count) / per
+		need = float64(minCount-last.Count) / per
 	}
 	if !levelOK {
 		slope := lineSlope(w, func(pt Point) float64 { return pt.level(p) })
 		if slope <= 0 {
 			return 0, false
 		}
-		need = math.Max(need, (p.MasteryLevel-last.level(p))/slope)
+		need = math.Max(need, (target-last.level(p))/slope)
 	}
 	if need > float64(fp.MaxRounds) {
 		return fp.MaxRounds + 1, true

@@ -100,7 +100,7 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	}
 	stats, unlocked := done.stats, done.unlocked
 	gen := done.who.gen
-	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps)
+	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps).ForStage(unlocked, len(done.who.gen.Order()))
 	group, err := s.store.Group(user, l.Info.ID)
 	if err != nil {
 		serverError(w, err)
@@ -243,12 +243,13 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 		return
 	}
 	out.changed = true
-	out.stats = engine.Apply(out.stats, samples, p)
-	out.unlocked = gen.NextUnlocked(out.stats, before, p)
+	all := len(gen.Order())
+	out.stats = engine.Apply(out.stats, samples, p.ForStage(before, all))
+	out.unlocked = gen.NextUnlocked(out.stats, before, p.ForStage(before, all))
 	if out.unlocked > before {
 		out.newLetter = gen.Order()[out.unlocked-1]
 	}
-	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), out.unlocked, p) {
+	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), out.unlocked, p.ForStage(out.unlocked, all)) {
 		out.stats, out.lapAfter = engine.StartLap(out.stats), lap+1
 	}
 	return
@@ -442,6 +443,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
+	p = p.ForStage(unlocked, len(gen.Order()))
+	masteryMin, masteryLevel := p.MasteryMinSamples, p.MasteryLevel
+	if p.AccWindow > 0 {
+		masteryMin, masteryLevel = 0, 100*p.AccMaster
+	}
 	keys := []keyInfo{}
 	for i, c := range gen.Order() {
 		st := stats[c]
@@ -495,7 +501,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
 		"order":   gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
-		"masteryMin": p.MasteryMinSamples, "masteryLevel": p.MasteryLevel,
+		"masteryMin": masteryMin, "masteryLevel": masteryLevel, "accuracy": p.AccWindow > 0,
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
 		"wordLevels":  s.wordLevels(l),

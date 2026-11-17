@@ -39,12 +39,15 @@ type Server struct {
 	portionCache map[string]*cachedPortion
 
 	attempts *auth.Limiter
+
+	tuneMu sync.Mutex
+	tune   map[string]map[string]float64
 }
 
 func NewServer(cfg config.Config, store storage.Store, langs []*Language) *Server {
 	s := &Server{cfg: cfg, store: store, langs: map[string]*Language{}, order: langs,
-		portionCache: map[string]*cachedPortion{},
-		attempts:     auth.NewLimiter(cfg.Auth.Attempts, time.Duration(cfg.Auth.AttemptWindow)*time.Minute)}
+		portionCache: map[string]*cachedPortion{}, tune: map[string]map[string]float64{},
+		attempts: auth.NewLimiter(cfg.Auth.Attempts, time.Duration(cfg.Auth.AttemptWindow)*time.Minute)}
 	for _, l := range langs {
 		s.langs[l.Info.ID] = l
 	}
@@ -69,6 +72,8 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/stats", s.withLang(s.handleStats))
 	mux.HandleFunc("GET /api/v1/activity", s.withLang(s.handleActivity))
 	mux.HandleFunc("GET /api/v1/learn/history", s.withLang(s.handleLearnHistory))
+	mux.HandleFunc("GET /api/v1/tune", s.withLang(s.handleTuneGet))
+	mux.HandleFunc("POST /api/v1/tune", s.withLang(s.handleTuneSet))
 	mux.HandleFunc("POST /api/v1/freeplay/portion", s.withLang(s.handleFreeplayPortion))
 	mux.HandleFunc("POST /api/v1/freeplay/results", s.withLang(s.handleFreeplayResults))
 	mux.HandleFunc("GET /api/v1/freeplay/stats", s.withLang(s.handleFreeplayStats))

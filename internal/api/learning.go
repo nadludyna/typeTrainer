@@ -94,7 +94,7 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	stats, unlocked := done.stats, done.unlocked
-	p := s.cfg.Engine.ForLap(done.lapAfter, s.cfg.Laps)
+	p := s.params(user).ForLap(done.lapAfter, s.cfg.Laps)
 	group, err := s.store.Group(user, l.Info.ID)
 	if err != nil {
 		serverError(w, err)
@@ -177,8 +177,9 @@ func (s *Server) lapParams(user, lang string) (engine.Params, int, error) {
 	if err != nil {
 		return engine.Params{}, 0, err
 	}
-	lap = min(max(lap, 0), s.cfg.Engine.LastLap(s.cfg.Laps))
-	return s.cfg.Engine.ForLap(lap, s.cfg.Laps), lap, nil
+	base := s.params(user)
+	lap = min(max(lap, 0), base.LastLap(s.cfg.Laps))
+	return base.ForLap(lap, s.cfg.Laps), lap, nil
 }
 
 type learned struct {
@@ -222,7 +223,7 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 	if out.unlocked > before {
 		out.newLetter = l.Gen.Order()[out.unlocked-1]
 	}
-	if lap < s.cfg.Engine.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, l.Gen.Order(), out.unlocked, p) {
+	if lap < s.params(user).LastLap(s.cfg.Laps) && engine.LapDone(out.stats, l.Gen.Order(), out.unlocked, p) {
 		out.stats, out.lapAfter = engine.StartLap(out.stats), lap+1
 	}
 	return
@@ -346,7 +347,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"unlocked": done.unlocked, "newLetter": done.newLetter, "consistency": consistency,
-		"newLap": newLap(done, s.cfg.Engine.ForLap(done.lapAfter, s.cfg.Laps))})
+		"newLap": newLap(done, s.params(user).ForLap(done.lapAfter, s.cfg.Laps))})
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -449,10 +450,10 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	rounds := history.LetterTimeline(every, l.Gen.Order(), l.Gen.Start(), s.cfg.Engine, s.cfg.Laps)
+	rounds := history.LetterTimeline(every, l.Gen.Order(), l.Gen.Start(), s.params(user), s.cfg.Laps)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"forecast": history.NextForecast(rounds, l.Gen.Order(), stats, unlocked, p, s.cfg.Forecast),
-		"lap":      lap, "lastLap": s.cfg.Engine.LastLap(s.cfg.Laps),
+		"lap":      lap, "lastLap": s.params(user).LastLap(s.cfg.Laps),
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
 		"order":   l.Gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
@@ -480,7 +481,7 @@ func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"order":      l.Gen.Order(),
-		"rounds":     history.LetterTimeline(all, l.Gen.Order(), l.Gen.Start(), s.cfg.Engine, s.cfg.Laps),
+		"rounds":     history.LetterTimeline(all, l.Gen.Order(), l.Gen.Start(), s.params(user), s.cfg.Laps),
 		"confusions": history.Confusions(all, s.cfg.ConfusionMin, s.cfg.ConfusionShown),
 	})
 }

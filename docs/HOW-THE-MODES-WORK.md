@@ -11,20 +11,24 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 
 ---
 
-## 1. The idea in one paragraph
+## 1. The idea in plain words
 
-The user types **real English words**. For every letter the program keeps a
-short, constantly updated picture of how well the user types it: how often they
-make a mistake on it and how long it takes. These two numbers are combined into
-one **difficulty** between 0 and 1. Letters are introduced **gradually**, the
-home row and the most frequent letters first; a new letter opens only when
-every open letter is typed accurately at the target speed (and stays so). Inside the open letters, each next word is
-chosen at random, but with probabilities shaped by difficulty, so weak letters
-show up much more often and strong ones still appear sometimes. Learning has
-no settings: the model alone decides what to practise. (Climb, the second
-mode in `internal/freeplay`, for people who can already type, has its own
-rule, section 12, and never feeds this model; see docs/HOW-THE-CODE-WORKS.md,
-"Modes".)
+1. For every letter the program remembers two numbers: how often you make a
+   mistake on it and how long it takes you. Recent presses weigh more than
+   old ones (about the last 20 count).
+2. The two numbers make one **difficulty** from 0 to 1. A new letter starts
+   as fairly hard, so it gets practised.
+3. A letter is **mastered** at under 5 % mistakes and 30 WPM or faster. The
+   next letter opens only when every open letter is mastered. The home row
+   and the most frequent letters come first.
+4. Every 6 words the program picks one **focus** letter, more likely a weak
+   one, and all 6 words contain it. Common words come first; a mistyped
+   word comes back two lines later.
+5. Only real words made of open letters. Learning has no settings: the
+   model alone decides what to practise.
+
+Climb and Freetype (sections 12-13) are hidden and not developed; they never
+feed this model.
 
 ## 2. Design decisions
 
@@ -396,9 +400,6 @@ When the last letter opens, the limit grows in a straight line and reaches the
 whole list (about 2000) after `RampLetters = 10 000` letters, about 1700-1900
 words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 
-- **Flat while learning, ramp after.** While letters open, only the words
-  change their letters, not their rarity; after the full alphabet only the
-  rarity grows.
 - **The ramp counts typed letters, not rounds.** Rounds have different
   lengths (10 words to 90 seconds, section 7, "The round"), so "N rounds"
   would mean different amounts of practice. Typed letters do not depend on
@@ -500,11 +501,6 @@ last word even in the middle of a portion; the samples of that portion go
 with `/results` as usual. Word choice and the model are the same for every
 length. Each round keeps its length in the history, and the stats screen
 never mixes lengths.
-
-**The earlier strategy** (`Generator.Next`, kept for the simulation): a whole
-exercise of `ExerciseWords = 20` words at once, a new focus letter for every
-word, the repeat penalty counted inside the exercise, statistics updated
-after the exercise. Section 10 compares the two.
 
 ## 8. Parameters
 
@@ -678,209 +674,54 @@ documents every filtering step:
    This adds 2 words (`z`: `zero`, `magazine`). The added words are the rarest
    in the list for the app.
 
-## 12. Climb, the second mode
+## 12. Climb, hidden
 
-Code: `internal/freeplay` (tests in `freeplay_test.go`); the routes in
-`internal/api/freeplay.go`. For people who can already type: no letters
-to unlock; one number, the **level** (1..10), says which words come. The
-idea is the "flow channel" (Csikszentmihalyi): a task a little harder than
-your skill keeps you engaged and growing; much harder frustrates, much
-easier bores. So the level follows the typist, but in steps they can feel:
-each level is a clear set of words, and a round is an exam at one level.
+Code: `internal/freeplay` (tests in `freeplay_test.go`), routes in
+`internal/api/freeplay.go`. Hidden from the menu and not developed; it never
+touches Learn's data. Its parts that Reinforce may reuse:
 
-**Words only**: lower case, no capitals, no
-punctuation. Climb trains the words themselves, how the letters of a word
-follow each other; a comma or a capital in a list of random words is not a
-sentence, it only breaks the rhythm.
+**Levels** (`Params.Levels`): level n draws evenly from the n-th number of
+most common words of the long list (section 13), words of one letter left
+out; a recent word is rarer, never the same word twice in a row.
 
-**The levels** (`Params.Levels`, `MaxRank`). Level n draws evenly from the
-`Levels[n-1]` most common words of the long list (`free.txt`, section 13), without the words of one letter (`MinLetters = 2`, `Longer`:
-"a" and "i" are nothing to train; Freetype keeps them, as monkeytype does). A word used recently is rarer, the same word never comes twice
-in a row (the same draw as Freetype).
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Words | 200 | 500 | 1 000 | 2 000 | 3 000 | 5 000 | 7 500 | 10 000 | 15 000 | 25 000 |
 
-| Level | Words | Average length (letters) | Examples | On monkeytype |
-|---|---|---|---|---|
-| 1 | 200 | 4.0 | every, through, left | English 200 |
-| 2 | 500 | 4.6 | food, outside, country | |
-| 3 | 1 000 | 5.1 | experience, planet | English 1k |
-| 4 | 2 000 | 5.6 | brilliant, curious | |
-| 5 | 3 000 | 5.9 | signature, monitor | |
-| 6 | 5 000 | 6.2 | teenager, literature | English 5k |
-| 7 | 7 500 | 6.5 | noticing, moreover | |
-| 8 | 10 000 | 6.7 | eyesight, capitalism | English 10k |
-| 9 | 15 000 | 7.0 | curriculum, dictated | |
-| 10 | 25 000 | 7.3 | poltergeist, evaporated | English 25k |
+The steps roughly double because word frequencies fall steeply (Zipf's law).
 
-The steps roughly double the words, not add the same number: word
-frequencies fall steeply (Zipf's law), so a straight line from 200 to
-25 000 would reach words nobody types ("pippin", "dubbing") by level 5,
-and half of the climb would be spent on them. Five levels are monkeytype's
-lists, so a typist can compare.
-
-**The round** is typed at one level from start to end: the level of the
-round is sent with every request for words and stored with the round
-(`storage.Session.Level`). **The verdict** of a round (`Judge`), from its
-accuracy (the share of letters typed without a mistake):
-
-```
-accuracy >= 96 %   ->  pass
-accuracy <  92 %   ->  fail
-otherwise          ->  hold (counts for nothing)
-```
-
-Speed never counts: on rarer words everyone slows
-down, so a speed bar would either block the top levels or mean nothing on
-the first ones; the result and the stats show the speed for the typist to
-judge.
-
-**Moving** (`Standing`), from the history: only the last run of rounds at
-one level counts, round by round:
-
-```
-pass:  passes + 1, fails = 0     3 passes          ->  one level up
-fail:  passes = 0, fails + 1     2 fails in a row  ->  one level down
-hold:  fails = 0
-```
-
-A move sets both counts to 0. The top level stays the top, level 1 stays
-level 1. The passes need not be in a row (a hold between them does not
-matter), but a fail between them starts them again: three clean rounds
-with no bad one between. Nothing is stored for the counts: every round
-keeps its level, and a run at another level (the level moved, or the
-typist picked one on the round bar) starts them again. A new typist
-starts at `LevelStart` = 1 and can pick any level before any round.
-
-**Old history** (rounds from before 2026-10-20, level 0..1) gets the new
-level the old one stands for, the old number divided by 10, rounded up
-(`LevelFromOld`: 1..10 -> 1, 44 -> 5, 91..100 -> 10): in PostgreSQL by
-migration `008`, in a file (and in the copy the GitHub Pages version keeps
-in IndexedDB) on import, when the file has no `climbLevels`. Those rounds
-count in `Standing` like any other.
-
-| Name | Value | Reason |
-|---|---|---|
-| `Levels` | 200 ... 25 000 | the table above |
-| `LevelStart` | 1 | the common words; anyone who types well picks a higher level or passes it in three rounds |
-| `PassAccuracy` / `FailAccuracy` | 96 / 92 | pass: at most ~1 mistake in 25 letters; fail: more than ~1 in 12 |
-| `PassesUp` | 3 | one clean round can be luck, three show the level is mastered |
-| `FailsDown` | 2 | one bad round is a slip, two in a row say the level is too hard |
-| `History` | 50 | `Standing` reads the last 50 rounds; a longer run at one level counts from those |
-
-All values are reasoned, not fitted; the stats screen (Climb's own) shows
-every round with its level, which is the data to tune them on.
+**Verdict and moving** (`Judge`, `Standing`): a round at 96 % accuracy or
+more passes, under 92 % fails, between them counts for nothing. Three passes
+with no fail between them move one level up, two fails in a row one down.
+Speed never counts. Every round keeps its level; nothing else is stored.
 
 ### 12.1 Weak pairs
 
-Code: `internal/freeplay/weak.go` (tests in `weak_test.go`), used by
-`Portion` and the routes. The level makes the text harder for everyone the
-same way; this part is the typist's own. Someone who can already type is
-rarely slow on a letter, they are slow on a **movement**: `th` flies, `ck`
-stumbles. So Climb counts **letter pairs** (bigrams): the press of the
-second letter, timed from the first, is the movement between the two keys.
-
-**The data** is the raw record every Climb round keeps (`keys`: letter,
-mistakes, ms since the previous press), from the last `WeakRounds = 20`
-rounds of Climb. Nothing new is stored, and learning's rounds never count
-(the modes stay apart). A pair is two lower-case letters typed one after
-the other: a space, a mark or a capital breaks it (Shift adds its own
-time). A press with no time (after a Backspace or a pause) counts only when
-it was a mistake.
-
-**The cost** of a pair is its average time per press, with a mistake
-counted as a press of `WeakMissMs = 1000` ms:
+Code: `internal/freeplay/weak.go`. A typist who can already type is slow on
+a movement between two keys, not on a letter. From the raw keys of the last
+`WeakRounds = 20` Climb rounds:
 
 ```
 cost(pair) = (sum of clean timed ms + mistakes * 1000) / (clean timed presses + mistakes)
 ```
 
-One number for speed and accuracy together, in a unit anyone can read
-("ck costs you 410 ms"). The same idea as monkeytype's "weak spot" mode,
-which scores letters with a 5000 ms penalty per mistake; here per pair, and
-with 1000 ms, learning's `SlowMs` ("as slow as it gets"), so that one slip
-in 15 presses does not outweigh a pair that is slow every time.
+The `WeakPairs = 3` most costly pairs with at least `WeakMinSamples = 15`
+presses and a cost over the typist's average are weak. Each word of a
+portion is, with the chance `WeakShare = 0.5`, drawn from the words with a
+weak pair (only if the level has at least `WeakMinWords = 10` of them).
 
-**Weak** pairs are the `WeakPairs = 3` most costly ones that were pressed
-at least `WeakMinSamples = 15` times and cost more than the typist's
-average over all pairs. An even typist has none; so does a new one (too
-little data), and then Climb is exactly as in section 12.
+## 13. Freetype, hidden
 
-**The words.** Each word of a portion is, with the chance `WeakShare = 0.5`,
-drawn from the words that contain a weak pair, else from all words; both
-draws use the same level limit (`MaxRank`) and the same "do not repeat"
-weights. If the level allows fewer than `WeakMinWords = 10` words with a weak
-pair, there is no such draw (the same few words would repeat). The
-result screen and the block under the text name the weak pairs,
-so the typist sees what the next rounds practise.
+Hidden from the menu and not developed. Words drawn evenly from the n most
+common of the long list (`FreetypeLists`: 200 to 25 000), or a kind of text
+with its own history: long words (6+ letters), real sentences, or your own
+pasted text (kept in the browser only). Nothing adapts.
 
-| Name | Value | Reason |
-|---|---|---|
-| `WeakRounds` | 20 | ~3000 pair presses: a common pair gets 100+, its cost is steady; old rounds drop out as the typist improves |
-| `WeakMinSamples` | 15 | a pair seen once or twice is noise |
-| `WeakMissMs` | 1000 | a mistake = learning's slowest press; see above |
-| `WeakPairs` | 3 | a few at once, so the text stays varied |
-| `WeakShare` | 0.5 | half the words: the practice is felt, the text is still typing, not a drill |
-| `WeakMinWords` | 10 | fewer words would repeat within a round |
+**Sentences** (`data/langs/<id>/sentences.txt`, `tools/sentences/build.py`):
+real sentences from Tatoeba, 4 to 18 words, only the language's letters,
+capitals and `. , ? ! ; : ' -`, every word among the 25 000 most common.
 
-Limits: the time of a press is the movement into it, so a pair's cost
-includes how fast the typist reads ahead, not only the fingers; whether
-practising a pair makes it faster, and how fast, is a question for real data
-(the raw keys of every round make it measurable later).
-
-
-## 13. Freetype, the third mode
-
-Freetype is for just typing, as on monkeytype: nothing adapts and nothing
-is learned. The typist picks a word list, "the n most common words" with n
-one of 200, 1000, 5000, 10 000, 25 000 (`FreetypeLists` in
-`internal/config`), and the words are drawn evenly from it
-(`freeplay.Picker.Freetype`), in lower case, without punctuation. Every
-list has its own history (`storage.FreetypeMode`): a round on 200 common
-words and one on 25 000 rare ones are not compared, like rounds of
-different lengths.
-
-**Kinds of text.** A round can
-be of one kind instead of plain words, and each kind has a history of its
-own (`storage.FreetypeVariants`), since a round of sentences is slower than
-one of plain words:
-
-- *Long words*: only the words of the chosen list with at least `LongMin`
-  (6) letters, drawn by the same rule (history per list: `1000-long`). A
-  list without any gives any word.
-- *Sentences* (`freeplay.Sentences`): real sentences with their capitals
-  and punctuation, from Tatoeba (`data/langs/<id>/sentences.txt`, built by
-  `tools/sentences/build.py`: only the language's letters, capitals and
-  `TextMarks`, 4 to 18 words, every word among the 25 000 most common, so
-  no names and no rare words). They have no word list. A portion is whole
-  sentences drawn evenly, at least `PortionWords` words; a sentence already
-  in the round is drawn again (up to `SentenceTries` times). The round
-  still ends after the words or the time chosen, so the last sentence may
-  be cut.
-
-*Your own text* is the third kind: a text the typist pastes, typed word by
-word in its order, each round starting where the last one ended. It stays
-in the browser (`web/customtext.js`), never reaches the server, and has
-one history for every text (`freetype-custom`). Only the letters of the
-language, capitals and `TextMarks` (`. , ? ! ; : ' -`) are kept.
-
-**The draw** is the one Climb uses (`draw`): a word's weight is
-`RepeatPenalty^(uses in the last RecentWords words)`, and the word just
-typed is never next. On a list of 25 000 words, weighing every word for
-every word drawn would be slow, so `drawWord` first draws by rejection: a
-random word is kept with the chance of its weight (at most 1). That gives
-exactly the same odds as weighing the list (a word comes out with a chance
-proportional to its weight), and as almost no word is recent, it almost
-always ends at the first try. After 32 misses (a short list full of recent
-words) it weighs the whole list instead, with the same odds; so the result
-never depends on which way was taken (`TestDraw_OddsAreTheWeights`).
-
-**The long list** (`data/langs/en/free.txt`, built by
-`tools/wordlists/free.py`). The 2000 words of learning come from subtitle
-counts with a hand-made block list (section 11). Past a few thousand words
-those counts are full of names, slang and fragments, too many to block by
-hand, so the long list adds a spelling dictionary: a word is kept only if
-the Hunspell dictionary of the language (en_US, from SCOWL) accepts it in
-lower case. Names are written with a capital there, so they drop out by
-themselves. Offensive words are removed by the dictionary's own marks
-(NOSUGGEST) and a public list of bad words (LDNOOBW). Of the 50 000 most
-frequent subtitle words, about 30 800 pass; the list keeps the first
-25 000.
+**The long list** (`data/langs/en/free.txt`, `tools/wordlists/free.py`):
+subtitle frequencies (section 11) filtered by the Hunspell en_US dictionary
+in lower case (names drop out) and a list of offensive words; the first
+25 000 of about 30 800 that pass.

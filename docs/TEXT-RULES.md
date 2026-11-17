@@ -121,7 +121,7 @@ cheerleader.
 | Learn: 26 letters, one by one | First you learn the letters, a few at the start and then one at a time. |
 | focus e, pair el | This round leans on e, and on e followed by l, where you slow down. |
 | We pick the words from your mistakes | Words are picked from the letters you miss and the pairs where you slow down. |
-| You start with six letters and get a new one each time the old ones are ready. | Six letters to start. Get them right and a new one pops open, one by one, until you have all 26. |
+| You start with six letters and get a new one each time the old ones are ready. | You start with just six letters. Get them right and a new one pops open, one by one, until all 26 are yours. |
 | Not saved: no connection. Leaving this screen drops the round | No connection, so this round isn't saved yet. Try Save again before you move on, or the round is lost. |
 | Type a round and I will have something to say | Nothing to say yet. Type something and I'll judge it. |
 

@@ -672,11 +672,11 @@ Median exercises to the goal (20 typists), and the stream's variety:
 
 | Language | Random words | Best of 20 | Adaptive, T = 0.1 | Stream (the app) | Stream, no frequency penalty | Stream variety, first 30 | Stream variety, expert |
 |---|---|---|---|---|---|---|---|
-| en | 1424 | 208 | 126 | 143 | 129 | 85 / 38 / 82 | 99 / 4 / 66 |
+| en | 1088 | 179 | 124 | 134 | 120 | 96 / 32 / 81 | 99 / 3 / 68 |
 
-The stream needs 10 times fewer exercises than random words and 1.5
+The stream needs 8 times fewer exercises than random words and 1.3
 times fewer than best of 20. The forecast is within
-max(2, 25 %) in 54 % of cases (mean error 5.1 rounds): `j` and `k` come early
+max(2, 25 %) in 54 % of cases (mean error 6.1 rounds): `j` and `k` come early
 and have few words, so their waits are long and hard to foresee.
 
 **Unlock pace.** The same tool also types Learn exactly as the app does
@@ -685,9 +685,9 @@ typist and counts the rounds until every letter is open (median of 20):
 
 | Typist | Mistakes | Time per press | Learns | Rounds to 13 letters | Rounds to all 26 |
 |---|---|---|---|---|---|
-| beginner | 3-30 % | 350-900 ms | yes | 52 | 88 |
-| middle | 4-8 % | 250-450 ms | yes | 35 | 65 |
-| fast | 2-4 % | 120-250 ms | no, already fast | 35 | 65 |
+| beginner | 3-30 % | 350-900 ms | yes | 53 | 90 |
+| middle | 4-8 % | 250-450 ms | yes | 34 | 64 |
+| fast | 2-4 % | 120-250 ms | no, already fast | 33 | 65 |
 
 Before the level and "mastered stays mastered" (section 6) these were 104,
 69 and 348 rounds: a fast typist waited for a round in which every open

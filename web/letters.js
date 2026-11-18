@@ -7,9 +7,11 @@ import { renderModeBar } from "./modebar.js";
 
 let builtFor = "";
 let chipOf = {};
+let seen = null;
 export function renderLetters() {
   if (!learning()) {
     builtFor = "";
+    seen = null;
     renderFreeLetters();
     return;
   }
@@ -32,7 +34,9 @@ export function renderLetters() {
       chipOf[c] = chip;
       frag.appendChild(chip);
     };
-    for (const c of S.exercise.unlocked) add(c, info[c]?.mastered ? "mastered" : "");
+    const was = seen?.lang === S.lang ? seen.open : null;
+    seen = { lang: S.lang, open: new Set(S.exercise.unlocked) };
+    for (const c of S.exercise.unlocked) add(c, (info[c]?.mastered ? "mastered" : "") + (was && !was.has(c) ? " opened" : ""));
     for (const c of S.exercise.locked) add(c, c === S.exercise.locked[0] ? "locked next" : "locked");
     el.letters.replaceChildren(frag);
 
@@ -60,7 +64,7 @@ export function renderLetters() {
     next.dataset.tipText = (needs.length
       ? t("tip.nextNeeds", { l: S.exercise.locked[0], list: needs.join(" ") })
       : t("tip.next")) + (f ? " " + t("tip.nextIn", { when: f.value }) : "") +
-      " " + t("tip.rule", { min: rule().min, err: Math.round(rule().err * 100), wpm: S.lastStats?.targetWpm || 30 });
+      " " + t(rule().accuracy ? "tip.ruleAccuracy" : "tip.rule", { min: rule().min, level: rule().level, wpm: S.lastStats?.targetWpm || 30 });
   }
   for (const c of S.exercise.unlocked) {
     chipOf[c]?.classList.toggle("focus", c === focus);
@@ -78,29 +82,37 @@ function renderFreeLetters() {
 // ---------- one letter's progress ----------
 export const rule = () => {
   const s = S.lastStats ?? {};
-  return { min: s.masteryMin ?? 20, err: (s.masteryErr ?? 5) / 100, ms: 12000 / (s.targetWpm || 30) };
+  return { min: s.masteryMin ?? 40, level: s.masteryLevel ?? 80, ms: 12000 / (s.targetWpm || 30), accuracy: !!s.accuracy };
 };
+// Part of the way to mastered: the presses and the level, whichever is behind
+// (under Learn's accuracy rules the level is the accuracy and alone counts).
 export function letterProgress(k) {
   if (!k?.count) return 0;
   const r = rule();
-  const presses = Math.min(1, k.count / r.min);
-  const clean = k.errorRate <= r.err ? 1 : r.err / k.errorRate;
-  const fast = !k.avgMs ? 0 : k.avgMs <= r.ms ? 1 : r.ms / k.avgMs;
-  return Math.min(presses, clean, fast);
+  const presses = r.min > 0 ? k.count / r.min : 1;
+  return Math.max(0, Math.min(1, presses, (k.level ?? 0) / r.level));
 }
+// What holds a letter back: a mistake costs more than a slow press (Learn's
+// difficulty weighs them 0.6 and 0.4), so mistakes over 5% come first.
+const CLEAN_ENOUGH = 0.05;
 export function letterNeeds(k) {
   if (k?.mastered) return [];
   if (!k?.count) return ["need.start"];
   const r = rule(), out = [];
-  if (k.errorRate > r.err) out.push("need.cleaner");
-  if (!k.avgMs || k.avgMs > r.ms) out.push("need.faster");
-  if (k.count < r.min) out.push("need.more");
+  if (r.accuracy) return [k.errorRate > CLEAN_ENOUGH ? "need.cleaner" : "need.more"];
+  if ((k.level ?? 0) < r.level) {
+    if (k.errorRate > CLEAN_ENOUGH) out.push("need.cleaner");
+    if (!k.avgMs || k.avgMs > r.ms) out.push("need.faster");
+  }
+  if (k.count < r.min || !out.length) out.push("need.more");
   return out;
 }
 function letterTip(k) {
   if (!k?.count) return t("letter.noData");
-  const parts = [t("heat.count", { n: k.count }), t("letter.err", { e: Math.round(k.errorRate * 100) })];
-  if (k.avgMs) parts.push(t("letter.ms", { wpm: Math.round(12000 / k.avgMs) }));
+  const parts = rule().accuracy
+    ? [t("letter.accuracy", { n: Math.floor(k.level ?? 0) }), t("heat.count", { n: k.count })]
+    : [t("letter.level", { n: Math.round(k.level ?? 0) }), t("heat.count", { n: k.count }), t("letter.err", { e: Math.round(k.errorRate * 100) })];
+  if (k.avgMs && !rule().accuracy) parts.push(t("letter.ms", { wpm: Math.round(12000 / k.avgMs) }));
   const needs = letterNeeds(k);
   return `${parts.join(", ")}. ${k.mastered ? t("letter.mastered") : t("letter.needs", { list: needs.map((n) => t(n)).join(", ") })}.`;
 }

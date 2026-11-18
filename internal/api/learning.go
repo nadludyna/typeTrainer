@@ -4,6 +4,7 @@ package api
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 	"slices"
 	"sort"
@@ -22,6 +23,7 @@ type portionRequest struct {
 	Retry   []string        `json:"retry"`
 	Start   bool            `json:"start"`
 	Last    bool            `json:"last"`
+	Level   int             `json:"level"` // Reinforce's word level, 1..; 0 = Learn's own words
 
 	Round        string `json:"round"`
 	PortionIndex int    `json:"portionIndex"`
@@ -66,6 +68,10 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		badRequest(w, "round: at most 64 letters, digits and -")
 		return
 	}
+	if req.Level != 0 && !s.validWordLevel(l, req.Level) {
+		badRequest(w, "level: a word level, 1 to the number of levels")
+		return
+	}
 	if req.Round != "" && (req.PortionIndex < 0 || req.PortionIndex > s.cfg.MaxEvents || req.Ack < 0 || req.Ack > s.cfg.MaxEvents) {
 		badRequest(w, "portionIndex or ack: out of range")
 		return
@@ -93,18 +99,26 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	stats, unlocked := done.stats, done.unlocked
-	p := s.cfg.Engine.ForLap(done.lapAfter, s.cfg.Laps)
+	gen := done.who.gen
+	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps).ForStage(unlocked, len(done.who.gen.Order()))
 	group, err := s.store.Group(user, l.Info.ID)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	typed := 0
-	if all := len(l.Gen.Order()); unlocked == all {
+	if all := len(gen.Order()); unlocked == all && s.validWordLevel(l, req.Level) {
+		gen = l.Levels[req.Level-1]
+		typed = math.MaxInt32
+	} else if unlocked == all {
 		if typed, err = s.store.LettersTyped(user, l.Info.ID, all); err != nil {
 			serverError(w, err)
 			return
 		}
+	}
+	if gen, err = s.withWeakPairs(user, l, gen); err != nil {
+		serverError(w, err)
+		return
 	}
 	recent := append([]string{}, req.Recent...)
 	count := 1
@@ -121,11 +135,11 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 			if len(recent) > 0 {
 				last = recent[len(recent)-1]
 			}
-			out[i] = l.Gen.RandomPortion(unlocked, last, p)
+			out[i] = gen.RandomPortion(unlocked, last, p)
 			recent = append(recent, out[i].Words...)
 			continue
 		}
-		out[i] = l.Gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
+		out[i] = gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
 		recent = append(recent, out[i].Words...)
 		req.Retry = nil
 	}
@@ -171,13 +185,23 @@ func (s *Server) trimPortionsLocked(now time.Time) {
 	}
 }
 
-func (s *Server) lapParams(user, lang string) (engine.Params, int, error) {
+// learner is one user's Learn setup: the letter order and the numbers.
+type learner struct {
+	gen  *engine.Generator
+	base engine.Params
+}
+
+func (s *Server) learner(user string, l *Language) learner {
+	return learner{gen: l.Gen, base: s.params(user)}
+}
+
+func (s *Server) lapParams(user, lang string, who learner) (engine.Params, int, error) {
 	lap, err := s.store.Lap(user, lang)
 	if err != nil {
 		return engine.Params{}, 0, err
 	}
-	lap = min(max(lap, 0), s.cfg.Engine.LastLap(s.cfg.Laps))
-	return s.cfg.Engine.ForLap(lap, s.cfg.Laps), lap, nil
+	lap = min(max(lap, 0), who.base.LastLap(s.cfg.Laps))
+	return who.base.ForLap(lap, s.cfg.Laps), lap, nil
 }
 
 type learned struct {
@@ -186,6 +210,7 @@ type learned struct {
 	newLetter     string
 	lap, lapAfter int
 	changed       bool
+	who           learner
 }
 
 func (done learned) record(round *storage.Session) storage.Learned {
@@ -198,7 +223,9 @@ func (done learned) record(round *storage.Session) storage.Learned {
 
 func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out learned, err error) {
 	id := l.Info.ID
-	p, lap, err := s.lapParams(user, id)
+	out.who = s.learner(user, l)
+	gen := out.who.gen
+	p, lap, err := s.lapParams(user, id, out.who)
 	if err != nil {
 		return
 	}
@@ -210,21 +237,31 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 	if err != nil {
 		return
 	}
-	before = l.Gen.Clamp(before)
+	before = gen.Clamp(before)
 	out.unlocked = before
 	if len(samples) == 0 {
 		return
 	}
 	out.changed = true
-	out.stats = engine.Apply(out.stats, samples, p)
-	out.unlocked = l.Gen.NextUnlocked(out.stats, before, p)
+	all := len(gen.Order())
+	out.stats = engine.Apply(out.stats, samples, p.ForStage(before, all))
+	out.unlocked = gen.NextUnlocked(out.stats, before, p.ForStage(before, all))
 	if out.unlocked > before {
-		out.newLetter = l.Gen.Order()[out.unlocked-1]
+		out.newLetter = gen.Order()[out.unlocked-1]
 	}
-	if lap < s.cfg.Engine.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, l.Gen.Order(), out.unlocked, p) {
+	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), out.unlocked, p.ForStage(out.unlocked, all)) {
 		out.stats, out.lapAfter = engine.StartLap(out.stats), lap+1
 	}
 	return
+}
+
+// reinforceLevel is the word level a round was typed at: only once every
+// letter was open, 0 otherwise.
+func reinforceLevel(done learned, level float64, levels int) float64 {
+	if level < 1 || level > float64(levels) || level != math.Trunc(level) || done.unlocked < len(done.who.gen.Order()) {
+		return 0
+	}
+	return level
 }
 
 func newLap(done learned, p engine.Params) float64 {
@@ -235,9 +272,10 @@ func newLap(done learned, p engine.Params) float64 {
 }
 
 type abortRequest struct {
-	Round  string          `json:"round"`
-	Keys   []engine.Sample `json:"keys"`
-	Length string          `json:"length"`
+	Round   string          `json:"round"`
+	Keys    []engine.Sample `json:"keys"`
+	Length  string          `json:"length"`
+	Seconds float64         `json:"seconds"`
 }
 
 // A round dropped with Tab: its raw presses are kept, but it is not shown
@@ -265,7 +303,7 @@ func (s *Server) handleAbort(w http.ResponseWriter, r *http.Request, user string
 	defer s.writeMu.Unlock()
 	if err := s.store.AddSession(user, l.Info.ID, storage.Session{
 		Keys: req.Keys, Chars: len(req.Keys), FinishedAt: time.Now(),
-		Length: req.Length, Round: req.Round, Aborted: true,
+		Length: req.Length, Round: req.Round, Aborted: true, Seconds: s.typedSeconds(req.Seconds),
 	}); err != nil {
 		serverError(w, err)
 		return
@@ -286,6 +324,7 @@ type resultsRequest struct {
 	List      int             `json:"list"`
 	Variant   string          `json:"variant"`
 	Round     string          `json:"round"`
+	Seconds   float64         `json:"seconds"`
 }
 
 func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -334,15 +373,17 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	err = s.store.SaveLearned(user, l.Info.ID, done.record(&storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Group: group, Device: req.Device,
-		Lap:   done.lap,
-		Round: req.Round,
+		Lap:     done.lap,
+		Level:   reinforceLevel(done, req.Level, len(l.Levels)),
+		Round:   req.Round,
+		Seconds: s.typedSeconds(req.Seconds),
 	}))
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"unlocked": done.unlocked, "newLetter": done.newLetter, "consistency": consistency,
-		"newLap": newLap(done, s.cfg.Engine.ForLap(done.lapAfter, s.cfg.Laps))})
+		"newLap": newLap(done, done.who.base.ForLap(done.lapAfter, s.cfg.Laps))})
 }
 
 func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -353,12 +394,13 @@ func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user str
 		badRequest(w, "invalid JSON")
 		return
 	}
-	n := l.Gen.Start()
-	if req.UnlockAll {
-		n = len(l.Gen.Order())
-	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
+	who := s.learner(user, l)
+	n := who.gen.Start()
+	if req.UnlockAll {
+		n = len(who.gen.Order())
+	}
 	if err := s.store.SetUnlocked(user, l.Info.ID, n); err != nil {
 		serverError(w, err)
 		return
@@ -372,6 +414,7 @@ type keyInfo struct {
 	ErrorRate  float64 `json:"errorRate"`
 	AvgMs      float64 `json:"avgMs"`
 	Difficulty float64 `json:"difficulty"`
+	Level      float64 `json:"level"`
 	Mastered   bool    `json:"mastered"`
 	Unlocked   bool    `json:"unlocked"`
 }
@@ -392,18 +435,25 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	unlocked = l.Gen.Clamp(unlocked)
-	p, lap, err := s.lapParams(user, id)
+	who := s.learner(user, l)
+	gen := who.gen
+	unlocked = gen.Clamp(unlocked)
+	p, lap, err := s.lapParams(user, id, who)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
+	p = p.ForStage(unlocked, len(gen.Order()))
+	masteryMin, masteryLevel := p.MasteryMinSamples, p.MasteryLevel
+	if p.AccWindow > 0 {
+		masteryMin, masteryLevel = 0, 100*p.AccMaster
+	}
 	keys := []keyInfo{}
-	for i, c := range l.Gen.Order() {
+	for i, c := range gen.Order() {
 		st := stats[c]
 		keys = append(keys, keyInfo{
 			Char: c, Count: st.Count, ErrorRate: st.ErrEMA, AvgMs: st.TimeEMA,
-			Difficulty: engine.Difficulty(st, p), Mastered: engine.Mastered(st, p),
+			Difficulty: engine.Difficulty(st, p), Level: shownLevel(engine.Level(st, p), p), Mastered: engine.Mastered(st, p),
 			Unlocked: i < unlocked,
 		})
 	}
@@ -444,16 +494,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	rounds := history.LetterTimeline(every, l.Gen.Order(), l.Gen.Start(), s.cfg.Engine, s.cfg.Laps)
+	rounds := history.LetterTimeline(every, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"forecast": history.NextForecast(rounds, l.Gen.Order(), stats, unlocked, p, s.cfg.Forecast),
-		"lap":      lap, "lastLap": s.cfg.Engine.LastLap(s.cfg.Laps),
+		"forecast": history.NextForecast(rounds, gen.Order(), stats, unlocked, p, s.cfg.Forecast),
+		"lap":      lap, "lastLap": who.base.LastLap(s.cfg.Laps),
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
-		"order":   l.Gen.Order(),
+		"order":   gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
-		"masteryMin": p.MasteryMinSamples, "masteryErr": p.MasteryErrorRate * 100,
+		"masteryMin": masteryMin, "masteryLevel": masteryLevel, "accuracy": p.AccWindow > 0,
 		"lengths": lengths, "group": group, "bests": bests,
 		"learnRounds": len(every),
+		"wordLevels":  s.wordLevels(l),
 	})
 }
 
@@ -473,9 +524,10 @@ func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user
 		serverError(w, err)
 		return
 	}
+	who := s.learner(user, l)
 	writeJSON(w, http.StatusOK, map[string]any{
-		"order":      l.Gen.Order(),
-		"rounds":     history.LetterTimeline(all, l.Gen.Order(), l.Gen.Start(), s.cfg.Engine, s.cfg.Laps),
+		"order":      who.gen.Order(),
+		"rounds":     history.LetterTimeline(all, who.gen.Order(), who.gen.Start(), who.base, s.cfg.Laps),
 		"confusions": history.Confusions(all, s.cfg.ConfusionMin, s.cfg.ConfusionShown),
 	})
 }
@@ -500,6 +552,12 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request, user str
 
 const maxTZMinutes = 14 * 60
 
+// typedSeconds keeps a round's measured time in 0..MaxTypedSeconds: the
+// daily goal counts it, so a wrong clock can neither break nor fill it.
+func (s *Server) typedSeconds(x float64) float64 {
+	return min(max(x, 0), float64(s.cfg.MaxTypedSeconds))
+}
+
 func (s *Server) validLength(length string) bool {
 	return validLength(length, s.cfg.MaxRoundWords, s.cfg.MaxRoundSeconds)
 }
@@ -511,4 +569,13 @@ func (s *Server) lengthParam(w http.ResponseWriter, r *http.Request) (string, bo
 		return "", false
 	}
 	return length, true
+}
+
+// shownLevel rounds the level to a tenth; an accuracy rounds down, so a
+// letter short of mastered never shows the mastered number.
+func shownLevel(level float64, p engine.Params) float64 {
+	if p.AccWindow > 0 {
+		return math.Floor(level*10) / 10
+	}
+	return math.Round(level*10) / 10
 }

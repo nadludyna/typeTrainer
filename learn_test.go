@@ -169,7 +169,7 @@ func TestApp_RareWordsAfterTheAlphabet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	list, _ := os.ReadFile("data/langs/en/words.txt")
+	list, _ := os.ReadFile("data/langs/en/free.txt")
 	rank := map[string]int{}
 	for i, w := range strings.Fields(string(list)) {
 		if _, ok := rank[w]; !ok {
@@ -261,23 +261,23 @@ func TestApp_LearnLaps(t *testing.T) {
 	h, _, _ := newApp()
 	keys := []string{}
 	for _, c := range "abcdefghijklmnopqrstuvwxyz" {
-		keys = append(keys, fmt.Sprintf(`"%c":{"count":50,"errEma":0.01,"timeEma":150,"timedCount":50}`, c))
+		keys = append(keys, fmt.Sprintf(`"%c":{"count":50,"errEma":0.01,"timeEma":50,"timedCount":50}`, c))
 	}
 	file := `{"unlocked":26,"keys":{` + strings.Join(keys, ",") + `}}`
 	if code, out := call(t, h, "POST", "/api/v1/import?lang=en", file); code != 200 {
 		t.Fatalf("import: %d %v", code, out)
 	}
 	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["lap"].(float64) != 0 || st["targetWpm"].(float64) != 30 || st["lastLap"].(float64) != 6 {
+	if st["lap"].(float64) != 0 || st["targetWpm"].(float64) != 30 || st["lastLap"].(float64) != 17 {
 		t.Fatalf("before: lap %v goal %v last %v", st["lap"], st["targetWpm"], st["lastLap"])
 	}
 	if st["forecast"].(map[string]any)["known"] != false {
 		t.Fatalf("no letter left to master, no forecast: %v", st["forecast"])
 	}
-	press := `{"keys":[{"char":"a","errors":0,"ms":150}],"chars":1,"wpm":30,"accuracy":100}`
-	for lap := 1; lap <= 6; lap++ {
+	press := `{"keys":[{"char":"a","errors":0,"ms":50}],"chars":1,"wpm":30,"accuracy":100}`
+	for lap := 1; lap <= 17; lap++ {
 		_, out := call(t, h, "POST", "/api/v1/results?lang=en", press)
-		if want := 30 + 5*float64(lap); out["newLap"] != want {
+		if want := 30 + 10*float64(lap); out["newLap"] != want {
 			t.Fatalf("press %d: newLap %v, want %v", lap, out["newLap"], want)
 		}
 	}
@@ -287,25 +287,25 @@ func TestApp_LearnLaps(t *testing.T) {
 	}
 	call(t, h, "POST", "/api/v1/results?lang=en", `{"samples":[],"chars":30,"wpm":50,"accuracy":100}`)
 	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["lap"].(float64) != 6 || st["targetWpm"].(float64) != 60 {
+	if st["lap"].(float64) != 17 || st["targetWpm"].(float64) != 200 {
 		t.Fatalf("after: lap %v goal %v", st["lap"], st["targetWpm"])
 	}
-	if s := st["sessions"].([]any)[0].(map[string]any); s["lap"] != 6.0 {
+	if s := st["sessions"].([]any)[0].(map[string]any); s["lap"] != 17.0 {
 		t.Fatalf("the round keeps its lap: %v", s["lap"])
 	}
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, guestRequest("GET", "/api/v1/export?lang=en", ""))
 	exported := rec.Body.String()
-	if !strings.Contains(exported, `"lap":6`) {
+	if !strings.Contains(exported, `"lap":17`) {
 		t.Fatalf("export lost the lap: %s", exported)
 	}
 	call(t, h, "POST", "/api/v1/reset?lang=en", "")
 	call(t, h, "POST", "/api/v1/import?lang=en", exported)
-	if _, st = call(t, h, "GET", "/api/v1/stats?lang=en", ""); st["lap"].(float64) != 6 {
+	if _, st = call(t, h, "GET", "/api/v1/stats?lang=en", ""); st["lap"].(float64) != 17 {
 		t.Fatalf("import lost the lap: %v", st["lap"])
 	}
-	for _, bad := range []string{`{"lap":7}`, `{"lap":-1}`, `{"sessions":[{"wpm":30,"accuracy":90,"lap":7}]}`} {
+	for _, bad := range []string{`{"lap":19}`, `{"lap":-1}`, `{"sessions":[{"wpm":30,"accuracy":90,"lap":19}]}`} {
 		if code, _ := call(t, h, "POST", "/api/v1/import?lang=en", bad); code != 400 {
 			t.Errorf("%s: want 400, got %d", bad, code)
 		}
@@ -383,7 +383,7 @@ func TestApp_PortionSentTwice(t *testing.T) {
 func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 	h, _, _ := newApp()
 	keys := `[{"char":"a","errors":1,"ms":300},{"char":"s","errors":0,"ms":400}]`
-	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30"}`
+	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30","seconds":19.5}`
 	for range 2 {
 		if code, out := call(t, h, "POST", "/api/v1/abort?lang=en", body); code != 200 {
 			t.Fatalf("abort: %d %v", code, out)
@@ -402,8 +402,9 @@ func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 		t.Fatalf("an aborted round must not be among the bests: %v", b)
 	}
 	_, out := call(t, h, "GET", "/api/v1/activity?lang=en", "")
-	if days := out["days"].([]any); len(days) != 0 {
-		t.Fatalf("an aborted round must not count as practice: %v", days)
+	if days := out["days"].([]any); len(days) != 1 || days[0].(map[string]any)["rounds"].(float64) != 0 ||
+		days[0].(map[string]any)["seconds"].(float64) != 19.5 {
+		t.Fatalf("an aborted round counts its time toward the daily goal, and nothing else: %v", days)
 	}
 	_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
 	if rounds := hist["rounds"].([]any); len(rounds) != 0 {
@@ -439,4 +440,117 @@ func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 			t.Fatalf("%s: got %d, want 400", bad, code)
 		}
 	}
+}
+
+func TestApp_TuneChangesOnlyThisUsersNumbers(t *testing.T) {
+	h, _, _ := newApp()
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["masteryLevel"].(float64) != 90 || st["accuracy"] != true {
+		t.Fatalf("default masteryLevel %v, accuracy %v", st["masteryLevel"], st["accuracy"])
+	}
+	for _, bad := range []string{`{"values":{"Nope":1}}`, `{"values":{"AccMaster":1000}}`} {
+		if code, _ := call(t, h, "POST", "/api/v1/tune?lang=en", bad); code != 400 {
+			t.Fatalf("%s: got %d, want 400", bad, code)
+		}
+	}
+	code, out := call(t, h, "POST", "/api/v1/tune?lang=en", `{"values":{"AccMaster":95,"Push":5}}`)
+	if code != 200 {
+		t.Fatalf("tune: %d %v", code, out)
+	}
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["masteryLevel"].(float64) != 95 {
+		t.Fatalf("after tuning masteryLevel %v, want 95", st["masteryLevel"])
+	}
+	for _, p := range out["params"].([]any) {
+		if p := p.(map[string]any); p["name"] == "Push" && (p["value"].(float64) != 5 || p["default"].(float64) != 10 || p["override"] != true) {
+			t.Fatalf("Push: %v", p)
+		}
+	}
+	call(t, h, "POST", "/api/v1/tune?lang=en", `{"values":{}}`)
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["masteryLevel"].(float64) != 90 {
+		t.Fatalf("after defaults masteryLevel %v, want 90", st["masteryLevel"])
+	}
+}
+
+func TestApp_StartLearnOver(t *testing.T) {
+	h, _, _ := newApp()
+	call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100}`)
+	call(t, h, "POST", "/api/v1/freeplay/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100,"level":1}`)
+	if code, _ := call(t, h, "POST", "/api/v1/learn/reset?lang=en", ""); code != 200 {
+		t.Fatalf("reset: %d", code)
+	}
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["learnRounds"].(float64) != 0 {
+		t.Fatalf("Learn rounds after starting over: %v", st["learnRounds"])
+	}
+	_, fp := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en", "")
+	if fp["sessionCount"].(float64) != 1 {
+		t.Fatalf("Climb lost its round: %v", fp["sessionCount"])
+	}
+}
+
+func TestApp_ReinforceWordLevelsAndGoalSteps(t *testing.T) {
+	h, _, _ := newApp()
+	if code, _ := call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":2}`); code != 409 {
+		t.Fatalf("a step with letters still locked: %d, want 409", code)
+	}
+	keys := []string{}
+	for _, c := range "abcdefghijklmnopqrstuvwxyz" {
+		keys = append(keys, fmt.Sprintf(`"%c":{"count":50,"errEma":0.3,"timeEma":600,"timedCount":50}`, c))
+	}
+	if code, out := call(t, h, "POST", "/api/v1/import?lang=en", `{"unlocked":26,"keys":{`+strings.Join(keys, ",")+`}}`); code != 200 {
+		t.Fatalf("import: %d %v", code, out)
+	}
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	levels := st["wordLevels"].([]any)
+	if len(levels) != 10 || levels[0].(float64) != 200 {
+		t.Fatalf("word levels: %v", levels)
+	}
+	top := map[string]bool{}
+	for _, w := range strings.Fields(readData(t, "data/langs/en/free.txt"))[:200] {
+		top[w] = true
+	}
+	_, out := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true,"level":1}`)
+	for _, p := range out["portions"].([]any) {
+		for _, w := range p.(map[string]any)["words"].([]any) {
+			if !top[w.(string)] {
+				t.Errorf("level 1 brought %q, not one of the 200 most frequent words", w)
+			}
+		}
+	}
+	if code, _ := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true,"level":11}`); code != 400 {
+		t.Fatalf("level 11: %d, want 400", code)
+	}
+
+	code, out := call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":3}`)
+	if code != 200 || out["targetWpm"].(float64) != 60 {
+		t.Fatalf("step 3: %d %v", code, out)
+	}
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if st["lap"].(float64) != 3 || st["targetWpm"].(float64) != 60 {
+		t.Fatalf("after a step by hand: lap %v goal %v", st["lap"], st["targetWpm"])
+	}
+	if code, _ := call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":18}`); code != 400 {
+		t.Fatalf("a step past 200 wpm: %d, want 400", code)
+	}
+	call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100,"level":4}`)
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	if s := st["sessions"].([]any)[0].(map[string]any); s["level"] != 4.0 {
+		t.Fatalf("the round keeps its word level: %v", s["level"])
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, guestRequest("GET", "/api/v1/export?lang=en", ""))
+	if code, out := call(t, h, "POST", "/api/v1/import?lang=en", rec.Body.String()); code != 200 {
+		t.Fatalf("export with a word level does not import: %d %v", code, out)
+	}
+}
+
+func readData(t *testing.T, path string) string {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
 }

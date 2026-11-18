@@ -33,6 +33,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"Lap":                       testLap,
 	"Device":                    testDevice,
 	"PracticeDays":              testPracticeDays,
+	"ResetLearn":                testResetLearn,
 	"BestRounds":                testBestRounds,
 	"RoundSentTwice":            testRoundSentTwice,
 	"SaveLearned":               testSaveLearned,
@@ -80,7 +81,7 @@ func testRoundSentTwice(t *testing.T, m Store) {
 
 func testSaveLearned(t *testing.T, m Store) {
 	m.SetGroup(u, "en", GroupRandom)
-	stats := map[string]engine.KeyStat{"a": {Count: 3}, "s": {Count: 1}}
+	stats := map[string]engine.KeyStat{"a": {Count: 3, Hits: "101", Slipped: true}, "s": {Count: 1}}
 	round := Session{WPM: 40, Chars: 2, Round: "r1"}
 	if err := m.SaveLearned(u, "en", Learned{Stats: stats, Unlocked: 7, Lap: 1, Session: &round}); err != nil {
 		t.Fatal(err)
@@ -92,7 +93,7 @@ func testSaveLearned(t *testing.T, m Store) {
 		unlocked, _ := m.Unlocked(u, "en")
 		lap, _ := m.Lap(u, "en")
 		n, _ := m.SessionCount(u, "en", "")
-		if len(got) != 2 || got["a"].Count != 3 || unlocked != 7 || lap != 1 || n != rounds {
+		if len(got) != 2 || got["a"].Count != 3 || got["a"].Hits != "101" || !got["a"].Slipped || unlocked != 7 || lap != 1 || n != rounds {
 			t.Fatalf("%s: stats %v, unlocked %d, lap %d, %d rounds", when, got, unlocked, lap, n)
 		}
 	}
@@ -585,6 +586,13 @@ func testPracticeDays(t *testing.T, m Store) {
 	if len(days) != 2 || days[0].Rounds != 1 || days[1].Date != "2026-10-18" || days[1].Rounds != 2 {
 		t.Fatalf("UTC+2: %+v, want 1 round on the 17th and 2 on the 18th", days)
 	}
+	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 50, Chars: 300, Seconds: 95.5, FinishedAt: at("2026-10-18T10:00:00Z")})
+	m.AddSession(u, "en", Session{Chars: 40, Seconds: 19, Aborted: true, Round: "tab", FinishedAt: at("2026-10-18T10:05:00Z")})
+	m.AddSession(u, "en", Session{Chars: 40, Aborted: true, Round: "old-tab", FinishedAt: at("2026-10-18T10:06:00Z")})
+	days, _ = m.PracticeDays(u, "en", 0)
+	if d := days[1]; d.Rounds != 2 || d.Chars != 300 || math.Abs(d.Seconds-114.5) > 0.01 {
+		t.Fatalf("measured seconds: %+v, want 2 rounds, 300 letters, 95.5 + 19 s (a Tab-dropped round counts its time only)", d)
+	}
 	m.Reset(u, "en")
 	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 0 {
 		t.Fatalf("after reset: %v, want none", days)
@@ -738,5 +746,22 @@ func testAbortedNotShown(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
 	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
 		t.Fatalf("the same aborted round twice: %d, want 1", c)
+	}
+}
+
+func testResetLearn(t *testing.T, m Store) {
+	m.SetUnlocked(u, "en", 12)
+	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 3}})
+	m.AddSession(u, "en", Session{WPM: 60, Chars: 10, Round: "r1"})
+	m.AddFreeplaySession(u, "en", ModeClimb, Session{WPM: 50, Level: 1, Round: "c1"})
+	if err := m.ResetLearn(u, "en"); err != nil {
+		t.Fatal(err)
+	}
+	n, _ := m.Unlocked(u, "en")
+	stats, _ := m.KeyStats(u, "en")
+	learn, _ := m.SessionCount(u, "en", "")
+	climb, _ := m.FreeplaySessionCount(u, "en", ModeClimb, "")
+	if n != 0 || len(stats) != 0 || learn != 0 || climb != 1 {
+		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Climb rounds %d (want Climb kept)", n, len(stats), learn, climb)
 	}
 }

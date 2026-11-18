@@ -42,7 +42,7 @@ its own.
 
 - `internal/engine/model.go`: Per-letter statistics, EMA update, difficulty, mastery, softmax weight.
 
-- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection.
+- `internal/engine/generator.go`: Unlock order, first lesson size, unlocking rule, word selection; `WithWords` and `WithPairs`, Reinforce's word levels and the weak pairs of Learn and Reinforce.
 
 - `internal/engine/consistency.go`: Consistency of a round's speed (a measurement shown to the user; the model does not use it).
 
@@ -56,15 +56,17 @@ its own.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (Climb's level per round), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql`, `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_letter_hits.sql` (a letter's last presses and its slip under the lower threshold, for Learn's accuracy rules)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
 - `internal/api/handlers.go`: The `Server`, the route list (`Register`), `?lang=`, JSON helpers, locking around read-modify-write.
 
 - `internal/api/learning.go`: Learning routes: `/portion`, `/results`, `/stats`, `/activity`, `/progress`.
+- `internal/api/tune.go`: The hidden tuning panel's routes, `/tune`, and `params(user)`: Learn's numbers for one user, the config with that user's own values on top (kept in the server's memory only).
+- `internal/api/reinforce.go`: Reinforce: word levels, a learner's weak pairs (Learn uses them too), `/learn/step` (the speed goal by hand).
 
-- `internal/api/data.go`: `/reset`, `/export`, `/import` (learning, Climb and Freetype data together).
+- `internal/api/data.go`: `/reset`, `/learn/reset` (Start Learn over), `/export`, `/import` (learning, Climb and Freetype data together).
 
 - `internal/api/validate.go`: Request checks, so nothing impossible or foreign reaches the statistics.
 
@@ -84,9 +86,7 @@ its own.
 
 - `data/layouts/*.json`: Keys, rows, finger per key, AltGr letters, finger colors.
 
-- `data/langs/en/words.txt`: Learn's word list, most frequent first.
-
-- `data/langs/en/free.txt`: The long list of Climb and Freetype (25 000 words, `tools/wordlists/free.py`).
+- `data/langs/en/free.txt`: The word list, most frequent first (25 000 words, `tools/wordlists/free.py`): used by every mode (Reinforce's word levels are its first n).
 
 - `data/langs/en/sentences.txt`: Freetype's real sentences, one per line (from Tatoeba, CC BY 2.0 FR, `tools/sentences/build.py`).
 
@@ -96,7 +96,7 @@ its own.
 
 - `tools/wordlists/`: Python script + block lists that build the word lists (not part of the app).
 
-- `tools/browser/`: Browser checks (Playwright: a round in each mode, the caret, result and stats) and `perf.mjs`, the typing latency script. Node, not part of the app; how to run: CONTRIBUTING.md.
+- `tools/browser/`: Browser checks (Playwright: a round in each mode, the caret, result and stats) and `perf.mjs`, the typing latency script. Node, not part of the app; how to run: DEVELOPMENT.md.
 
 - `web/`: Static frontend: `index.html`, the stylesheets (`base.css` first, then `layout`, `typing`, `stats`, `screens`, `responsive`) and the JavaScript modules (see "Frontend modules" below). 
 
@@ -127,7 +127,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `minipop.js`: The Ring switch groups (`ring`, `ringBtn`; the settings window and the stats period switch use the same `.ring` look), and that small window itself (`openPop`): a few settings of one screen next to the control that opens it (the keyboard's gear, the daily goal on Learn's ring and in the stats activity legend).
 
-- `tools.js`: Tooltips, and the data buttons of the settings window: export / import, reset (with its confirm window).
+- `tools.js`: Tooltips, and the data buttons of the settings window: export / import, reset and Start Learn over (one confirm window for both).
 
 - `keyboard.js`: On-screen keyboard from the layout data, the next key, the small hand that stands on its top edge above the next key's column (moved by `translate` at once, no glide, no layout read) and shows the finger to use: the hand is a picture, one PNG per finger (or fingers) to light, drawn once from the SVG model in `index.html` for the theme and the layout, so a key only swaps the `src` of one `<img>` per hand (#148), shown by default only in Learn while letters are still locked (`autoKb`, called on a mode change and whenever the letters are drawn); alt+k shows or hides it, and that choice is kept per mode (`toggleKb`, `tt.kb.<mode>`: `on` or `off`, then it wins over the default; the same choice is Show keyboard in the settings; when it is hidden the body gets `kb-hidden` and the keyboard takes no room), a gear in the bottom right corner of the panel, beside the space bar, with the keyboard's own settings (next key, hand; `openSettingsPop`), the automatic size that fits the window (the hand's room stays when the hand is off; when even the smallest keys don't fit, the hand and its room go first, `kb-nohand`, and if that is not enough the keyboard hides and one line says to zoom out, `kb-nofit`, `#kb-away`), kept in CSS px when the browser zoom changes, so it zooms with the page.
 
@@ -149,7 +149,8 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `learnstats.js`: The Learn part of the stats screen, under the tiles and the chart: every letter round by round (a square per round in the letters row's colour), one letter's speed against the goal (a click on a letter picks it), the keys you mix up; from `/learn/history`.
 
-- `learnpanel.js`: Learn's part of the line over the text: the last round's speed and accuracy at rest (`#lp-cols`; green when it is a new best; the comparison with the average of the 10 rounds before it is the tooltip), which the round's live numbers replace while typing, and the daily goal as minutes and seconds (`#goal-count`, "7:42 of 15:00", "15:00 done" once reached; the time today from `/activity` plus the round so far; a click opens the picker, `pickDaily`, `settings.js`). No labels, no news text: what a round changed shows on the letter row (`letters.js`), the forecast and the mastery rule are the next letter's tooltip, the lap after Learn complete is in the count's tooltip (`typing.js` `renderProgress`). `tickGoal`, from typing.js's half-second clock, updates the number; reaching the goal returns true and typing.js pauses the round with the goal note. `roundMilestone()` marks a new best; `compareStats()` works out what a round changed.
+- `learnpanel.js`: Learn's part of the line over the text: the last round's speed and accuracy at rest (`#lp-cols`; green when it is a new best; the comparison with the average of the 10 rounds before it is the tooltip), which the round's live numbers replace while typing, and the daily goal as minutes and seconds (`#goal-count`, "7:42 of 15:00", "15:00 done" once reached; the time today from `/activity` plus the round so far; a click opens the picker, `pickDaily`, `settings.js`). No labels, no news text: what a round changed shows on the letter row (`letters.js`), the forecast and the mastery rule are the next letter's tooltip, the lap after Learn complete is in the count's tooltip (`typing.js` `renderProgress`). `tickGoal`, from typing.js's half-second clock, updates the number; reaching the goal only turns it green, the round goes on. `roundMilestone()` marks a new best; `compareStats()` works out what a round changed.
+- `tune.js`: The hidden tuning panel, Alt+P: sliders for Learn's main numbers (`/tune`), a copy of the values as one line, back to the defaults. The browser keeps the values (`tt.tune`) and sends them again when a language loads, since the server forgets them on a restart. Not mentioned anywhere in the interface.
 
 - `sound.js`: Sounds, two separate settings: one for keys (off, deep, crisp; the space bar plays a little lower, every press a little off in pitch, Backspace lower and quieter, Ctrl/Alt+Backspace lower still) and one for mistakes (off, thud, knock, hush), plus one volume. Every sound is computed by code into a Web Audio buffer the first time it plays (no sound files); a press only plays that buffer.
 
@@ -163,9 +164,9 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `result.js`: The result screen in the text window: `showResult(r)` shows the result of Climb and Freetype (the level's move is shown by the bar above, not in words); Learn has none (its rounds follow one another; `learnpanel.js` shows the last one). Speed and accuracy carry their unit instead of a label; beside them, each word's speed on a line chart (a dot's tooltip gives its speed); under them, the words coloured by speed (five bands, slow to fast; red is for mistakes only), then one line of facts (consistency, time, correct characters, and wrong, extra and missed only when not zero). The words of the round with their own speed come from `typedWords()` in `typing.js`, the characters and the time from `roundFacts()`. A small ↻ button (and Enter / Tab, shown in the hint line) starts the next round. A new best shows "New best" under the speed.
 
-- `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result. It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
+- `peek.js`: A quick look at the stats of the current mode, list and round length, opened by holding `~` or resting the pointer on the Stats tab (`HOVER_MS`), closed by letting go, by any other key or a click. The panel stands fixed over what is under the text (`body.peek-on` hides the keyboard or `#stand`), so the text does not move. Only before the first key of a round, never on the result, and like the Stats tab only once Learn has become Reinforce (`statsShown`). It is drawn when it opens, from what the page already holds (`S.lastStats`, `S.climb`, `S.freetype`); closed, it does no work.
 
-- `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: learn · climb · freetype · stats), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
+- `modes.js`: The three modes (learn / climb / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreeplay()` (`S.climb`: Climb's history and level; `S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 
 - `ambient.js`: The falling keycaps in the empty fields left and right of the text: square ones with the open letters, F and J with their bump, wide ones with their name such as Shift or Tab, some filled a little. Decoration only, on by default, a switch in the settings window. One `element.animate` per keycap with plain numbers on a bare wrapper, the look on the element inside; they stop where they are while you type (`typing-now` on the body) and go on after, so typing costs what it costs without them (`perf.mjs`). Switching it fades the layer in or out over `FADE_MS`. Not drawn when the sides are too narrow or the system asks for reduced motion.
 
@@ -173,7 +174,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 - `settings.js`: Everything built from that list: `loadSettings` (each entry from its `localStorage` key, or its default; the old single `tt.sound` is split into `tt.keySound` and `tt.missSound` once), `setSetting(id, value)` for any setting from any screen, then `onSetting` listeners (`input.js`; the falling keycaps, `tt.bg`, are rebuilt by `ambient.js` with a fade) and the `<body data-*>` values for the CSS (`data-ws`, `data-live`, `data-streak`, `data-caret`, `data-glide`, `data-hand`); `control(id)` draws a setting's switch the same way everywhere. The window (Esc or the gear): a search that has the focus (it looks in the names, categories, values, tooltips, the modes and an entry's `words`; matches in a name are marked; the first Esc clears it, the next closes), the categories as one row of buttons (the ones with nothing found are dimmed), then the rows: ↑ ↓ pick, ← → change, Enter presses a button; a mode's own setting has its mode as a tag; the round length and Show keyboard are those of the current mode (the length isn't listed in Learn, which has one); a small preview beside the window types itself in the chosen caret look while the Caret or Caret movement row is hovered or picked; export / import / reset are wired by `tools.js`. `openSettingsPop` shows a few settings in the small window of one screen (the keyboard's gear; `pickDaily` for Learn's ring and the stats activity legend). Also the round lengths and each mode's own (`lengthFor`, `setLength`, `tt.length.<mode>`).
 
-- `modebar.js`: The round bar above the text, in Climb and Freetype (Learn has one length, 30 words, and shows its letters there instead): what you type on the left, how long on the right (words or time, then the length); a click starts a new round (`onBarPick`, handled in `input.js`). Climb's left side is where you stand: the level, its dots (a red one after a round that brings a drop near) and the levels as one switch; the rule to move up is spelled out in the line over the text only until the first Climb round (`tt.climbSeen`, `#climb-note`), then it is the tooltip. Freetype's left side is the kind of text and the word list. Under the text, when the keyboard is off, `#stand` shows where you stand: Climb's levels as steps and the weak pairs, Freetype's best and last 20 rounds for this list and length (`climbStand`, `freetypeStand`); it hides while typing, nothing moves. With the keyboard on (alt+k) it stays as a thin strip between the text and the keys.
+- `modebar.js`: The round bar above the text, in Climb and Freetype (Learn has one length, 30 words, and shows its letters there instead): what you type on the left, how long on the right (words or time, then the length); a click starts a new round (`onBarPick`, handled in `input.js`). In Learn the bar appears once every letter is open: Reinforce, its word levels and the speed goal step (− and +), on its own line over the letters (`body.reinforce`). Climb's left side is where you stand: the level, its dots (a red one after a round that brings a drop near) and the levels as one switch; the rule to move up is spelled out in the line over the text only until the first Climb round (`tt.climbSeen`, `#climb-note`), then it is the tooltip. Freetype's left side is the kind of text and the word list. Under the text, when the keyboard is off, `#stand` shows where you stand: Climb's levels as steps and the weak pairs, Freetype's best and last 20 rounds for this list and length (`climbStand`, `freetypeStand`); it hides while typing, nothing moves. With the keyboard on (alt+k) it stays as a thin strip between the text and the keys.
 
 **Top layer**
 
@@ -288,22 +289,26 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/auth/logout` | | `{ok: true}`; ends this login and deletes the cookie |
 | GET | `/api/v1/auth/me` | | `{accounts, name}`; `name` is null for a guest, `accounts` false where they cannot work (GitHub Pages) |
 | GET | `/api/v1/layout` | | layout JSON |
-| POST | `/api/v1/portion` | `{samples: [{char, errors, ms, typed?}], recent: [words], retry: [words], start: bool, last: bool, round, portionIndex, ack}` | `{portions: [{words, focus, weakest, unlocked, locked}], newLetter, newLap, round}`; one portion, `AheadPortions + 1` with `start`, none with `last`. The samples are not applied here; a repeated `(round, portionIndex)` gets the cached answer back |
-| POST | `/api/v1/abort` | `{round, keys: [the round's raw presses], length}` | `{ok: true}`; Learn only: a round dropped by Tab — kept raw, shown nowhere, never learned |
-| POST | `/api/v1/results` | `{samples: [{char, errors, ms}], keys: [the same shape, the whole round], chars, wpm, accuracy, perSecond: [keypresses in each full second], length}` | `{unlocked, newLetter, newLap, consistency}` (`consistency` 0–100, `null` for a round under `ConsistencyMinSeconds`); the round is over: one history entry |
+| POST | `/api/v1/portion` | `{samples: [{char, errors, ms, typed?}], recent: [words], retry: [words], start: bool, last: bool, round, portionIndex, ack, level}` | `{portions: [{words, focus, weakest, unlocked, locked}], newLetter, newLap, round}`; `level` (1..10) picks Reinforce's word level once every letter is open; one portion, `AheadPortions + 1` with `start`, none with `last`. The samples are not applied here; a repeated `(round, portionIndex)` gets the cached answer back |
+| POST | `/api/v1/abort` | `{round, keys: [the round's raw presses], length, seconds}` | `{ok: true}`; Learn only: a round dropped by Tab — kept raw, shown nowhere, never learned; only its `seconds` count toward the daily goal |
+| POST | `/api/v1/results` | `{samples: [{char, errors, ms}], keys: [the same shape, the whole round], chars, wpm, accuracy, perSecond: [keypresses in each full second], length, seconds}` | `{unlocked, newLetter, newLap, consistency}` (`consistency` 0–100, `null` for a round under `ConsistencyMinSeconds`); the round is over: one history entry |
 | POST | `/api/v1/progress` | `{unlockAll: true\|false}` | `{unlocked}`; for development only, the interface no longer calls it |
 | POST | `/api/v1/group` | `{group: "random"\|""}` | `{group}`; the study group (hidden: only the study link `?group=random` / `?group=adaptive` calls it, `web/app.js`). `/stats` returns `group`, every learning round stores it |
 | POST | `/api/v1/reset` | | `{ok: true}`; deletes all progress (the reset button) |
+| POST | `/api/v1/learn/step` | `{step}` | `{step, targetWpm}`: Reinforce's speed goal step by hand, 0 to the last; 409 while letters are locked |
+| POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters, rounds and test go, the other modes stay |
 | GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freeplay: {sessions (each with its level)}, climbLevels: 10, freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freeplay` and `freetype` are missing in older files; without `climbLevels` Climb's levels are the old 0..1, turned into 1..10 on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |
-| GET | `/api/v1/stats?length=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryErr (the mastery rule: at least masteryMin presses, under masteryErr % mistakes, for the texts)}`; no `length` = every length |
+| GET | `/api/v1/stats?length=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, level, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryLevel (the mastery rule: level masteryLevel after masteryMin presses, for the texts), wordLevels (Reinforce's levels, in words)}`; no `length` = every length |
 | GET | `/api/v1/learn/history` | | `{order: [the letters in unlock order], rounds: [{wpm, accuracy, unlocked, lap, letters: [{count, errorRate, avgMs, mastered} or null while locked, in order]}], confusions: [{want, typed, n}]}`: every Learn round oldest first, every length, with the letter model replayed over the rounds' raw keys (`history.LetterTimeline`); the pairs mixed up at least `ConfusionMin` times, at most `ConfusionShown` (`history.Confusions`) |
-| GET | `/api/v1/activity?tz=` | | `{days: [{date, rounds, seconds, chars}]}`: every day with a finished round, every mode together, oldest first; `tz` = the browser's minutes from UTC (east positive), so days end at the user's midnight. `seconds` = right letters / 5 / WPM (`storage.RoundSeconds`). The stats screen builds the total time typing, the days in a row and the activity calendar from it |
+| GET | `/api/v1/tune` | | `{params: [{name, value, default, min, max, step, override}]}`: Learn's tunable numbers for this user (`internal/api/tune.go`; memories in presses, the focus as a push = 1 / temperature) |
+| POST | `/api/v1/tune` | `{values: {name: value}}` | the same as GET; the whole set of this user's own values, `{}` = the defaults; an unknown name or a value out of range is a 400 |
+| GET | `/api/v1/activity?tz=` | | `{days: [{date, rounds, seconds, chars}]}`: every day with a finished round, every mode together, oldest first; `tz` = the browser's minutes from UTC (east positive), so days end at the user's midnight. `seconds` = the rounds' `seconds` as the browser measured them, from the first key to the last with pauses left out, Tab-dropped Learn rounds included (`Session.TypedSeconds`; kept in 0..`MaxTypedSeconds`; a round saved before it was sent counts right letters / 5 / WPM, `storage.RoundSeconds`). The same clock as the live daily goal, so the number never jumps back. The stats screen builds the total time typing, the days in a row and the activity calendar from it |
 | POST | `/api/v1/freeplay/portion` | `{recent: [words of the round], start: bool, words, level}` | `{portions: [{words}], level}`; with `start`, enough portions for `words` (0..`MaxStartWords`), otherwise one; Climb: the next words at the level of the round (`level` 1..10, or 0 = where the user stands, `freeplay.Standing`) |
-| POST | `/api/v1/freeplay/results` | `{chars, wpm, accuracy, perSecond, keys, length, level}` | `{consistency, weak: [{pair, cost, count}], verdict: "pass" \| "hold" \| "fail", place: {level, passes, fails, moved}}`; one entry in Climb's history with the level it was typed at (a whole number 1..10); verdict and place say what it counted for and where the next round starts; its keys may be capitals and `,` `.` (rounds from before 2026-10-20 had them) |
+| POST | `/api/v1/freeplay/results` | `{chars, wpm, accuracy, perSecond, keys, length, level, seconds}` | `{consistency, weak: [{pair, cost, count}], verdict: "pass" \| "hold" \| "fail", place: {level, passes, fails, moved}}`; one entry in Climb's history with the level it was typed at (a whole number 1..10); verdict and place say what it counted for and where the next round starts; its keys may be capitals and `,` `.` (rounds from before 2026-10-20 had them) |
 | GET | `/api/v1/freeplay/stats?length=` | | `{place: {level, passes, fails, moved} (freeplay.Standing), weak: [{pair, cost, count}], sessions: [last 50 of that length, newest first, without raw keys, each with its level], sessionCount, lengths, bests (as in `/stats`), streaks: [{min, longest, current}] (the accuracy streaks of that length at `StreakAccuracies`, history.AccuracyStreaks), levels (the words of each level), passesUp, failsDown, passAccuracy, failAccuracy}` |
 | POST | `/api/v1/freetype/portion` | `{recent: [words], start: bool, words, list, variant}` (variant: "" or "long" with a list; "sentences" with none) | `{portions: [{words}]}`; `words` as in Climb; Freetype: words drawn evenly from the `list` most common ones (`freeplay.Picker.Freetype`); a list not offered is a 400 |
-| POST | `/api/v1/freetype/results` | `{chars, wpm, accuracy, perSecond, keys, length, list, variant}` (your own text: list 0, variant "custom") | `{consistency}`; one entry in the history of that list (`storage.FreetypeMode`) |
+| POST | `/api/v1/freetype/results` | `{chars, wpm, accuracy, perSecond, keys, length, list, variant, seconds}` (your own text: list 0, variant "custom") | `{consistency}`; one entry in the history of that list (`storage.FreetypeMode`) |
 | GET | `/api/v1/freetype/stats?list=&variant=&length=` | | `{lists (offered: those of `FreetypeLists` the long list has words for), list (no `list` = the first), sessions, sessionCount, lengths, bests, streaks}` of that list, as in `/freeplay/stats` without the level |
 
 Validation on `/portion` and `/results`: at most 5000 samples (zero is fine:
@@ -426,7 +431,10 @@ the page there, so there are no cookies, and the only guest is `local`.
 
 ## Modes
 
-Three modes, all open to everyone (`web/modes.js`). They
+Three modes in the code (`web/modes.js`); only Learn is shown. Climb and
+Freetype are hidden: no tab, no setting, no stats switch, and a saved
+hidden mode opens Learn (`SHOWN_MODES` in `web/state.js`). The browser
+checks turn them back on with `localStorage` `tt.allModes = "1"`. They
 share no data: Climb and Freetype have their own routes and histories
 (the `AddFreeplaySession` family of the store, with a mode: `ModeClimb`, or
 `FreetypeMode(n, variant)` for each Freetype list and kind of text).
@@ -476,7 +484,7 @@ database would need a transaction around it instead (`SELECT ... FOR UPDATE`).
 `postgres://user:password@localhost:5432/typetrainer`), `openStore` in
 `build_server.go` opens `storage.PostgresStore` instead, and the log says
 `storage: PostgreSQL`. The address is not in the code, so no password ends up
-in git. How to install PostgreSQL on Windows: CONTRIBUTING.md.
+in git. How to install PostgreSQL on Windows: DEVELOPMENT.md.
 
 - **One third-party module.** The code uses only the standard `database/sql`
   package; `github.com/jackc/pgx/v5/stdlib` is imported only to register the

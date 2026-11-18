@@ -1,6 +1,7 @@
 package history
 
 import (
+	"strings"
 	"testing"
 
 	"typingtrainer/internal/config"
@@ -95,8 +96,8 @@ func presses(c string, n int, ms float64) []engine.Sample {
 func TestLetterTimelineLaps(t *testing.T) {
 	cfg := config.Default()
 	s := []storage.Session{
-		{Unlocked: 1, Keys: presses("a", 30, 380)},
-		{Unlocked: 1, Lap: 1, Keys: presses("a", 1, 380)},
+		{Unlocked: 1, Keys: presses("a", 45, 380)},
+		{Unlocked: 1, Lap: 1, Keys: presses("a", 30, 700)},
 		{Unlocked: 1, Lap: 1, Keys: presses("a", 40, 300)},
 	}
 	got := LetterTimeline(s, []string{"a"}, 1, cfg.Engine, cfg.Laps)
@@ -111,26 +112,27 @@ func TestLetterTimelineLaps(t *testing.T) {
 
 func TestNextForecast(t *testing.T) {
 	p := config.Default().Engine
+	p.AccWindow = 0 // the level of speed and mistakes; the accuracy rules: TestNextForecast_Accuracy
 	fp := config.Default().Forecast
 	order := []string{"a", "b", "c"}
 	var rounds []Round
 	for i := 0; i < 8; i++ {
 		rounds = append(rounds, Round{Unlocked: 2, Letters: []*LetterState{
 			{Count: 100, ErrorRate: 0.01, AvgMs: 300, Mastered: true},
-			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(640 - 20*i)},
-			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(570 - 10*i)},
+			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(880 - 20*i)},
+			{Count: 30 + 10*i, ErrorRate: 0.02, AvgMs: float64(800 - 10*i)},
 		}})
 	}
 	now := map[string]engine.KeyStat{
 		"a": {Count: 100, ErrEMA: 0.01, TimeEMA: 300, TimedCount: 100, Held: true},
-		"b": {Count: 100, ErrEMA: 0.02, TimeEMA: 500, TimedCount: 100},
-		"c": {Count: 100, ErrEMA: 0.02, TimeEMA: 500, TimedCount: 100},
+		"b": {Count: 100, ErrEMA: 0.02, TimeEMA: 740, TimedCount: 100},
+		"c": {Count: 100, ErrEMA: 0.02, TimeEMA: 730, TimedCount: 100},
 	}
-	if got := NextForecast(rounds, order, now, 2, p, fp); !got.Known || got.Rounds != 5 || got.Letter != "b" {
-		t.Errorf("a and b open: %+v, want 5 rounds for b", got)
+	if got := NextForecast(rounds, order, now, 2, p, fp); !got.Known || got.Rounds != 6 || got.Letter != "b" {
+		t.Errorf("a and b open: %+v, want 6 rounds for b", got)
 	}
-	if got := NextForecast(rounds, order, now, 3, p, fp); !got.Known || got.Rounds != 10 || got.Letter != "c" {
-		t.Errorf("all open: %+v, want 10 rounds for c", got)
+	if got := NextForecast(rounds, order, now, 3, p, fp); !got.Known || got.Rounds != 8 || got.Letter != "c" {
+		t.Errorf("all open: %+v, want 8 rounds for c", got)
 	}
 	if got := NextForecast(rounds[:fp.MinRounds-1], order, now, 2, p, fp); got.Known || got.Letter != "b" || !got.Few {
 		t.Errorf("%d rounds: %+v, want no answer, too few rounds of b", fp.MinRounds-1, got)
@@ -172,5 +174,29 @@ func TestConfusions(t *testing.T) {
 	}
 	if got := Confusions(nil, 1, 5); len(got) != 0 {
 		t.Errorf("no rounds: got %+v", got)
+	}
+}
+
+func TestNextForecast_Accuracy(t *testing.T) {
+	p := config.Default().Engine
+	fp := config.Default().Forecast
+	order := []string{"a", "b", "c"}
+	var rounds []Round
+	for i := 0; i < 8; i++ {
+		rounds = append(rounds, Round{Unlocked: 2, Letters: []*LetterState{
+			{Count: 100, Level: 95},
+			{Count: 20 + 5*i, Level: float64(50 + 4*i)},
+		}})
+	}
+	now := map[string]engine.KeyStat{
+		"a": {Count: 100, Hits: strings.Repeat("1", 100)},
+		"b": {Count: 55, Hits: strings.Repeat("0", 14) + strings.Repeat("1", 41)}, // 41/58 ≈ 71 %
+	}
+	got := NextForecast(rounds, order, now, 2, p, fp)
+	if !got.Known || got.Letter != "b" || got.Rounds < 1 {
+		t.Fatalf("got %+v, want rounds for b", got)
+	}
+	if got := NextForecast(rounds, order, map[string]engine.KeyStat{"a": now["a"], "b": now["a"]}, 2, p, fp); got.Letter != "" {
+		t.Fatalf("nothing holds the next letter back: %+v", got)
 	}
 }

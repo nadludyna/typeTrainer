@@ -3,6 +3,7 @@
 import { t } from "./i18n.js";
 import { $, S } from "./state.js";
 import { getJSON } from "./api.js";
+import { grow } from "./fx.js";
 import { letterProgress, letterNeeds, forecastText } from "./letters.js";
 
 const CELL_MIN = 6, CELL_MAX = 16, GAP = 2;
@@ -30,6 +31,7 @@ function draw() {
   const order = data.order, open = rounds.at(-1).unlocked;
   if (!letter || order.indexOf(letter) >= open) letter = weakest(rounds.at(-1), order);
   box.innerHTML = gridPanel(rounds, order, open) + letterPanel(rounds, order) + confusionPanel(data.confusions ?? []);
+  grow(box.querySelectorAll(".ls-line"), [{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], 400);
 }
 
 function weakest(last, order) {
@@ -105,7 +107,7 @@ function letterChart(pts, target) {
     svg += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${padL - 6}" y="${y(v) + 4}" text-anchor="end">${Math.round(v)}</text>`;
   }
   svg += `<line class="target" x1="${padL}" x2="${W - padR}" y1="${y(target)}" y2="${y(target)}"/>`;
-  svg += `<polyline class="ls-line" points="${pts.map((p) => `${x(p.n).toFixed(1)},${y(p.wpm).toFixed(1)}`).join(" ")}"/>`;
+  svg += `<polyline class="ls-line" pathLength="1" points="${pts.map((p) => `${x(p.n).toFixed(1)},${y(p.wpm).toFixed(1)}`).join(" ")}"/>`;
   svg += `<text class="axis" x="${padL}" y="${H - 6}">#${x0}</text><text class="axis" x="${W - padR}" y="${H - 6}" text-anchor="end">#${pts.at(-1).n}</text></svg>`;
   return `<div class="ls-chart-box">${svg}</div>`;
 }

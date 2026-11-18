@@ -54,7 +54,7 @@ test("Learn: a round can be typed to the end and is saved", async ({ page }) => 
   await expect(page.locator("body")).toHaveAttribute("data-mode", "learn");
   await expect(page.locator("#round-count"), "one round length: an old 15 becomes 30").toHaveText("0 / 30");
   await expect(page.locator("#letters .locked.next").first(), "before the first round: how to open the next letter")
-    .toHaveAttribute("data-tip-text", /Mastered means 20 presses, under 5% mistakes and 30 wpm\.$/);
+    .toHaveAttribute("data-tip-text", /Mastered means 90% accurate over your last 100 presses of the letter\.$/);
   await expect(page.locator("#lp-cols .lp-cell"), "the last round waits for the first round").toHaveCount(0);
   await typeRound(page, { done: async () => saved });
   await expect(page.locator("#round-count")).toHaveText("0 / 30");
@@ -78,6 +78,7 @@ test("Learn: the line over the text holds the last round, the daily goal and the
 test("Learn: a best round's speed is gold, the letters change state without motion", async ({ page }) => {
   await withHistory(page);
   await openApp(page, { "tt.mode.en": "learn" });
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === "running" && !a.effect.target.closest(".ambient")));
   await page.evaluate(async () => {
     const m = await import("/learnpanel.js");
     m.roundMilestone({ best: true, mastered: [] });
@@ -236,7 +237,9 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   }, [key, extra]);
   const before = await text();
   await page.keyboard.press("Tab");
-  await expect.poll(text).not.toBe(before);
+  // A new round clears the text before its words arrive: wait for the words.
+  const fresh = async () => { const t = await text(); return t && t !== before ? t : ""; };
+  await expect.poll(fresh).not.toBe("");
   const once = await text();
   await held("Tab");
   await page.keyboard.press("Tab");
@@ -331,7 +334,7 @@ test("settings: one window with every setting, a search and categories", async (
   const names = () => win.locator(".sw-name > span:first-child").allTextContents();
   expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret style", "Caret movement",
     "Stop on a mistake", "Round length", "Keys", "Mistakes", "Show keyboard", "Next key", "Hand",
-    "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Reset progress"]);
+    "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Start Learn over", "Reset progress"]);
   await expect(win.locator(".sw-row", { hasText: "Streak" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
 
   await page.keyboard.type("cursor");
@@ -980,4 +983,61 @@ test("the streak shows only in Freetype and only when it is on", async ({ page }
   await expect(page.locator("#streak")).toBeHidden();
   await openApp(page, { "tt.mode.en": "freetype", "tt.streak.free": "0" });
   await expect(page.locator("#streak")).toBeHidden();
+});
+
+test("a new visitor sees only Learn: Climb, Freetype and the stats wait", async ({ page }) => {
+  await openApp(page, { "tt.allModes": "", "tt.mode.en": "climb" });
+  await expect(page.locator("body"), "a saved hidden mode opens Learn").toHaveAttribute("data-mode", "learn");
+  await expect(page.locator("#tab-climb")).toBeHidden();
+  await expect(page.locator("#tab-freetype")).toBeHidden();
+  await expect(page.locator("#tab-stats"), "no stats while the letters are learned").toBeHidden();
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+  await page.reload();
+  await waitForText(page);
+  await page.locator("#tab-stats").click();
+  await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Climb");
+  await page.locator("#btn-settings").click();
+  await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
+});
+
+test("Start Learn over in the settings: Learn's rounds go, the first lesson comes back", async ({ page }) => {
+  await openApp(page);
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+  await page.reload();
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await page.keyboard.press("Escape");
+  await page.locator("#settings-q").fill("start over");
+  await page.locator("#btn-relearn").click();
+  await expect(page.locator("#reset-title")).toHaveText("Start Learn over?");
+  await page.locator("#reset-ok").click();
+  await page.waitForLoadState("load");
+  await waitForText(page);
+  await expect(page.locator("#mode-bar"), "back to the first letters").toBeHidden();
+  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
+  expect(s.keys.filter((k) => k.unlocked).length).toBe(6);
+});
+
+test("Reinforce: with every letter open, Learn offers word levels and speed goal steps", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator("#mode-bar"), "no Reinforce bar while letters are locked").toBeHidden();
+  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+  await page.reload();
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await page.locator('#mode-bar button[data-wlevel="1"]').waitFor();
+  const top = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()).then((s) => s.wordLevels));
+  expect(top[0]).toBe(200);
+  await page.locator('#mode-bar button[data-wlevel="10"]').click();
+  await expect(page.locator('#mode-bar button[data-wlevel="10"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('#mode-bar button[data-step="1"]').click();
+  await expect(page.locator("#mode-bar output")).toHaveText("40 wpm");
+  const asked = page.waitForRequest((r) => r.url().includes("/api/v1/portion") && r.postDataJSON()?.portionIndex === 1);
+  await page.locator("#text-box").click();
+  for (let i = 0; i < 80 && !(await page.evaluate(() => document.querySelectorAll("#text > span.ok").length > 60)); i++) {
+    const ch = await nextChar(page);
+    if (ch) await page.keyboard.type(ch);
+  }
+  expect((await asked).postDataJSON().level, "the next words come from the chosen level").toBe(10);
 });

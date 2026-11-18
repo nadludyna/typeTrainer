@@ -5,7 +5,7 @@
 <h1 align="center">typeTrainer</h1>
 
 <p align="center">
-  A typing trainer that finds your weak letters and builds the next words around them. Real words only.<br><br>
+  A typing trainer that finds your weak letters and builds the next words around them.<br><br>
   <a href="https://nadludyna.github.io/typeTrainer/"><b>Start typing</b></a>
   ·
   <a href="docs/HOW-THE-MODES-WORK.md">How it works</a>
@@ -37,14 +37,13 @@ go run .
 ```
 
 Then open <http://localhost:3000>. Accounts and a PostgreSQL database are
-optional; [CONTRIBUTING.md](CONTRIBUTING.md) has the details.
+optional; [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) has the details.
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome. Start with
-[CONTRIBUTING.md](CONTRIBUTING.md): how to run the tests and the few rules
-the code follows. How the parts fit together is in
-[docs/HOW-THE-CODE-WORKS.md](docs/HOW-THE-CODE-WORKS.md).
+Issues welcome. Pull requests are not accepted, feel free to fork.
+How to run the tests: [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md); how the
+parts fit together: [docs/HOW-THE-CODE-WORKS.md](docs/HOW-THE-CODE-WORKS.md).
 
 ## Credits
 

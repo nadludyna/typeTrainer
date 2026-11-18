@@ -53,6 +53,11 @@ func (s *Server) weakPairs(user string, l *Language) ([]freeplay.Pair, error) {
 	if err != nil {
 		return nil, err
 	}
+	return s.pairsOf(rounds), nil
+}
+
+// pairsOf is the letter pairs that slow these rounds down the most.
+func (s *Server) pairsOf(rounds []storage.Session) []freeplay.Pair {
 	keys := make([][]freeplay.Key, len(rounds))
 	for i, r := range rounds {
 		keys[i] = make([]freeplay.Key, len(r.Keys))
@@ -60,7 +65,7 @@ func (s *Server) weakPairs(user string, l *Language) ([]freeplay.Pair, error) {
 			keys[i][j] = freeplay.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
 		}
 	}
-	return freeplay.WeakPairs(keys, s.cfg.Freeplay), nil
+	return freeplay.WeakPairs(keys, s.cfg.Freeplay)
 }
 
 func (s *Server) handleFreeplayPortion(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -146,11 +151,12 @@ func (s *Server) handleFreeplayResults(w http.ResponseWriter, r *http.Request, u
 	defer s.writeMu.Unlock()
 	err := s.store.AddFreeplaySession(user, l.Info.ID, storage.ModeClimb, storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys:   req.Keys,
-		Length: req.Length,
-		Device: req.Device,
-		Level:  req.Level,
-		Round:  req.Round,
+		Keys:    req.Keys,
+		Length:  req.Length,
+		Device:  req.Device,
+		Level:   req.Level,
+		Round:   req.Round,
+		Seconds: s.typedSeconds(req.Seconds),
 	})
 	if err != nil {
 		serverError(w, err)

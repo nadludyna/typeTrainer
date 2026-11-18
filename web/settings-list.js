@@ -46,5 +46,6 @@ export const SETTINGS = [
   // ---------- data ----------
   { id: "data", cat: "data", kind: "action", buttons: [["btn-export", "export", "data.save"], ["btn-import", "import", "data.load"]], tip: true,
     words: "export import backup file" },
+  { id: "relearn", cat: "data", kind: "action", buttons: [["btn-relearn", "again", "data.relearn"]], tip: true, words: "start over again learn test" },
   { id: "danger", cat: "data", kind: "action", buttons: [["btn-reset", "trash", "data.reset", "danger"]], tip: true, words: "reset delete clear" },
 ];

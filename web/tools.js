@@ -3,7 +3,7 @@
 import { t } from "./i18n.js";
 import { FX } from "./fx.js";
 import { $, el, S, store } from "./state.js";
-import { API } from "./api.js";
+import { API, postJSON } from "./api.js";
 
 // ---------- tooltips ----------
 let tipFor = null;
@@ -44,13 +44,20 @@ export function labelTips() {
   document.querySelectorAll("button[data-tip]").forEach((b) => b.setAttribute("aria-label", t(b.dataset.tip)));
 }
 
-// ---------- reset ----------
-let working = false;
+// ---------- reset: everything, or only Learn ----------
+let working = false, onlyLearn = false;
 const resetDialog = $("reset-dialog");
+function askReset(learn) {
+  onlyLearn = learn;
+  $("reset-title").textContent = t(learn ? "data.relearnTitle" : "data.confirmTitle");
+  resetDialog.querySelector(".win-p").textContent = t(learn ? "data.relearnText" : "data.confirmText");
+  $("reset-ok").textContent = t(learn ? "data.relearn" : "data.confirmReset");
+  resetDialog.showModal();
+}
 document.addEventListener("click", (e) => {
-  const b = e.target.closest("#btn-reset, #btn-export, #btn-import");
+  const b = e.target.closest("#btn-reset, #btn-relearn, #btn-export, #btn-import");
   if (!b) return;
-  if (b.id === "btn-reset") resetDialog.showModal();
+  if (b.id === "btn-reset" || b.id === "btn-relearn") askReset(b.id === "btn-relearn");
   else if (b.id === "btn-export") exportAll();
   else if (!working) importFile.click();
 });
@@ -59,6 +66,17 @@ resetDialog.addEventListener("click", (e) => { if (e.target === resetDialog) res
 $("reset-ok").addEventListener("click", async () => {
   if (working) return;
   working = S.busy = true;
+  if (onlyLearn) {
+    try {
+      await postJSON("/learn/reset", {});
+      location.reload();
+    } catch (err) {
+      console.error(err);
+      FX.toast(t("toast.resetFail"));
+      working = S.busy = false;
+    }
+    return;
+  }
   try {
     for (const l of S.languages) {
       const res = await fetch(`${API}/reset?lang=${encodeURIComponent(l.id)}`, { method: "POST" });

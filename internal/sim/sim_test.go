@@ -260,7 +260,7 @@ func TestSummarize(t *testing.T) {
 
 func TestForecasts(t *testing.T) {
 	ep := cfg.Engine
-	list, err := os.ReadFile("../../data/langs/en/words.txt")
+	list, err := os.ReadFile("../../data/langs/en/free.txt")
 	if err != nil {
 		t.Fatal(err)
 	}

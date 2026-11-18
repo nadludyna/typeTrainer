@@ -18,6 +18,7 @@ type Generator struct {
 	wp    WordParams
 	floor map[string]int
 	rng   *rand.Rand
+	pairs []string
 }
 
 type WordParams struct {
@@ -63,32 +64,39 @@ func NewGenerator(words []string, rng *rand.Rand, p Params) *Generator {
 			g.rank[w] = i
 		}
 	}
-	g.order = letterOrder(words, nil, 1)
+	g.order = letterOrder(words, nil)
 	g.start = g.firstLessonSize(p)
 	return g
 }
 
+// SetHome puts the letters under the resting fingers first, then every
+// other letter by how often it occurs. The first lesson is StartLetters
+// letters: the most common resting ones and the most common other letter
+// (a vowel in practice, without which there are hardly any words), more if
+// needed for MinWords words; the other resting letters come next.
 func (g *Generator) SetHome(home []string, p Params) {
 	set := map[string]bool{}
 	for _, c := range home {
 		set[c] = true
 	}
-	g.order = letterOrder(g.words, set, p.HomeBoost)
+	g.order = letterOrder(g.words, set)
+	homes := 0
+	for homes < len(g.order) && set[g.order[homes]] {
+		homes++
+	}
+	if at := p.StartLetters - 1; at >= 0 && at < homes && homes < len(g.order) {
+		first := g.order[homes]
+		copy(g.order[at+1:homes+1], g.order[at:homes])
+		g.order[at] = first
+	}
 	g.start = g.firstLessonSize(p)
 }
 
-func letterOrder(words []string, home map[string]bool, boost float64) []string {
+func letterOrder(words []string, home map[string]bool) []string {
 	count := map[string]float64{}
 	for _, w := range words {
 		for _, r := range w {
 			count[string(r)]++
-		}
-	}
-	if boost > 1 {
-		for c := range count {
-			if home[c] {
-				count[c] *= boost
-			}
 		}
 	}
 	order := make([]string, 0, len(count))
@@ -96,6 +104,9 @@ func letterOrder(words []string, home map[string]bool, boost float64) []string {
 		order = append(order, c)
 	}
 	sort.Slice(order, func(i, j int) bool {
+		if home[order[i]] != home[order[j]] {
+			return home[order[i]]
+		}
 		if count[order[i]] != count[order[j]] {
 			return count[order[i]] > count[order[j]]
 		}
@@ -113,6 +124,49 @@ func (g *Generator) firstLessonSize(p Params) int {
 		n++
 	}
 	return n
+}
+
+// WithWords is this generator over another word list, most frequent first:
+// a Reinforce word level. The letter order stays; words with a letter
+// outside it are dropped.
+func (g *Generator) WithWords(words []string, p Params) *Generator {
+	in := map[rune]bool{}
+	for _, c := range g.order {
+		in[letterRune(c)] = true
+	}
+	keep := make([]string, 0, len(words))
+	for _, w := range words {
+		ok := utf8.RuneCountInString(w) >= max(p.MinWordLetters, 1)
+		for _, r := range w {
+			ok = ok && in[r]
+		}
+		if ok {
+			keep = append(keep, w)
+		}
+	}
+	out := *g
+	out.words, out.rank = keep, map[string]int{}
+	for i, w := range keep {
+		if _, ok := out.rank[w]; !ok {
+			out.rank[w] = i
+		}
+	}
+	out.SetWordParams(g.wp)
+	return &out
+}
+
+// Size is how many words the generator draws from.
+func (g *Generator) Size() int { return len(g.words) }
+
+// WithPairs is this generator with letter pairs that slow the learner down:
+// words with them come more often (PairBoost).
+func (g *Generator) WithPairs(pairs []string) *Generator {
+	if len(pairs) == 0 {
+		return g
+	}
+	out := *g
+	out.pairs = pairs
+	return &out
 }
 
 func (g *Generator) Order() []string { return g.order }
@@ -134,12 +188,52 @@ func (g *Generator) NextUnlocked(stats map[string]KeyStat, unlocked int, p Param
 	if unlocked == len(g.order) {
 		return unlocked
 	}
+	if p.accuracyRules() {
+		if Accuracy(stats[g.order[unlocked-1]], p) < p.AccMaster {
+			return unlocked
+		}
+		for _, c := range g.order[:unlocked] {
+			if Accuracy(stats[c], p) < p.AccSlip {
+				return unlocked
+			}
+		}
+		return unlocked + 1
+	}
 	for _, c := range g.order[:unlocked] {
 		if !Mastered(stats[c], p) {
 			return unlocked
 		}
 	}
 	return unlocked + 1
+}
+
+// FocusLetter is the focus of the accuracy rules (section 14.4): in the
+// first lesson the lowest letter under AccMaster; later a slipped letter,
+// the lowest first, else the newest letter.
+func (g *Generator) FocusLetter(stats map[string]KeyStat, unlocked int, p Params) string {
+	unlocked = g.Clamp(unlocked)
+	open := g.order[:unlocked]
+	lowest := func(keep func(KeyStat) bool) string {
+		best, bestAcc := "", 2.0
+		for _, c := range open {
+			if a := Accuracy(stats[c], p); keep(stats[c]) && a < bestAcc {
+				best, bestAcc = c, a
+			}
+		}
+		return best
+	}
+	if unlocked <= g.start {
+		if c := lowest(func(s KeyStat) bool { return Accuracy(s, p) < p.AccMaster }); c != "" {
+			return c
+		}
+		return lowest(func(KeyStat) bool { return true })
+	}
+	newest := open[unlocked-1]
+	open = open[:unlocked-1]
+	if c := lowest(func(s KeyStat) bool { return s.Slipped || Accuracy(s, p) < p.AccSlip }); c != "" {
+		return c
+	}
+	return newest
 }
 
 func (g *Generator) Words(unlocked int) []string { return g.eligible(g.Clamp(unlocked)) }
@@ -193,6 +287,9 @@ type pool struct {
 func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Params) *pool {
 	pl := &pool{open: g.order[:unlocked], words: g.eligible(unlocked), index: map[string]int{}, byLetter: map[string][]int{},
 		maxRank: g.MaxRank(unlocked, typed, p), floor: g.floor}
+	if n := p.MinWords; n > 0 && len(pl.words) > 0 {
+		pl.maxRank = max(pl.maxRank, float64(g.rank[pl.words[min(n, len(pl.words))-1]]))
+	}
 	diff := map[rune]float64{}
 	pl.letterW = make([]float64, len(pl.open))
 	best := -1.0
@@ -221,6 +318,11 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 			}
 		}
 		pl.diffW[i] = SoftmaxWeight(sum/float64(len(w)), p)
+		for _, pair := range g.pairs {
+			if strings.Contains(w, pair) {
+				pl.diffW[i] *= 1 + p.PairBoost
+			}
+		}
 		pl.rank[i] = g.rank[w]
 	}
 	return pl
@@ -268,6 +370,7 @@ func (pl *pool) pickFocus(r float64) string { return pl.open[WeightedPick(pl.let
 
 func (pl *pool) pickWord(focus string, uses []int, p Params, r float64, avoid ...int) int {
 	neighbour := func(idx int) bool { return contains(avoid, idx) }
+	used := func(idx int) bool { return neighbour(idx) || uses[idx] > 0 }
 	capped := func(idx int) bool { return p.MaxRepeats > 0 && uses[idx] >= p.MaxRepeats }
 	all := make([]int, len(pl.words))
 	for i := range all {
@@ -278,7 +381,8 @@ func (pl *pool) pickWord(focus string, uses []int, p Params, r float64, avoid ..
 		maxRank float64
 		banned  func(int) bool
 	}{
-		{pl.byLetter[focus], pl.letterMaxRank(focus), func(i int) bool { return neighbour(i) || capped(i) }},
+		{pl.byLetter[focus], pl.letterMaxRank(focus), used},
+		{all, pl.maxRank, used},
 		{all, pl.maxRank, func(i int) bool { return neighbour(i) || capped(i) }},
 		{all, pl.maxRank, neighbour},
 		{all, pl.maxRank, func(int) bool { return false }},
@@ -348,7 +452,11 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 		return por
 	}
 	por.Weakest = pl.weakest
-	por.Focus = pl.pickFocus(g.rng.Float64())
+	if p.accuracyRules() && unlocked < len(g.order) {
+		por.Focus = g.FocusLetter(stats, unlocked, p)
+	} else {
+		por.Focus = pl.pickFocus(g.rng.Float64())
+	}
 
 	uses := make([]int, len(pl.words))
 	if len(recent) > p.RecentWords {
@@ -371,7 +479,7 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 	placed := 0
 	for _, w := range retry {
 		idx, ok := pl.index[w]
-		if !ok || placed >= p.RetryWords || contains(slots, idx) {
+		if !ok || placed >= p.RetryWords || contains(slots, idx) || (p.MaxRepeats > 0 && uses[idx] >= p.MaxRepeats) {
 			continue
 		}
 		free := []int{}

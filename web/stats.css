@@ -117,7 +117,7 @@ span.goal-chip { cursor: help; }
 :is(.chart, .ls-chart) .target { stroke: var(--sub); stroke-width: 1; stroke-dasharray: 4 4; }
 .chart .avg { fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linejoin: round; opacity: .55; pointer-events: none; }
 :is(.chart, .ls-chart) .axis { fill: var(--label); font-size: var(--fs-min); font-family: var(--mono); }
-.chart .bar { fill: color-mix(in srgb, var(--accent) 55%, var(--panel)); }
+.chart .bar { fill: color-mix(in srgb, var(--accent) 55%, var(--panel)); transform-box: fill-box; transform-origin: bottom; }
 .chart .bar.last { fill: var(--accent); }
 .chart .hit { fill: transparent; cursor: default; }
 .chart .bar.hover { fill: var(--text); }
@@ -147,7 +147,7 @@ span.goal-chip { cursor: help; }
 .ls-fc { margin: 14px 0 0; color: var(--sub); }
 .ls-fc b { color: var(--text); font-weight: 500; }
 .ls-chart-box svg { display: block; width: 100%; height: auto; }
-.ls-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.ls-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-dasharray: 1; }
 .ls-mix { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 22px; }
 .ls-mix li { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-min); color: var(--sub); }
 .ls-mix b { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; border-radius: var(--r-sm);

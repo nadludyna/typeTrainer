@@ -4,6 +4,12 @@ How the trainer decides what you type next, as the code does it now. Every
 formula here is exactly what the code does, and every number comes from
 `internal/config/config.go`. Why each part is built this way: section 2.
 
+Section 14 is Learn's accuracy rules: its accuracy, focus and next letter
+are built and on (`AccWindow = 100`) and replace the level, mastery, focus
+and unlock rules of sections 5-7 while letters are still closed; the
+finger tour and the key drill are not built yet. Once every letter is open
+(Reinforce) the rules of sections 5-7 apply as written.
+
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 (unlocking and word selection). Tests that check each claim:
 `internal/engine/*_test.go`.
@@ -13,18 +19,24 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 ## 1. The idea in plain words
 
 1. For every letter the program remembers two numbers: how often you make a
-   mistake on it and how long it takes you. Recent presses weigh more than
-   old ones (about the last 20 count).
-2. The two numbers make one **difficulty** from 0 to 1. A new letter starts
-   as fairly hard, so it gets practised.
-3. A letter is **mastered** at under 5 % mistakes and 30 WPM or faster. The
-   next letter opens only when every open letter is mastered. The home row
-   and the most frequent letters come first.
+   mistake on it (about the last 40 presses count) and how long it takes you
+   (about the last 20). Recent presses weigh more than old ones.
+2. The two numbers make one **difficulty** from 0 to 1, and the letter's
+   **level** is the same number turned around: `level = 100 * (1 - difficulty)`.
+   A new letter starts at level 30, so it gets practised.
+3. A letter is **mastered** once it reaches level 80 after at least 40
+   presses, checked at the end of each round. Mastered stays mastered: later
+   slips only lower the level, so its words come more often. The next letter
+   opens when every open letter is mastered. The home row comes first, then
+   the most frequent letters.
 4. Every 6 words the program picks one **focus** letter, more likely a weak
    one, and all 6 words contain it. Common words come first; a mistyped
    word comes back two lines later.
 5. Only real words made of open letters. Learning has no settings: the
    model alone decides what to practise.
+6. Once every letter is open, Learn becomes **Reinforce**: you pick how many
+   common words to type (200 up to 25k), weak letters and letter pairs come
+   more often, and the speed goal grows in steps up to 200 wpm (section 6.1).
 
 Climb and Freetype (sections 12-13) are hidden and not developed; they never
 feed this model.
@@ -212,8 +224,13 @@ Each new sample `x` updates the value:
 
 ```
 value_new = value_old + a * (x - value_old)
-a = max(Alpha, 1 / n)              n = number of samples so far, Alpha = 0.1
+a = max(Alpha, 1 / n)              n = number of samples so far
+Alpha = 0.1 for time, ErrAlpha = 0.05 for mistakes
 ```
+
+Mistakes use the smaller `ErrAlpha`: they are rare events, so the error rate
+needs more presses to mean something, and one slip moves it by at most 5
+points instead of 10.
 
 For errors `x = 1` if the occurrence had a mistake, otherwise `0`. For time
 `x = ms`.
@@ -287,101 +304,120 @@ uniform choice.
 
 ## 6. Unlocking letters
 
-**Order.** Letters are sorted by how often they occur in the word list of the
-language, but a letter under a resting finger counts `HomeBoost = 4` times
+**Order.** The letters under the resting fingers come first, then every
+other letter by how often it occurs in the word list of the language
 (`Generator.SetHome`). The resting keys come from the layout data
 (`layout.RestingKeys`): in the row with the home bumps, one key per finger,
-`a s d f j k l ;` on QWERTY. The order is computed from the data, not written
-by hand (first lesson in bold):
+`a s d f j k l ;` on QWERTY. Inside each group the more frequent letter
+comes first. One exception: the most common other letter takes the last
+place of the first lesson, before the rarest resting letters, because
+without a vowel there are hardly any words (the home row alone makes 21).
+The order is computed from the data, not written by hand (first lesson in
+bold):
 
-**a s l d e f r** t i n o k c g h u p m y w b v j x z q
+**s a l d f e** k j i r n t o c p g u m h b y v w x z q
 
-**First lesson.** At least `StartLetters = 6` letters, and more if needed until
-at least `MinWords = 30` real words can be built from them: 7 letters (39 words).
-Without this rule the first lesson would cycle through a handful of words.
+So the fingers start where they rest, and every later letter is one step
+from home, in the order real words need it. After the first lesson the
+letters open one at a time.
 
-**Mastery** of a letter is a plain yes/no rule on the smoothed values, with
-a margin once it is reached (`engine.MeetsGoal`, `Mastered`):
+**First lesson.** `StartLetters = 6` letters, more only if fewer than
+`MinWords = 40` real words can be built from them: these six make 99.
+
+**Level and mastery** (`engine.Level`, `MeetsGoal`, `Mastered`):
 
 ```
-meets the goal = n >= 20  and  ErrEMA <= 0.05  and  TimeEMA <= TargetMs (400 ms)
-stays mastered =             ErrEMA <= 0.10  and  TimeEMA <= TargetMs * 1.1 (440 ms)
+level          = 100 * (1 - difficulty)                     0..100, section 5
+meets the goal = n >= MasteryMinSamples (40)  and  a timed press  and  level >= MasteryLevel (80)
 ```
 
-In words: at least 20 occurrences, under 5 % mistakes, at 30 WPM or faster;
-after that the letter stays mastered until it is clearly worse: over 10 %
-mistakes or slower than about 27 WPM (`KeepErrorRate`, `KeepSlowdown`). It is
-checked on the raw values (not on the shrunk difficulty) so it can be
-explained to a user in one sentence. The state is remembered per letter
-(`KeyStat.Held`, updated by every sample in `Update`).
+The level is the difficulty of section 5 seen from the other side, so the
+number the user sees is the number that picks the words. Mistakes weigh 0.6
+and speed 0.4, so level 80 is reached by few mistakes at a speed near the
+goal; it can not be reached by speed alone. Examples with many presses:
+no mistakes at 400 ms (30 WPM) or faster is level 100; 4 % mistakes at the goal
+speed is about 90; no mistakes at 700 ms (17 WPM) is about 80.
 
-**Next letter.** After each portion of the stream (section 7): if every open
+The rule is checked once per round, on the presses of the whole round
+(`engine.Apply`), and once met the letter **stays mastered**
+(`KeyStat.Held`): mastery is never taken back. A letter that gets worse later
+only has a lower level, which makes it the focus more often (section 7).
+Checking once per round keeps one lucky stretch inside a round from
+deciding it.
+
+**Next letter.** When a round ends (section 7): if every open
 letter is mastered, the next letter in the order opens. At most one letter per
-portion. A new letter
-starts at the prior difficulty 0.7, which is higher than the difficulty of the
-mastered letters, so it automatically becomes the focus.
+round. A new letter
+starts at the prior difficulty 0.7 (level 30), which is higher than the
+difficulty of the mastered letters, so it automatically becomes the focus.
 
 **Experienced typists** start from the first letters too (there is no "open
-all letters" choice): typing well, they master the
-open letters quickly and unlock the rest in a short time. Once every letter is
-open the engine works only through focus.
+all letters" choice): typing well, they master the open letters quickly and
+unlock the rest in a short time. "Start Learn over" in the settings deletes
+Learn's letters and rounds and starts again from the first lesson.
 
-### 6.1 Laps after Learn complete
+### 6.1 Reinforce: after every letter is open
 
-Once every letter is open and mastered
-(Learn complete), 30 WPM is no longer a goal: the typist reached it. So the
-goal goes up and the letters are learned again at it, a lap at a time
-(`engine.LapParams`, `lap.go`):
+Once the last letter opens, Learn becomes **Reinforce**: a bar over the
+letter row with the word level and the speed goal (`web/modebar.js`,
+`api/reinforce.go`). The model, the focus and the word weights of sections
+4-7 stay; two things change.
+
+**Word level.** The learner picks one of ten levels, the most common
+200, 500, 1k, 2k, 3k, 5k, 7.5k, 10k, 15k or 25k words of the long list
+(`free.txt`; the same sizes as Climb, `Freeplay.Levels`). The words come
+only from that level (`Generator.WithWords`), the whole level at once:
+no rank penalty inside it. The browser keeps the choice per language
+(`tt.wordLevel.<lang>`) and sends it with every portion; a round keeps its
+level (`sessions.level`).
+
+**Weak pairs** (in Learn too, from its first rounds). The letter pairs that slow the last `WeakRounds` Learn
+rounds down the most (`freeplay.WeakPairs`, as in Climb) make their words
+more likely: the weight of a word grows by `PairBoost` (2, so 3 times) for
+each weak pair in it (`Generator.WithPairs`).
+
+**Speed goal steps** (`engine.LapParams`, `lap.go`):
 
 ```
-goal of lap n = min(TargetWPM + n * StepWPM, MaxWPM)
-              = 30, 35, 40, 45, 50, 55, 60 wpm   (lap 0 .. 6; LastLap = 6)
+goal of step n = min(TargetWPM + n * StepWPM, MaxWPM)
+               = 30, 40, 50, ... 200 wpm   (step 0 .. 17; LastLap = 17)
 ```
 
-- **When.** After the presses of a portion (or of the round's end) are
-  applied, if every letter is open and mastered at the lap's goal
-  (`LapDone`) and the lap is not the last, the next lap starts. The server
-  keeps the lap per user and language (`Store.Lap`, `progress.lap`,
-  migration 010) and every Learn round keeps the lap it was typed in
-  (`sessions.lap`).
-- **What changes.** Only `TargetWPM` (`Params.ForLap`): every formula of
-  sections 4-7 stays and simply gets the higher goal, so the difficulty of a
+- **When.** After the presses of a round are applied, if every letter is
+  open and mastered at the step's goal (`LapDone`) and the step is not the
+  last, the next step starts. The learner can also move a step up or down
+  by hand (the − and + of the bar, `/learn/step`). The server keeps the
+  step per user and language (`Store.Lap`, `progress.lap`) and every Learn
+  round keeps the step it was typed in (`sessions.lap`).
+- **What changes.** Only `TargetWPM` (`Params.ForLap`): the difficulty of a
   letter, its mastery and the word choice all follow it. `StartLap` turns
-  `Held` off for every letter: each has to *reach* the new goal, not only
-  *keep* the old one (the margin of section 6 would otherwise keep a 30 WPM
-  letter "mastered" at 35). The EMAs are kept, so a letter already fast
-  enough counts as mastered again at its next press and the slow ones become
-  the focus. No letter is closed again.
-- **Why to 60.** keybr raises its goal in the same way. Past about 60 WPM
-  the limit is no longer single letters but words and their rhythm, which
-  is what Climb trains.
-- **What stays separate.** The personal speed goal of the settings is a
-  line on the stats screen only; the algorithm never sees it.
-- **The stats screen** judges every round at the goal of its own lap
-  (`history.LetterTimeline`), and starts a new lap there as the trainer did.
+  `Held` off for every letter: each has to *reach* the new goal, since
+  mastery is otherwise never taken back. The EMAs are kept, so a letter
+  already good enough counts as mastered again at the end of its next round
+  and the slow ones become the focus. No letter is closed again.
+- **Why to 200.** Few typists pass 200 wpm even on common words; a higher
+  goal would mean nothing to almost anyone.
+- **The stats screen** judges every round at the goal of its own step
+  (`history.LetterTimeline`), and starts a new step there as the trainer did.
 
 ### 6.2 The forecast: rounds to the next letter
 
 The next letter's tooltip and the Learn stats screen say about how many
 rounds the next letter is away ("≈ 6 rounds"; with every letter
-open, on the stats screen, "Lap done in ≈ 6 rounds"). It only reads the numbers; nothing in the
+open, on the stats screen, "Next step in ≈ 6 rounds"). It only reads the numbers; nothing in the
 model or the word choice sees it (`engine.RoundsToMastery`,
 `history.NextForecast`).
 
 For each open letter that is not mastered, its numbers after each of its
-last `Window = 10` rounds (presses `n`, presses with a mistake `m`,
-`ErrEMA`, `TimeEMA`; the rounds are the replay of the stats screen, the
-last point the model as it is now). Each of the three parts of the mastery
-rule gets its own estimate, and the slowest decides:
+last `Window = 10` rounds (presses `n`, `ErrEMA`, `TimeEMA`, and from them
+the level; the rounds are the replay of the stats screen, the last point
+the model as it is now). The two parts of the mastery rule each get an
+estimate, and the slower decides:
 
 ```
 per round = presses in the window / rounds in the window
-presses:  (20 - n) / per round
-mistakes: q = mistakes / presses in the window   (the recent mistake rate)
-          ErrEMA moves towards q by Alpha a press: E_k = q + (E - q)(1 - Alpha)^k,
-          so it is under 0.05 after k = ln((0.05 - q) / (E - q)) / ln(1 - Alpha) presses;
-          rounds = k / per round
-speed:    (TimeEMA - TargetMs) / (fall of the least-squares line through TimeEMA, per round)
+presses:  (MasteryMinSamples - n) / per round
+level:    (MasteryLevel - level) / (rise of the least-squares line through the level, per round)
 
 rounds for the letter = ceil(max of the parts not met yet), at least 1
 rounds to the next letter = max over the letters still waiting
@@ -392,11 +428,11 @@ The least-squares slope over the points `(i, y_i)` is
 
 **No answer** rather than a wrong one: a letter with fewer than
 `MinRounds = 3` rounds (a line through two points is noise), with no timed
-press yet, not typed in the window, with recent mistakes at 5 % or more,
-or whose time line does not fall (not getting faster). One letter without
-an answer means no answer for the next letter either, since it waits for
-all of them; the panel then shows nothing (the letter line already says
-what the gold letter needs). More than `MaxRounds = 50` is shown as "50+".
+press yet, not typed in the window, or whose level does not rise. One
+letter without an answer means no answer for the next letter either, since
+it waits for all of them; the panel then shows nothing (the letter line
+already says what the gold letter needs). More than `MaxRounds = 50` is
+shown as "50+".
 
 **Why the slowest letter.** A letter opens only when every open letter is
 mastered (section 6), so the next letter is as far away as the letter
@@ -436,7 +472,7 @@ one knob for "how hard to push on weaknesses":
 drawn again for every portion, it changes every few words: the user works on
 one letter at a time, but never on the same one for long.
 
-**Step 2, how to train it: every word of the portion contains the focus letter.**
+**Step 2, how to train it: the portion's words contain the focus letter, while it has fresh ones.**
 
 ```
 D(word)   = average difficulty of the word's letters (each occurrence counts)
@@ -444,6 +480,12 @@ F(word)   = RankPenalty^(max(0, rank(word) - MaxRank) / RankStep)
 P(word)  ~ exp(D(word) / T) * F(word) * RepeatPenalty^(uses in the last RecentWords words)
 P(word)  = 0 when it was used MaxRepeats times in the round (and for the word just before or after)
 ```
+
+A word of the focus letter comes only if it is not among the last
+`RecentWords` words. When the focus letter has no such word left (a new
+letter with one or two words, like `j` early on), the rest of the portion
+takes any open word, by the same weights: the weak letters still lead, and
+no word is drummed.
 
 Among words that contain the focus letter, the ones that also contain other weak
 letters are preferred.
@@ -466,7 +508,7 @@ With `RankStart = 200`, `RankStep = 200` and `RankPenalty = 0.5`, every lesson
 before the full alphabet allows the 200 most common words freely, and every
 200 places further down the list halve a word's chance (rank 1000: 1/16).
 When the last letter opens, the limit grows in a straight line and reaches the
-whole list (about 2000) after `RampLetters = 10 000` letters, about 1700-1900
+whole list (25 000) after `RampLetters = 10 000` letters, about 1700-1900
 words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 
 - **The ramp counts typed letters, not rounds.** Rounds have different
@@ -493,16 +535,20 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
   repeat. The words are counted in the whole list, not only among the open
   words: in the first lessons every letter has few open words, and counting
   only those would let rare words in exactly where common ones matter most. Letters with many common words are not affected: their 10th word is
-  inside the top 200. Affected (rank of the 10th word): `j` 1222, `p` 275,
-  `q` 1823, `x` 851, `z` (8 words in all).
+  inside the top 200. Affected (rank of the 10th word): `j` 1217, `p` 273,
+  `q` 1807, `x` 847, `z` 2170.
   The penalty only shapes which words of the focus letter are taken: the
   focus letter itself (step 1) does not depend on it, so a rare letter is
   never trained less because its words are rare.
 - **A soft penalty, not a ban.** The weight is never 0, so rare words stay
   possible, and a letter whose words are all rare still gets practised. Early
-  lessons have few words at all (in English 49 in the first lesson, only 9 of
+  lessons have few words at all (in English 99 in the first lesson, only 4 of
   them among the 200 most common), so a hard limit would leave the user with
-  a handful of words. The penalty only makes the common ones much more likely.
+  a handful of words.
+- **A floor for a lesson.** For the same reason the limit is never below the
+  rank of the `MinWords`-th open word: the 40 most common words the open
+  letters can make come freely (in the first lesson up to rank 3810), so
+  a round of 30 words is not the same few words again.
 - `RankPenalty` outside `(0, 1)` or `RankStep <= 0` turns the penalty off.
   A word list shorter than `RankStart` gets no penalty at all.
 
@@ -510,26 +556,25 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
 the last `RecentWords = 24` words of the round unlikely (24 plus the 6 of the
 portion being built: the whole round of 30), and the same word never appears
 twice in a row (also across the border of two portions). On top of the
-penalty, a hard cap: a word used `MaxRepeats = 2` times in that window is not
-picked again. When the cap leaves the focus letter no word, the slot takes
-any open word by the same weights (`D`, `F` with the general `MaxRank`, the
-penalty), so the round still trains the focus letter in most of its words
-but no word comes a third time. Only a
-dictionary too small for both rules relaxes them (first the cap, then
-"not twice in a row").
+penalty, every slot first takes a word not used in that window: the
+focus letter's words, then any open word (`D`, `F` with the general
+`MaxRank`). Only when no fresh word is left does a word come again, at most
+`MaxRepeats = 2` times. Only a dictionary too small for these rules relaxes
+them (first the cap, then "not twice in a row").
 
 **No one-letter words.** Words shorter than `MinWordLetters = 2` are left
 out of learning when the generator is made (`NewGenerator`): `a` and
 `i`. They are among the most common words of the list, so they came up often, and a lone letter is not a word to
 practise. They are left out before anything is
 counted, so they take no part in the unlock order, the first lesson or the
-ranks. The word lists keep them (section 11): Climb and Freetype draw from
-their own lists and are not affected.
+ranks. The word list keeps them (section 11): Climb and Freetype are not
+affected.
 
 **Mistyped words come back.** Words the user typed with a mistake (a wrong or
 extra letter, or skipped letters; a mistake fixed with Backspace counts too)
 are typed again: up to `RetryWords = 2` of them are put into the next portion
-that is built, at random places, instead of new words. They are not repeated
+that is built, at random places, instead of new words, unless the word
+already came `MaxRepeats` times in the round. They are not repeated
 right away, because of the waiting portions (below), but about 2 portions
 later. Repeating a missed item after a short gap is the idea of spaced
 practice; here it is the simplest version, one repetition. A word the user
@@ -539,15 +584,17 @@ the fix.
 
 **Focus shown to the user** is the focus letter of the portion being typed.
 
-**When does the model react?** After every portion. When the space after its
-last word is typed, the portion's samples are sent, the statistics are
-updated (and maybe a letter opens), and the answer is one new portion built
-from the new values. It is added at the end of the text. `AheadPortions = 2`
+**When does the model react?** Once per round, when it ends: the round's
+presses go to `/results`, the statistics are updated and maybe a letter
+opens. Inside a round the letters' numbers stay as they were at its start:
+when the space after a portion's last word is typed, the browser asks for
+one new portion, built from those numbers and the words typed so far
+(mistyped words come back, the repeat cap holds). It is added at the end
+of the text. `AheadPortions = 2`
 portions always wait after the one being typed, so the user can read ahead
 (12 words, shown one more for each finished word) and **words already on the
 screen never change**. The cost
-is a delay: a new portion is typed about 12 words after the data it was built
-from.
+is that what a round teaches the model shows from the next round on.
 
 **The round.** The stream is cut into rounds of `RoundPortions = 5` portions
 (30 words), so the user always sees how much is left (`3 / 30` over the text) and
@@ -577,7 +624,8 @@ All in `internal/config/config.go`.
 
 | Name | Value | Meaning | Reason for the value |
 |---|---|---|---|
-| `Alpha` | 0.1 | EMA smoothing | half-life ≈ 6.6 occurrences, memory ≈ 20 |
+| `Alpha` | 0.1 | EMA smoothing of the time | half-life ≈ 6.6 occurrences, memory ≈ 20 |
+| `ErrAlpha` | 0.05 | EMA smoothing of the mistakes | memory ≈ 40 presses: one slip moves the error rate by at most 5 points (section 4) |
 | `MaxIntervalMs` | 2000 | longer gaps are pauses | a 2 s gap is far slower than any real keystroke |
 | `TargetWPM` | 30 | goal speed (400 ms / char) | reachable goal for a beginner; raise it for advanced users |
 | `SlowMs` | 1000 | "maximally slow" | 1 s per letter = hunting for the key |
@@ -586,13 +634,10 @@ All in `internal/config/config.go`.
 | `PriorDifficulty` | 0.7 | assumption about an unseen letter | new letters must get practised |
 | `PriorStrength` | 5 | how many samples the prior is worth | a few presses are not yet evidence |
 | `Temperature` | 0.1 | focus strength | chosen with the simulation (section 10): fastest learning at a small loss of variety |
-| `MasteryMinSamples` | 20 | evidence needed for mastery | ≈ one EMA memory length |
-| `MasteryErrorRate` | 0.05 | max mistakes for mastery | 95 % accuracy, a common minimum goal |
-| `KeepErrorRate` | 0.10 | a mastered letter stays mastered up to this error rate | twice the goal: one slip (+0.1 at most) is not enough to lose it, a real problem is (section 6) |
-| `KeepSlowdown` | 0.10 | ...and up to TargetMs · 1.1 (440 ms, ~27 WPM) | the running average wobbles about ±15 ms around a steady speed; 40 ms is clearly more |
+| `MasteryMinSamples` | 40 | presses needed for mastery | a new letter gets about 30 presses a round as the focus: about two rounds |
+| `MasteryLevel` | 80 | level needed for mastery (section 6) | few mistakes near the goal speed; with the simulation, a fast typist opens every letter in about 46 rounds instead of 348 |
 | `UnmasteredBonus` | 0.2 | added to the difficulty of a letter not mastered yet, for the choice only | e^(0.2/0.1) ≈ 7 times the weight of an equal mastered letter: a blocking letter gets about half the portions among ten (section 7) |
-| `HomeBoost` | 4 | a resting key counts this many times as frequent in the unlock order | the smallest boost that starts English with the home row and `f` (section 6) |
-| `StartLetters` / `MinWords` | 6 / 30 | first lesson | enough variety from the first minute |
+| `StartLetters` / `MinWords` | 6 / 40 | first lesson; the open words that always come freely | letters open one by one from early on; a round of 30 words without the same few words |
 | `RepeatPenalty` | 0.3 | less repetition of recent words | variety |
 | `MaxRepeats` | 2 | a word comes at most this many times in a round | the penalty alone let a rare letter's 10 words come 5-6 times in 30 (section 7); 2 still lets a mistyped word come back |
 | `MinWordLetters` | 2 | shorter words never appear in learning | `a`, `i`, `в` are filler, not practice (section 7) |
@@ -608,7 +653,10 @@ All in `internal/config/config.go`.
 | `RampLetters` | 10 000 | letters typed after the full alphabet until every word comes freely | about 1700-1900 words (5.2-5.9 letters per word), ~60 rounds of 30 words, an hour at 30 WPM: the list grows by ~200 words every 6 minutes of typing |
 | `ConsistencyMinSeconds` | 5 | shortest round that gets a consistency (section 3) | a standard deviation of 2-3 numbers says little; 5 s is a few words even for a beginner |
 | `RankPenalty` | 0.5 | weight multiplier per `RankStep` over the limit | halving is easy to explain; with `T = 0.1` one step equals about 0.07 of difficulty, so weak letters still decide first |
-| `Laps.StepWPM` / `Laps.MaxWPM` | 5 / 60 | after Learn complete the goal goes up 5 WPM a lap, up to 60 (section 6.1) | as keybr; past 60 WPM single letters are no longer the limit, Climb is for that |
+| `Laps.StepWPM` / `Laps.MaxWPM` | 10 / 200 | in Reinforce the goal goes up 10 WPM a step, up to 200 (section 6.1) | ten wpm is a step a typist feels; about 200 wpm is the top of real typing |
+| `AccWindow` / `AccPrior` | 100 / 3 | a letter's accuracy reads its last 100 presses plus 3 imaginary misses (section 14.3); 0 turns the rules off | 27 clean presses reach 90 %; a few lucky presses are not 100 % |
+| `AccMaster` / `AccSlip` | 0.90 / 0.85 | mastered; an older letter under the second takes the focus until it is back at the first (section 14.4) | the owner's choice; two thresholds keep a letter near 90 % from flipping the focus |
+| `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Learn and Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
 The values were chosen by reasoning and the simulation (section 10), not
@@ -702,11 +750,31 @@ Median exercises to the goal (20 typists), and the stream's variety:
 
 | Language | Random words | Best of 20 | Adaptive, T = 0.1 | Stream (the app) | Stream, no frequency penalty | Stream variety, first 30 | Stream variety, expert |
 |---|---|---|---|---|---|---|---|
-| en | 2179 | 280 | 144 | 134 | 132 | 79 / 40 / 86 | 97 / 5 / 67 |
+| en | 1088 | 179 | 124 | 134 | 120 | 96 / 32 / 81 | 99 / 3 / 68 |
 
-The stream needs 16 times fewer exercises than random words and 2.1
+The stream needs 8 times fewer exercises than random words and 1.3
 times fewer than best of 20. The forecast is within
-max(2, 25 %) in 79-87 % of cases (mean error 1.2-1.5 rounds).
+max(2, 25 %) in 54 % of cases (mean error 6.1 rounds): `j` and `k` come early
+and have few words, so their waits are long and hard to foresee.
+
+**Unlock pace.** The same tool also types Learn exactly as the app does
+(rounds of 30 words, the model learns once per round) for three kinds of
+typist and counts the rounds until every letter is open (median of 20):
+
+| Typist | Mistakes | Time per press | Learns | Rounds to 13 letters | Rounds to all 26 |
+|---|---|---|---|---|---|
+| beginner | 3-30 % | 350-900 ms | yes | 53 | 90 |
+| middle | 4-8 % | 250-450 ms | yes | 34 | 64 |
+| fast | 2-4 % | 120-250 ms | no, already fast | 33 | 65 |
+
+Before the level and "mastered stays mastered" (section 6) these were 104,
+69 and 348 rounds: a fast typist waited for a round in which every open
+letter was under 5 % mistakes at the same moment. The home row first
+(section 6) costs more rounds than the order by frequency: `j` and `k`
+have few words, so they collect their presses slowly. A small first lesson
+(6 letters, then one at a time) costs about 10 more rounds than the 9 of a
+home-row-and-`e` start; it is chosen for the step-by-step feel. The simulated typist has no fingers, so what the home row gives
+(fingers in place from the first lesson) is not in these numbers.
 
 Limits: the typist is invented. Letters do not influence each other, there is
 no forgetting, and learning is the same exponential curve for every letter. The
@@ -737,24 +805,14 @@ switch the layout. Caps Lock is detected the same way. Wrong-layout presses
 would otherwise ruin the statistics for reasons that have nothing to do with
 typing skill.
 
-**Word lists** (`data/langs/<id>/words.txt`) come from FrequencyWords
-(Hermit Dave), word frequencies counted in the OpenSubtitles 2018 corpus
+**Word list.** Learn takes the whole long list, 25 000 words
+(`data/langs/<id>/free.txt`, section 13), one-letter words
+left out (`MinWordLetters`, section 7). Word frequencies come from
+FrequencyWords (Hermit Dave), counted in the OpenSubtitles 2018 corpus
 (CC BY-SA 4.0). Subtitle frequencies are a good model of everyday language
-(Brysbaert & New, 2009). `tools/wordlists/build.py` rebuilds the lists and
-documents every filtering step:
-
-1. lowercase;
-2. only words made of the language's alphabet;
-3. one-letter words only if they are real words (a, i);
-   learning leaves even those out (`MinWordLetters`, section 7), the lists keep them;
-4. no tokens without a vowel (encoding garbage in the source);
-5. a hand-made block list in `tools/wordlists/block_en.txt`: names, places,
-   profanity, sound tags ("sighs") and fragments ("don" from "don't");
-6. keep the first 2000;
-7. a letter that is in fewer than 10 of them (the `FloorWords` of section 7)
-   gets its next most frequent words appended at the end, until it has 10.
-   This adds 2 words (`z`: `zero`, `magazine`). The added words are the rarest
-   in the list for the app.
+(Brysbaert & New, 2009). A large list keeps the early lessons, which can
+only use a few letters, from repeating the same words: short words that are
+not common are what those lessons need most.
 
 ## 12. Climb, hidden
 
@@ -807,3 +865,128 @@ capitals and `. , ? ! ; : ' -`, every word among the 25 000 most common.
 subtitle frequencies (section 11) filtered by the Hunspell en_US dictionary
 in lower case (names drop out) and a list of offensive words; the first
 25 000 of about 30 800 that pass.
+
+## 14. Learn: the accuracy rules
+
+Built: 14.3 to 14.5. Not built: the tour (14.1) and the drill (14.2).
+Each stage adds one measure: Learn trains accuracy
+only, Reinforce adds speed, Freetype adds consistency
+(`docs/PRODUCT.md`, "One mode, three stages"). Learn below replaces the
+level, mastery, focus and unlock rules of sections 5-7.
+
+### 14.1 The intro: finger tour
+
+The first visit to Learn starts with the **finger tour**, before any word.
+The fingers rest on F and J (the bumps). The tour walks the keyboard
+**finger by finger**, from the left little finger to the right one: the
+little finger's column `q a z`, the ring finger's `w s x`, and so on; an
+index finger has two columns (`r f v t g b`). The finger has its colour
+on the on-screen keyboard and its column lights up.
+
+- Each key of the finger is one sub-step: press it once. A wrong key
+  shows the right one again; nothing is counted against you.
+- Progress on two levels: "fingers: 3 of 8" over the keyboard, and the
+  finger's own keys ticked off (`q ✓ a ✓ z ·`).
+- A "to words" button is there from the first second; whoever knows the
+  keyboard leaves at once.
+- The tour can be opened again at any time from Learn.
+- Its presses never enter the letter statistics: the site sees the key,
+  not the finger, so the tour can show the right finger but not check it.
+
+It takes under a minute.
+
+### 14.2 The key drill
+
+A letter gets a short **drill** when it opens: about 10 seconds of the
+letter alone and with the home key of its finger, then straight into
+words. For `r` (left index, home `f`): `r r fr rf ra`. The six start
+letters get their drill right after the tour. The drill has no skip; its
+presses never enter the letter statistics.
+
+The drill comes when the letter opens, not all of them at the start: a
+movement is kept when it is typed in words right after it is drilled. The
+order of practice goes from blocked (one movement repeated) to mixed
+(movements in words), which is remembered better (Shea & Morgan, 1979).
+
+### 14.3 Accuracy, the one number of a letter
+
+```
+accuracy = correct / (presses + 3)        over the letter's last 100 presses
+```
+
+A press is one sample of section 3; it is correct when the position was
+typed right with no error. The 3 imaginary misses keep a few lucky
+presses from looking like 100 % (Laplace's rule of succession). There is
+no fixed number of presses; how fast a letter is mastered depends on the
+typing:
+
+| Errors | Presses to 90 % |
+|---|---|
+| 0 | 27 |
+| 1 | 37 |
+| 2 | 47 |
+| 5 | 77 |
+
+With 100 presses in the window a letter stays at 90 % while it has at most
+7 errors in them; the best a letter can show is 100/103 = 97 %. Speed does
+not count in Learn. The letter row shows each letter's accuracy in %; it
+is all the progress Learn shows. The difficulty that weighs the words is
+`1 - accuracy`.
+
+### 14.4 Focus and the next letter
+
+- The **newest letter** is the focus until its accuracy reaches 90 %.
+- An older letter that falls **under 85 %** takes the focus and keeps it
+  until it is back at **90 %**. With several, the lowest goes first.
+- In the first lesson the focus is the lowest of the six under 90 %.
+- **The next letter opens** at the end of a round when the newest letter
+  is at 90 % or more and no open letter is under 85 %. At most one letter
+  per round.
+
+The two thresholds are hysteresis, as in a thermostat: a letter that
+wobbles around 90 % neither flips the focus back and forth nor holds back
+the next letter.
+
+### 14.5 Words
+
+Section 7 stays: the stream, portions, the whole 25 000-word list from
+open letters, no repeat while fresh words exist, the lesson floor, weak
+pairs. What changes: the focus letter comes from 14.4 instead of the
+softmax draw, and the weights use the difficulty of 14.3.
+
+### 14.6 What you adapt to, what adapts to you
+
+The trainer adapts the focus, the words, when the next letter opens, the
+weak pairs and the speed goal. You adapt to the path, the fingers on F
+and J with a column each, the thresholds of 90 % and 85 %, the drill with
+every new letter and real words. You choose to reopen the tour, to turn
+the on-screen keyboard off and the step of the speed goal
+(`docs/PRODUCT.md`).
+
+### 14.7 The simulation
+
+The rules are in the engine behind a switch (`AccWindow`, 0 = off; the
+app has 100); `go run ./tools/sim -apply round -acc 100` turns them on in
+the simulation (without `-acc` it runs the rules of sections 5-7). Once
+every letter is open the focus goes back to the softmax draw of section 7:
+"the newest letter" would stay on the last one for good (a first run gave
+96 % of the words with `q`).
+
+| | built rules | accuracy rules |
+|---|---|---|
+| rounds to open every letter: beginner / middle / fast | 90 / 64 / 65 | 107 / 61 / 50 |
+| exercises until the goal, stream (median) | 134 | 172 |
+| beginner, first 30 exercises: dist / rep | 96 % / 33 % | 97 % / 31 % |
+
+A typist who makes few mistakes opens the letters sooner, one who makes
+many takes longer: accuracy now decides alone. The goal of the simulation
+includes speed, which Learn no longer trains, so it is reached later;
+Reinforce is meant to train it.
+
+**In the app.** A letter keeps its last presses (`KeyStat.Hits`) and its
+slip (`KeyStat.Slipped`). A letter typed before the rules starts from as
+many presses as it has (up to 100), missed at its error rate. The letter
+row shows the accuracy as the level and its tip says "N% accurate". The
+forecast "rounds to the next letter" (section 6.2) follows the accuracy of
+the letters that hold the next one back (`engine.Blocking`): the newest
+under 90 % and any older one under 85 %.

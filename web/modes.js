@@ -1,6 +1,6 @@
 // The three modes and their tabs.
 
-import { el, S, store } from "./state.js";
+import { el, S, store, shownMode, statsShown } from "./state.js";
 import { getJSON } from "./api.js";
 import { autoKb } from "./keyboard.js";
 import { lengthFor } from "./settings.js";
@@ -47,7 +47,7 @@ export async function setFreetypeVariant(v) {
 
 export function restoreMode() {
   const saved = store.get(`tt.mode.${S.lang}`);
-  S.mode = saved === "free" ? "climb" : MODES.includes(saved) ? saved : "learn";
+  S.mode = shownMode(saved) ? saved : "learn";
   S.settings.length = lengthFor(S.mode);
   renderModeBar();
   renderNav();
@@ -63,9 +63,16 @@ export function setMode(m) {
   autoKb();
 }
 
+el.tabClimb.hidden = !shownMode("climb");
+el.tabFreetype.hidden = !shownMode("freetype");
+
 export function renderNav() {
-  const i = S.view === "stats" ? MODES.length : MODES.indexOf(S.mode);
-  el.nav.style.setProperty("--i", i);
-  [el.tabLearn, el.tabClimb, el.tabFreetype, el.tabStats].forEach((b, k) => b.setAttribute("aria-selected", String(k === i)));
+  el.tabStats.hidden = !statsShown();
+  const tabs = [el.tabLearn, el.tabClimb, el.tabFreetype, el.tabStats];
+  const mine = S.view === "stats" ? el.tabStats : tabs[MODES.indexOf(S.mode)];
+  const shown = tabs.filter((b) => !b.hidden);
+  el.nav.style.setProperty("--n", shown.length);
+  el.nav.style.setProperty("--i", shown.indexOf(mine));
+  tabs.forEach((b) => b.setAttribute("aria-selected", String(b === mine)));
   document.body.dataset.mode = S.mode;
 }

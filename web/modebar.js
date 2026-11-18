@@ -1,7 +1,7 @@
 // The round bar above the text.
 
 import { t } from "./i18n.js";
-import { $, S, listLabel, levelWords, listless, store } from "./state.js";
+import { $, S, listLabel, levelWords, listless, store, reinforcing, wordLevel } from "./state.js";
 import { LENGTHS, lengthOf, lengthLabel } from "./settings.js";
 import { hasCustomText } from "./customtext.js";
 import { ring, ringBtn } from "./minipop.js";
@@ -12,7 +12,13 @@ export function renderModeBar() {
   const cur = S.settings.length;
   const parts = [];
   note.hidden = true;
-  bar.hidden = S.mode === "learn";
+  bar.hidden = S.mode === "learn" && !reinforcing();
+  document.body.classList.toggle("reinforce", S.mode === "learn" && !bar.hidden);
+  if (S.mode === "learn" && !bar.hidden) {
+    bar.innerHTML = reinforceBar();
+    stand.innerHTML = "";
+    return;
+  }
   stand.innerHTML = S.mode === "climb" ? climbStand() : S.mode === "freetype" ? freetypeStand() : "";
   if (bar.hidden) {
     bar.innerHTML = "";
@@ -35,6 +41,19 @@ export function renderModeBar() {
   end.push(ring(t("bar.length"), LENGTHS.filter((id) => lengthOf(id).kind === kind).map((id) =>
     ringBtn(`data-length="${id}"`, String(lengthOf(id).n), id === cur, lengthLabel(id)))));
   bar.innerHTML = `<span class="bar-side">${parts.join("")}</span><span class="bar-side">${end.join("")}</span>`;
+}
+
+// ---------- Reinforce: the word level and the speed goal ----------
+function reinforceBar() {
+  const s = S.lastStats, at = wordLevel();
+  const levels = ring(t("re.words"), (s.wordLevels ?? []).map((n, i) =>
+    ringBtn(`data-wlevel="${i + 1}"`, kLabel(n), i + 1 === at, t("re.wordsTip", { n: n.toLocaleString("en") }))));
+  const step = s.lap ?? 0, last = s.lastLap ?? 0;
+  const goal = `<span class="ring stepper" role="group" aria-label="${t("re.goal")}">` +
+    `<button type="button" data-step="${step - 1}" aria-label="${t("re.down")}"${step > 0 ? "" : " disabled"}>−</button>` +
+    `<output data-tip-text="${t("re.goalTip", { n: step + 1, all: last + 1 })}">${Math.round(s.targetWpm)} wpm</output>` +
+    `<button type="button" data-step="${step + 1}" aria-label="${t("re.up")}"${step < last ? "" : " disabled"}>+</button></span>`;
+  return `<span class="bar-side"><b class="bar-title">${t("re.title")}</b>${levels}</span><span class="bar-side">${goal}</span>`;
 }
 
 // ---------- Climb: the levels, and where you stand ----------
@@ -104,6 +123,8 @@ const onClick = (e) => {
   if (b.dataset.variant !== undefined) pickListener({ variant: b.dataset.variant });
   else if (b.dataset.list) pickListener({ list: Number(b.dataset.list) });
   else if (b.dataset.level) pickListener({ level: Number(b.dataset.level) });
+  else if (b.dataset.wlevel) pickListener({ wordLevel: Number(b.dataset.wlevel) });
+  else if (b.dataset.step !== undefined) pickListener({ step: Number(b.dataset.step) });
   else if (b.dataset.length) pickListener({ length: b.dataset.length });
 };
 bar.addEventListener("click", onClick);

@@ -18,6 +18,7 @@ type Params struct {
 	TimeFloor        float64
 	LearnRate        float64
 	TimeNoise        float64
+	GoalErrorRate    float64
 
 	ExpertErrMax                 float64
 	ExpertTimeMin, ExpertTimeMax float64
@@ -99,7 +100,7 @@ func (t *Typist) typeText(text string, first bool) []engine.Sample {
 
 func (t *Typist) Skilled(ep engine.Params) bool {
 	for c, e := range t.err {
-		if e > ep.MasteryErrorRate || t.time[c] > ep.TargetMs() {
+		if e > t.p.GoalErrorRate || t.time[c] > ep.TargetMs() {
 			return false
 		}
 	}

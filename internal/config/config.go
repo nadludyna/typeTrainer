@@ -30,6 +30,7 @@ type Config struct {
 
 	MaxRoundWords   int
 	MaxRoundSeconds int
+	MaxTypedSeconds int
 
 	ConsistencyMinSeconds int
 	StreakAccuracies      []float64
@@ -81,11 +82,12 @@ func Default() Config {
 
 		MaxRoundWords:   500,
 		MaxRoundSeconds: 600,
+		MaxTypedSeconds: 3600,
 
 		ConsistencyMinSeconds: 5,
 		StreakAccuracies:      []float64{95, 97, 100},
 		ConfusionMin:          3,
-		Laps:                  engine.LapParams{StepWPM: 5, MaxWPM: 60},
+		Laps:                  engine.LapParams{StepWPM: 10, MaxWPM: 200},
 		Forecast:              engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
 		ConfusionShown:        6,
 		Auth: auth.Params{
@@ -101,6 +103,7 @@ func Default() Config {
 		},
 		Engine: engine.Params{
 			Alpha:         0.1,
+			ErrAlpha:      0.05,
 			MaxIntervalMs: 2000,
 
 			TargetWPM:    30,
@@ -114,15 +117,12 @@ func Default() Config {
 
 			Temperature: 0.1,
 
-			MasteryMinSamples: 20,
-			MasteryErrorRate:  0.05,
-			KeepErrorRate:     0.10,
-			KeepSlowdown:      0.10,
+			MasteryMinSamples: 40,
+			MasteryLevel:      80,
 			UnmasteredBonus:   0.2,
-			HomeBoost:         4,
 
 			StartLetters:   6,
-			MinWords:       30,
+			MinWords:       40,
 			RepeatPenalty:  0.3,
 			MinWordLetters: 2,
 			MaxRepeats:     2,
@@ -137,6 +137,13 @@ func Default() Config {
 			RankStart:   200,
 			RankStep:    200,
 			RankPenalty: 0.5,
+
+			PairBoost: 2,
+
+			AccWindow: 100,
+			AccPrior:  3,
+			AccMaster: 0.90,
+			AccSlip:   0.85,
 		},
 		Words: engine.WordParams{
 			FloorWords:  10,
@@ -176,6 +183,8 @@ func Default() Config {
 			TimeFloor: 200,
 			LearnRate: 0.02,
 			TimeNoise: 0.25,
+
+			GoalErrorRate: 0.05,
 
 			ExpertErrMax:   0.05,
 			ExpertTimeMin:  150,

@@ -228,3 +228,4 @@ dialog[open]::backdrop { opacity: 1; transition-duration: var(--t-in); }
 }
 #view-type:not([hidden]), #view-stats:not([hidden]) { animation: view-in var(--t-in) var(--ease); }
 @keyframes view-in { from { opacity: 0; translate: 0 4px; } }
+@keyframes pop { 40% { scale: 1.18; } }

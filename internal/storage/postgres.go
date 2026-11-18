@@ -104,7 +104,7 @@ func (p *PostgresStore) inTx(f func(tx *sql.Tx) error) error {
 }
 
 func (p *PostgresStore) KeyStats(user, lang string) (map[string]engine.KeyStat, error) {
-	rows, err := p.db.Query(`SELECT ch, count, mistakes, err_ema, time_ema, timed_count, held
+	rows, err := p.db.Query(`SELECT ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped
 		FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang)
 	if err != nil {
 		return nil, err
@@ -114,7 +114,7 @@ func (p *PostgresStore) KeyStats(user, lang string) (map[string]engine.KeyStat, 
 	for rows.Next() {
 		var ch string
 		var k engine.KeyStat
-		if err := rows.Scan(&ch, &k.Count, &k.Mistakes, &k.ErrEMA, &k.TimeEMA, &k.TimedCount, &k.Held); err != nil {
+		if err := rows.Scan(&ch, &k.Count, &k.Mistakes, &k.ErrEMA, &k.TimeEMA, &k.TimedCount, &k.Held, &k.Hits, &k.Slipped); err != nil {
 			return nil, err
 		}
 		out[ch] = k
@@ -132,9 +132,9 @@ func saveKeyStats(tx *sql.Tx, user, lang string, stats map[string]engine.KeyStat
 	}
 	for ch, k := range stats {
 		if _, err := tx.Exec(`INSERT INTO key_stats
-			(user_id, lang, ch, count, mistakes, err_ema, time_ema, timed_count, held)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			user, lang, ch, k.Count, k.Mistakes, k.ErrEMA, k.TimeEMA, k.TimedCount, k.Held); err != nil {
+			(user_id, lang, ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+			user, lang, ch, k.Count, k.Mistakes, k.ErrEMA, k.TimeEMA, k.TimedCount, k.Held, k.Hits, k.Slipped); err != nil {
 			return err
 		}
 	}
@@ -191,6 +191,24 @@ func (p *PostgresStore) SetLap(user, lang string, n int) error {
 	return err
 }
 
+func (p *PostgresStore) ResetLearn(user, lang string) error {
+	return p.inTx(func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`INSERT INTO epochs (user_id, lang, epoch) VALUES ($1, $2, 1)
+			ON CONFLICT (user_id, lang) DO UPDATE SET epoch = epochs.epoch + 1`, user, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`UPDATE progress SET unlocked = 0, lap = 0
+			WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(`DELETE FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`DELETE FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3`, user, lang, modeLearning)
+		return err
+	})
+}
+
 func (p *PostgresStore) Group(user, lang string) (string, error) {
 	var g string
 	err := p.db.QueryRow(`SELECT study_group FROM progress WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&g)
@@ -239,10 +257,10 @@ func addSession(db execer, user, lang, mode string, s Session) error {
 	}
 	s = s.WithLength()
 	_, err := db.Exec(`INSERT INTO sessions
-		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch, aborted)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18)
+		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch, aborted, seconds)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18, NULLIF($19::double precision, 0))
 		ON CONFLICT DO NOTHING`,
-		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted)
+		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds)
 	return err
 }
 
@@ -257,7 +275,7 @@ func (p *PostgresStore) HasRound(user, lang, round string) (bool, error) {
 }
 
 func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, epoch, aborted
+	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, epoch, aborted, COALESCE(seconds, 0)
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND ($4 = '' OR length = $4)
 		ORDER BY id DESC LIMIT $5`, user, lang, mode, length, limit)
 	if err != nil {
@@ -269,7 +287,7 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 		var s Session
 		var consistency sql.NullFloat64
 		var keys []byte
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Group, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted); err != nil {
+		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Group, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {
@@ -360,8 +378,10 @@ func (p *PostgresStore) LettersTyped(user, lang string, unlocked int) (int, erro
 
 func (p *PostgresStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, error) {
 	rows, err := p.db.Query(`SELECT to_char((finished_at AT TIME ZONE 'UTC') + make_interval(secs => $3), 'YYYY-MM-DD') AS d,
-		COUNT(*), COALESCE(SUM(CASE WHEN wpm > 0 THEN chars * accuracy / 100 / 5 / wpm * 60 ELSE 0 END), 0), COALESCE(SUM(chars), 0)
-		FROM sessions WHERE user_id = $1 AND lang = $2 AND NOT aborted GROUP BY d ORDER BY d`,
+		COUNT(*) FILTER (WHERE NOT aborted),
+		COALESCE(SUM(CASE WHEN seconds IS NOT NULL THEN seconds WHEN aborted THEN 0 WHEN wpm > 0 THEN chars * accuracy / 100 / 5 / wpm * 60 ELSE 0 END), 0),
+		COALESCE(SUM(chars) FILTER (WHERE NOT aborted), 0)
+		FROM sessions WHERE user_id = $1 AND lang = $2 GROUP BY d ORDER BY d`,
 		user, lang, tz.Seconds())
 	if err != nil {
 		return nil, err

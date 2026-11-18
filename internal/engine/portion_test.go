@@ -88,6 +88,25 @@ func TestPortion_RetryWordsComeBack(t *testing.T) {
 	}
 }
 
+func TestPortion_RetryKeepsMaxRepeats(t *testing.T) {
+	g := newTestGen(6)
+	all := len(g.Order())
+	recent := []string{"water", "people", "water"}
+	for i := 0; i < 50; i++ {
+		por := g.Portion(nil, all, 0, recent, []string{"water", "people"}, testParams)
+		uses := map[string]int{"water": 2, "people": 1}
+		for _, w := range por.Words {
+			uses[w]++
+		}
+		if uses["water"] > testParams.MaxRepeats {
+			t.Fatalf("a mistyped word came back a third time: %v after %v", por.Words, recent)
+		}
+		if uses["people"] != 2 {
+			t.Fatalf("a mistyped word under the cap should come back once: %v", por.Words)
+		}
+	}
+}
+
 func TestPortion_RecentWindow(t *testing.T) {
 	p := testParams
 	p.PortionWords = 1
@@ -145,8 +164,8 @@ func TestPortion_MaxRepeatsInARound(t *testing.T) {
 				t.Fatalf("seed %d: %q %d times in %v", seed, w, uses[w], round)
 			}
 		}
-		if uses["cab"]+uses["abc"] != 2*p.MaxRepeats {
-			t.Fatalf("seed %d: the focus words should fill their cap first: %v", seed, round)
+		if uses["cab"] < 1 || uses["abc"] < 1 {
+			t.Fatalf("seed %d: every focus word should come: %v", seed, round)
 		}
 	}
 }

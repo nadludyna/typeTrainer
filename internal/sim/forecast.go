@@ -44,7 +44,7 @@ func Forecasts(gen *engine.Generator, s *Stream, t *Typist, ep engine.Params, fp
 		}
 		for _, c := range gen.Order()[:unlocked] {
 			if k := stats[c]; k.Count > 0 {
-				points[c] = append(points[c], engine.Point{Count: k.Count, Mistakes: k.Mistakes, ErrEMA: k.ErrEMA, TimeEMA: k.TimeEMA})
+				points[c] = append(points[c], engine.Point{Count: k.Count, Mistakes: k.Mistakes, ErrEMA: k.ErrEMA, TimeEMA: k.TimeEMA, Accuracy: engine.Level(k, ep)})
 			}
 		}
 		if unlocked == all {
@@ -61,10 +61,7 @@ func Forecasts(gen *engine.Generator, s *Stream, t *Typist, ep engine.Params, fp
 
 func nextLetterForecast(points map[string][]engine.Point, stats map[string]engine.KeyStat, open []string, ep engine.Params, fp engine.ForecastParams) (int, bool) {
 	most, any := 0, false
-	for _, c := range open {
-		if engine.Mastered(stats[c], ep) {
-			continue
-		}
+	for _, c := range engine.Blocking(stats, open, ep) {
 		n, ok := engine.RoundsToMastery(points[c], ep, fp)
 		if !ok {
 			return 0, false

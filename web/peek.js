@@ -1,7 +1,7 @@
 // A quick look at the stats of the mode you're in, in place of what's under the text.
 
 import { t } from "./i18n.js";
-import { $, el, S, isTouch, listLabel, listless } from "./state.js";
+import { $, el, S, isTouch, listLabel, listless, statsShown } from "./state.js";
 import { lengthFor, lengthLabel } from "./settings.js";
 import { goalFor, summary, trendTag } from "./stats.js";
 import { forecastText } from "./letters.js";
@@ -79,7 +79,7 @@ export const peekShown = () => shown;
 
 export function openPeek() {
   const s = statsOfMode();
-  if (shown || !s || S.view !== "type" || isTouch() || resultOpen() || roundStarted()) return;
+  if (shown || !s || !statsShown() || S.view !== "type" || isTouch() || resultOpen() || roundStarted()) return;
   shown = true;
   draw(s);
   const text = el.textBox.getBoundingClientRect(), foot = document.querySelector(".bottom").getBoundingClientRect();

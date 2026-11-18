@@ -1,8 +1,9 @@
 // Keys and buttons, routed to the modules that handle them.
 
-import { $, el, S, introOpen, isTouch, focusText } from "./state.js";
+import { $, el, S, introOpen, isTouch, focusText, setWordLevel } from "./state.js";
 import { requestFit, highlightNextKey, toggleKb, autoKb } from "./keyboard.js";
 import { refreshStats, renderStats, resetStatsPick } from "./stats.js";
+import { postJSON } from "./api.js";
 import { fitText, placeCaret, handleChar, backspace, restartRound, setTyping, loadExercise, roundStarted, pauseRound, checkLayout } from "./typing.js";
 import { checkCaps } from "./warn.js";
 import { introKey } from "./intro.js";
@@ -19,6 +20,7 @@ import { keySound, missSound } from "./sound.js";
 import { questOpen, questKey } from "./mascot.js";
 import { peekShown, openPeek, closePeek } from "./peek.js";
 import "./share.js";
+import { startGrow } from "./fx.js";
 
 window.addEventListener("resize", () => {
   buildAmbient();
@@ -29,7 +31,8 @@ window.addEventListener("resize", () => {
 });
 
 // ---------- screens: typing / stats ----------
-const statsOnly = isTouch();
+// Phones show the whole site for now, the same as a computer.
+const statsOnly = false;
 document.body.classList.toggle("stats-only", statsOnly);
 export function startView() {
   if (statsOnly) setView("stats");
@@ -43,6 +46,7 @@ function setView(name) {
   el.viewType.hidden = stats;
   el.viewStats.hidden = !stats;
   if (stats) {
+    startGrow();
     resetStatsPick();
     setTyping(false);
     refreshStats().catch(console.error);
@@ -87,6 +91,12 @@ async function barPick(pick) {
   if (pick.variant !== undefined) await setFreetypeVariant(pick.variant);
   if (pick.list) await setFreetypeList(pick.list);
   if (pick.level) { S.climbLevel = pick.level; renderLetters(); }
+  if (pick.wordLevel) setWordLevel(pick.wordLevel);
+  if (pick.step !== undefined) {
+    await postJSON("/learn/step", { step: pick.step });
+    await refreshStats();
+    renderLetters();
+  }
   if (pick.length) {
     setLength(S.mode, pick.length);
     await Promise.all([refreshStats(), refreshFreeplay()]);

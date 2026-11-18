@@ -37,7 +37,7 @@ func TestAdaptiveBeatsRandom(t *testing.T) {
 	for _, l := range langs {
 		t.Run(l.ID, func(t *testing.T) {
 			t.Parallel()
-			list, err := os.ReadFile("../../data/langs/" + l.ID + "/words.txt")
+			list, err := os.ReadFile("../../data/langs/" + l.ID + "/free.txt")
 			if err != nil {
 				t.Fatal(err)
 			}

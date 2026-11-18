@@ -6,13 +6,13 @@ changing any of them.
 ## What it is
 
 typeTrainer is a touch-typing trainer. It tracks every letter's mistakes and
-speed and builds the next words around your weak letters. Real words only.
+speed and builds the next words around your weak letters.
 
 ## Pillars
 
-1. **One path.** First you learn the letters (Learn), then you polish (Reinforce).
+1. **One path in three stages.** Learn the letters, reinforce them on words, then type freely. Each stage adds one thing to train: accuracy, then speed, then consistency.
 2. **It adapts to you.** The next words bring your weak letters and transitions.
-3. **Real words and real sentences only.**
+3. **Real words and real sentences** are what you practise on.
 4. **Fast and calm.** Nothing jumps while you type.
 5. **Clear without words.** Bars and dots show what is going on.
 
@@ -21,36 +21,59 @@ speed and builds the next words around your weak letters. Real words only.
 - **Beginners first.** Learn is the main screen.
 - **The server with PostgreSQL is the main version.** GitHub Pages is a demo
   snapshot and need not have every feature.
-- **The keyboard with the hands stays.** It shows which finger presses
-  which key, the core of touch typing: make it cheap, hide it where it is
-  not needed, never cut it.
-- **Real words only.** No generated letter combinations.
-- **A computer keyboard is needed to practise.** Phones and tablets show only
-  the stats and the account: thumbs on glass would skew the letter model.
-  The phone layout of the typing screen is not maintained.
-- **One mode: Learn, then Reinforce.** *Learn* teaches from zero: letters
-  open one by one from the home row, and the algorithm alone decides what to
-  practise (no difficulty switches, no "open all letters"). When every letter
-  is open, *Reinforce* begins: you choose what to type (a word level or real
-  sentences), and inside that choice the algorithm brings your weak letters
-  and transitions. *Climb* and *Freetype* are not part of this path: they get
-  hidden, and Climb is removed once Reinforce has real sentences. Until then
-  they never touch Learn's data, and every mode, list and round length keeps
-  its own history: rounds of different kinds are never mixed in one chart or
-  record. How each mode works: `docs/HOW-THE-MODES-WORK.md`.
-- **Settings change how much and how it looks, never what is practised.**
-  What a round is belongs to each mode and sits in the round bar above the
-  text (`web/modebar.js`). The settings window (`web/settings.js`) holds
-  every setting, with a search and categories; a mode's own ones are tagged
-  with the mode.
-- **Plain defaults.** No decorative animation, dimming, glow or blur. Motion
-  is short and quiet: windows, screens and tooltips fade in (opacity and a few
-  pixels, under 0.2 s, `web/base.css` "motion"), the tab marker slides, hover
-  colours ease; nothing new moves while you type. What moves to show position:
-  the caret and the line scroll. The on-screen keyboard keeps its keycap look and its lit next key. Effects may come back one by one, each decided
-  on its own; back so far: the falling keycaps in the empty sides, on by default, still while you type. A rule that does not change is spelled out once, then lives in
-  a tooltip. Text only where nothing else can say it.
-- **One language: English.** Other languages are removed, not hidden.
+- **The on-screen keyboard with the hands** is part of the product: it shows
+  which finger presses which key; it can be turned off.
+- **Phones:** the whole site adapts to the screen: the same screens as on a
+  computer with fewer elements, and you can type. Rounds typed on a phone are
+  stored apart and never enter the letter model or the computer stats: thumbs
+  on glass make other mistakes than fingers on keys. Phone typing may grow its
+  own training later.
+- **One mode, three stages.** Every stage adapts to you; each adds one
+  measure on top of the ones before. How the trainer picks what you type:
+  `docs/HOW-THE-MODES-WORK.md`.
+
+  | Stage | What you practise | What it trains | How it adapts | Opens when |
+  |---|---|---|---|---|
+  | **Learn** | letters, from the home row, one at a time | accuracy | words around your weak letters and the letter pairs you stumble on | from the start |
+  | **Reinforce** | words in levels that add up: 200, then 200 and 500, then up to 1k, and so on to 25k | accuracy and speed | the same, inside the open levels; the speed goal grows by a step you choose, with no ceiling | every letter is open |
+  | **Freetype** | free typing with your own settings | accuracy, speed and consistency | the next word is picked by the move from the end of one word into the start of the next, so the hands find a flow | the first Reinforce level is passed once |
+
+  Consistency belongs to Freetype because it depends most on the moves
+  between words. The letter row is all the progress Learn shows; the stats
+  screen opens with Reinforce.
+
+  **Built now:** Learn, and Reinforce with one word level at a time and a
+  speed goal from 30 to 200 in steps of 10. Learn counts accuracy only,
+  with a focus on two thresholds (`docs/HOW-THE-MODES-WORK.md`, section
+  14). **To build:** the finger tour and a key drill for every new letter,
+  levels that add up, a level that can be passed, a goal step in the
+  settings and no ceiling, Freetype as the third stage with word-to-word
+  flow. *Climb* is hidden and goes once the stages are built; until then it
+  never touches Learn's data, and every mode, list and round length keeps
+  its own history.
+- **What adapts and what does not.** The trainer cannot bend to everyone,
+  so the line is drawn here:
+  - *The trainer adapts:* which letter is in focus, which words come, when
+    the next letter opens, the weak letter pairs, the speed goal.
+  - *You adapt to the method:* the path Learn, Reinforce, Freetype; fingers
+    rest on F and J (the bumps on the keys) and each finger owns its
+    column, because from there every finger reaches its keys equally; the
+    thresholds of 90 % and 85 %; a short drill with every new letter, no
+    skip; real words.
+  - *You choose:* going back to the finger tour, turning the on-screen
+    keyboard off, the step of the speed goal.
+- **Settings: quick ones at hand, the rest in the window.** What belongs to
+  the stage you are in can be changed right on the typing screen, on the
+  fly. The settings window holds what concerns the whole site. Which
+  setting goes where is still to be decided.
+- **Motion.** Short and quiet, opacity and a few pixels, at most 0.3 s:
+  windows, screens, tooltips, the result card, a new round's words, the pause
+  cover, the on-screen keyboard and messages fade in and out; a newly opened
+  letter pops once; the stats bars grow once when the screen opens; the tab
+  marker slides, hover colours ease (`web/base.css` "motion", `web/fx.js`).
+  Nothing new moves while you type: the caret and the line scroll are the
+  only motion then. With "reduce motion" in the system, none of it runs.
+- **English** is the one language for now.
 - **The letter model is Learn's core.** Do not change the formulas in
   `internal/engine/model.go` or their values in `config.go` on your own: a
   silent change moves every user's progress. Explain the change, show it
@@ -61,11 +84,10 @@ speed and builds the next words around your weak letters. Real words only.
   group. It is never shown or offered in the interface.
 - **Try things freely:** build an idea, try it by feel, keep it or drop it.
 
-## Not now
+## Planned
 
-Leaderboards, public profile pages, more languages, more themes (there is
-one, dark, as CSS variables in `web/base.css`), frameworks. Later: the mascot, a light theme, special word sets, Freetype with
-symbols and digits.
-Accounts exist (sign up / log in / log out on the normal server, kept in
-PostgreSQL when it is configured). Structure code so these can be added
-later, but do not build them yet.
+Leaderboards, public profile pages, more languages, more themes (a light
+one too), the mascot as a companion, special word sets, Freetype with
+symbols and digits, other layouts (QWERTZ, Dvorak and more). Accounts
+exist (sign up / log in / log out on the normal server, kept in
+PostgreSQL when it is configured).

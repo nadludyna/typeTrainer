@@ -3,10 +3,15 @@
 How to write every text a user sees: labels, buttons, descriptions,
 tooltips, messages, the first-visit guide. All of them live in `web/i18n.js`.
 
-These rules apply to every change, new features included: whoever adds or
-changes something decides on their own what text it needs, how much and
-where, without waiting to be told. Check the text against them before
-calling the work done.
+**Who writes.** The maintainer writes the texts. An agent is the editor:
+it checks the facts and numbers against the code, fixes grammar, fits the
+text to these rules and to the place on screen, and says what it changed.
+It does not write new texts on its own. When a feature needs a text, the
+agent says where and what it must tell, and asks the maintainer for it; a
+short label may go in as a placeholder, marked as such.
+
+These rules apply to every change, new features included. Check the text
+against them before calling the work done.
 
 ## Principles
 
@@ -16,41 +21,46 @@ calling the work done.
    the way a friend next to you would say it. A tooltip appears
    only when the look doesn't say enough, and says what the thing means
    for you, not how it is computed.
-2. **Every text earns its place.** If removing it does not make the
+2. **A text that explains says it whole.** The guide, a step, a hint, a
+   card of how things work: every piece is a finished sentence with a
+   human message, so the reader never has to guess what is meant. A
+   fragment ("26 letters, one by one", "focus e, pair el", "filling up")
+   looks short but leaves the work to the reader. If a thing needs words
+   at all, it gets a whole sentence; if it doesn't, it gets none. Only
+   labels (principle 1) stay short.
+3. **Every text earns its place.** If removing it does not make the
    interface less clear, remove it. If a bar, a dot or a colour can show it, it
    needs no text.
-3. **Don't explain the obvious.** Familiar labels such as "Caret" or "Your
-   progress" need no description. Never add text to fill space or to keep a
-   pattern.
-4. **Explain what isn't obvious:** unusual behaviour, unfamiliar ideas,
+4. **Don't explain the obvious.** Familiar labels such as "Caret" or "Your
+   progress" need no description.
+5. **Explain what isn't obvious:** unusual behaviour, unfamiliar ideas,
    important limits, and consequences the user might not expect.
-5. **Match detail to need.** A simple control needs little or nothing; a
+6. **Match detail to need.** A simple control needs little or nothing; a
    complex feature may need more. The goal is clarity, not shortness for its
    own sake.
-6. **Understand the feature first.** Read its code and try it. Write what it
+7. **Understand the feature first.** Read its code and try it. Write what it
    really does, not what its name suggests. A rule the user runs into keeps
    its numbers ("at least 20 presses, under 5% mistakes, 30 wpm"); numbers
    the server knows come in as placeholders (`{target}`, `{min}`, `{err}`,
    `{testWpm}`, `{testAcc}`), so the text follows
    `internal/config/config.go`.
-7. **Consider context.** A label clear in one place may need help in
+8. **Consider context.** A label clear in one place may need help in
    another. Count what is already around it: the heading, the controls, the
    icons, what the user likely knows.
-8. **Precise, natural language.** No repetition, filler, generic AI
-   phrasing or vague claims. Words from the code (dots, estimate, focus,
-   separate stats) never reach the screen. One thing has one name
+9. **Precise, natural language.** No repetition, filler, generic AI
+   phrasing or vague claims. One thing has one name
    everywhere (word list below).
-9. **Spell out consequences that matter.** "Load replaces your current
+10. **Spell out consequences that matter.** "Load replaces your current
    progress with the one in the file". "This cannot be undone".
-10. **Don't force uniformity.** Not every setting needs a description, not
+11. **Don't force uniformity.** Not every setting needs a description, not
     every button needs a tooltip, not every section needs a note.
     Consistency means the same reasoning, not the same structure.
-11. **Apply this on your own.** When adding or changing a feature, decide
-    what text it needs, how much and where. Remove what is unneeded and add
-    what is missing without being asked.
-12. **Keep good text.** Change a text only when it gets clearer, more
+12. **Apply this on your own.** When adding or changing a feature, decide
+    where a text is needed and how much, and point out what is unneeded or
+    missing; the words come from the maintainer.
+13. **Keep good text.** Change a text only when it gets clearer, more
     accurate, more consistent or easier to use.
-13. **Text is part of the interface.** Think of the phone: wrapping, how
+14. **Text is part of the interface.** Think of the phone: wrapping, how
     dense the screen gets, whether extra text makes it harder to scan.
 
 ### Quick tests
@@ -60,11 +70,16 @@ calling the work done.
 - **Description:** would a first-time user get it wrong, or be surprised,
   without it? If not, drop it.
 - **Guide step:** does it tell something the screen does not already show?
+- **Any explaining text:** read only it, without the picture. Is it a
+  sentence that says what is meant? If you have to guess, rewrite it.
 
 ## Voice
 
 The site sounds like a friend who types well and is glad you came: warm,
-lively, with a bit of humour. Never a manual, never a cheerleader.
+lively, with a bit of humour. It tells you how things work the way you'd
+tell a mate about something cool you found: with a little excitement, as
+if the thing is worth hearing about. Dry is a failure too: a correct
+sentence that bores the reader gets rewritten.
 
 - **Whole sentences, not fragments.** "Only words of 6 letters or more.",
   not "Words of 6+ letters. Separate stats". No "A: B" shorthand
@@ -77,17 +92,20 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
   needs: a limit, a consequence, what to do next. "Try Save again before
   you move on, or the round is lost." keeps the consequence; dropping it to
   sound friendly is wrong.
-- **Contractions everywhere:** you've, isn't, can't, we'll, I'll. "I will
+- **Contractions everywhere:** you've, isn't, can't, you'll, I'll. "I will
   have something to say" sounds like a robot.
-- **"You" and "we".** Talk to the user as "you". The site may speak as
-  "we", and often does ("We'll mix in more of these."). The mascot speaks
-  as "I". Present tense, active voice.
+- **"You", never "we".** Talk to the user as "you". There is no "we":
+  one person sits at the screen, and "we" only makes them ask who that is.
+  What the site does is said about the thing itself: "Words are picked
+  from the letters you miss.", not "We pick words from your mistakes.".
+  The mascot is the one character and speaks as "I". Present tense, active
+  voice where a person acts ("You open a new letter.").
 - **A little humour everywhere.** A light touch fits any text: a tooltip,
   a toast ("Your fingers have earned a break."). The
   mascot may joke and tease more. Humour never hides a fact and never
   makes fun of the user's mistakes. Errors, the reset window and anything
-  that deletes data stay plain. Never emoji, never CAPS; an exclamation
-  mark only from the mascot.
+  that deletes data stay plain. An exclamation mark is fine wherever the
+  moment earns it ("Well done, you've mastered every letter!").
 - **Mistakes are information.** Never blame: a failed test is "Not passed
   yet", not "Failed". A setback says what to do next ("Twice in a row and
   you slide down one.").
@@ -102,6 +120,10 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
 | WPM, raw and accuracy as you type. Turn off if they distract you | Live numbers while you type. Hide them if they make you nervous. |
 | Your slowest or least accurate pairs. Half the next words have one | The pairs you stumble on. About half of the next words sneak one in. |
 | {m} minutes of typing. Time for a short break | {m} minutes straight. Your fingers have earned a break. |
+| Learn: 26 letters, one by one | First you learn the letters, a few at the start and then one at a time. |
+| focus e, pair el | This round leans on e, and on e followed by l, where you slow down. |
+| We pick the words from your mistakes | Words are picked from the letters you miss and the pairs where you slow down. |
+| You start with six letters and get a new one each time the old ones are ready. | You start with just six letters. Get them right and a new one pops open, one by one, until all 26 are yours. |
 | Not saved: no connection. Leaving this screen drops the round | No connection, so this round isn't saved yet. Try Save again before you move on, or the round is lost. |
 | Type a round and I will have something to say | Nothing to say yet. Type something and I'll judge it. |
 
@@ -114,15 +136,14 @@ lively, with a bit of humour. Never a manual, never a cheerleader.
 | Tooltip | Only when the look doesn't say it: what the thing means for you, when to turn it off if that matters, the shortcut after "·". One or two whole sentences, no mechanics | "Settings · Esc", "Every keypress, mistakes included." |
 | Status line, short messages | One short line, a number in `<b>` | "Type the text to begin." |
 | Result screen | Speed and accuracy big, the chart of word speeds, a row of facts (consistency, time, characters) ending in what happened, then the words. No tips | "A new letter is open: r." |
-| The first-visit guide | One to three short sentences per step, the key idea first in `<b>` | "<b>Weak letters come back.</b> Letters you miss or type slowly get more words." |
+| The first-visit guide | One to three whole sentences per step, the key idea first in `<b>`; captions inside it are sentences too | "<b>Weak letters come back.</b> Letters you miss or type slowly get more words." |
 | Error | What went wrong and what to do, plainly | "Couldn't load this file. Use one made with Export." |
 
 Join parts with words or a comma, not "A · B"; only a tooltip uses "·",
 before its shortcut. Labels, buttons, headings and short name-like values ("New best",
 "Mastered", "≈ 3 rounds") have no full stop. Every text that is a
 sentence (a description, tooltip, message, news line, guide step, the
-mascot) ends with a full stop, a question mark or, for the mascot, an
-exclamation mark.
+mascot) ends with a full stop, a question mark or an exclamation mark.
 
 ## Word list
 

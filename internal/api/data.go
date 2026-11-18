@@ -181,3 +181,14 @@ func (s *Server) handleGroup(w http.ResponseWriter, r *http.Request, user string
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"group": req.Group})
 }
+
+// POST: Learn starts over; the other modes keep their rounds.
+func (s *Server) handleLearnReset(w http.ResponseWriter, r *http.Request, user string, l *Language) {
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	if err := s.store.ResetLearn(user, l.Info.ID); err != nil {
+		serverError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}

@@ -12,7 +12,7 @@ This file says how to work on the project. Everything else has its own file:
 | touch Learn or Reinforce | `docs/HOW-THE-MODES-WORK.md`: how the trainer picks what you type |
 | change the interface | `docs/DESIGN-RULES.md`: how the screen looks and behaves |
 | write any text the user sees | `docs/TEXT-RULES.md` |
-| run, test or measure | `CONTRIBUTING.md` |
+| run, test or measure | `docs/DEVELOPMENT.md` |
 
 Where they differ, this file wins, then `docs/PRODUCT.md`, then the others.
 
@@ -36,9 +36,14 @@ file, it wins.
 
 The plan is issue #305: tasks go one at a time, top down, each its own issue.
 
-1. **First an opinion, then work.** On any request or mockup say what you think
-   and what you would do better, and why. Build after the OK. An idea outside
-   the request is a proposal, not an action.
+1. **The wake-up kick before a decision.** When a request changes the
+   product, an algorithm or how the code is built, do not just do it, however
+   sure it sounds. First: (a) say in your own words what you heard; (b) say
+   what is good in it and what is doubtful, and why; (c) offer your version;
+   (d) ask one short question that checks the difference was understood.
+   Build after the OK. Small edits (a margin, a typo, a colour) skip the kick
+   and are done at once. An idea outside the request is a proposal, not an
+   action.
 2. **One branch for one topic, one PR at the end.** A GitHub issue is not
    required.
 3. **Every PR description answers three things:** (a) what changed;
@@ -46,7 +51,7 @@ The plan is issue #305: tasks go one at a time, top down, each its own issue.
    (c) how it was checked: what was run, on what, with which numbers.
 4. **A change to the typing screen is measured** before the PR, against
    `main`, with the numbers in the PR, and must not be worse. The canonical
-   measurement: `node tools/browser/perf.mjs` (CONTRIBUTING.md): style recalc
+   measurement: `node tools/browser/perf.mjs` (docs/DEVELOPMENT.md): style recalc
    per key at full speed, key → caret start and the share of slow frames with
    the CPU slowed 6×. The goal: under 2 ms of style recalc per key for the
    screen itself (`perf.mjs --bare`), caret start ≤ 40 ms and slow frames
@@ -69,7 +74,7 @@ is always the maintainer's decision.
 
 ## Before you say a task is done
 
-1. The checks in `CONTRIBUTING.md` ("Test it", "Browser checks") all pass.
+1. The checks in `docs/DEVELOPMENT.md` ("Test it", "Browser checks") all pass.
 2. New engine logic has unit tests, including edge cases (no data yet, zero values).
 3. Docs updated if behaviour or the API changed.
 4. An interface change is checked in a browser at desktop width, and the

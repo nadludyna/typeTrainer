@@ -2,6 +2,7 @@ package engine
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -48,23 +49,19 @@ func TestWeightedPick_EdgeCases(t *testing.T) {
 }
 
 func TestLetterOrder_MostFrequentFirst(t *testing.T) {
-	order := letterOrder([]string{"eee", "ee", "ta", "t"}, nil, 1)
+	order := letterOrder([]string{"eee", "ee", "ta", "t"}, nil)
 	if strings.Join(order, "") != "eta" {
 		t.Fatalf("got %v, want e t a", order)
 	}
 }
 
-func TestLetterOrder_HomeLettersBoosted(t *testing.T) {
-	words := []string{"eee", "eee", "ttt", "a", "a"}
-	home := map[string]bool{"a": true}
-	if got := strings.Join(letterOrder(words, home, 4), ""); got != "aet" {
-		t.Errorf("boost 4: got %s, want a e t", got)
+func TestLetterOrder_HomeLettersFirst(t *testing.T) {
+	words := []string{"eee", "eee", "ttt", "a", "ss"}
+	if got := strings.Join(letterOrder(words, map[string]bool{"a": true, "s": true}), ""); got != "saet" {
+		t.Errorf("got %s, want s a (home, by frequency), then e t", got)
 	}
-	if got := strings.Join(letterOrder(words, home, 2), ""); got != "eat" {
-		t.Errorf("boost 2: got %s, want e a t", got)
-	}
-	if got := strings.Join(letterOrder(words, home, 1), ""); got != "eta" {
-		t.Errorf("boost 1 (off): got %s, want e t a", got)
+	if got := strings.Join(letterOrder(words, nil), ""); got != "etsa" {
+		t.Errorf("no home: got %s, want e t s a", got)
 	}
 }
 
@@ -231,10 +228,10 @@ func TestUnmasteredBonus_SlowLetterGetsTheFocus(t *testing.T) {
 	open := g.Order()[:10]
 	stats := map[string]KeyStat{}
 	for _, c := range open {
-		stats[c] = repeat(KeyStat{}, Sample{Char: c, Ms: 380}, 40)
+		stats[c] = KeyStat{Count: 200, TimeEMA: 700, TimedCount: 200, Held: true}
 	}
 	slow := open[3]
-	stats[slow] = repeat(KeyStat{}, Sample{Char: slow, Ms: 450}, 40)
+	stats[slow] = KeyStat{Count: 200, TimeEMA: 730, TimedCount: 200}
 	share := func(p Params) float64 {
 		pl := g.newPool(stats, 10, 0, p)
 		total := 0.0
@@ -251,5 +248,87 @@ func TestUnmasteredBonus_SlowLetterGetsTheFocus(t *testing.T) {
 	}
 	if without > 0.2 {
 		t.Errorf("without the bonus it gets %.0f%%: the test no longer shows the problem", without*100)
+	}
+}
+
+func TestWithWords_ALevelDrawsOnlyItsWords(t *testing.T) {
+	g := newTestGen(1)
+	level := g.WithWords([]string{"then", "the", "a", "x9", "when", "the"}, testParams)
+	if level.Size() != 4 || g.Size() == 4 {
+		t.Fatalf("level size %d (want then, the, when, the: no 1-letter word, no foreign letter), base %d", level.Size(), g.Size())
+	}
+	all := len(g.Order())
+	seen := map[string]bool{}
+	for i := 0; i < 20; i++ {
+		for _, w := range level.Portion(nil, all, 1<<30, nil, nil, testParams).Words {
+			seen[w] = true
+		}
+	}
+	for w := range seen {
+		if w != "then" && w != "the" && w != "when" {
+			t.Errorf("a word from outside the level: %q", w)
+		}
+	}
+	if !slices.Equal(level.Order(), g.Order()) {
+		t.Error("the letter order changed")
+	}
+}
+
+func TestWithPairs_WeakPairsComeMoreOften(t *testing.T) {
+	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
+	p := testParams
+	p.PairBoost, p.PortionWords = 20, 2
+	count := func(gen *Generator) (n int) {
+		for i := 0; i < 200; i++ {
+			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
+				if strings.Contains(w, "th") {
+					n++
+				}
+			}
+		}
+		return
+	}
+	plain, weak := count(g), count(g.WithPairs([]string{"th"}))
+	if weak <= plain*3/2 {
+		t.Errorf("words with the weak pair: %d with it, %d without", weak, plain)
+	}
+	if g.WithPairs(nil) != g {
+		t.Error("no pairs: the same generator")
+	}
+}
+
+func TestSetHome_MostCommonOtherLetterClosesTheFirstLesson(t *testing.T) {
+	words := []string{"eee", "eee", "ttt", "aaaa", "sss", "dd", "ff"}
+	g := NewGenerator(words, newRng(1), testParams)
+	p := testParams
+	p.StartLetters, p.MinWords = 3, 0
+	g.SetHome([]string{"a", "s", "d", "f"}, p)
+	if got := strings.Join(g.Order(), ""); got != "asedft" {
+		t.Errorf("got %s, want a s (home), e (most common other), then d f, then t", got)
+	}
+	p.StartLetters = 5
+	g.SetHome([]string{"a", "s", "d", "f"}, p)
+	if got := strings.Join(g.Order(), ""); got != "asdfet" {
+		t.Errorf("a first lesson past the home letters: got %s, want the plain asdfet", got)
+	}
+}
+
+func TestPortion_FewFocusWordsDoNotRepeat(t *testing.T) {
+	words := []string{"aa", "ab", "ba", "aab", "bba", "abb", "baa", "aaa", "bbb", "bb", "jab"}
+	for seed := int64(1); seed <= 20; seed++ {
+		g := NewGenerator(words, newRng(seed), testParams)
+		p := testParams
+		p.StartLetters, p.MinWords = 3, 0
+		weak := map[string]KeyStat{"a": {Count: 100, TimeEMA: 100, TimedCount: 100}, "b": {Count: 100, TimeEMA: 100, TimedCount: 100}}
+		por := g.Portion(weak, 3, 0, nil, nil, p)
+		n := 0
+		for _, w := range por.Words {
+			if w == "jab" {
+				n++
+			}
+		}
+		if por.Focus == "j" && n != 1 {
+			t.Fatalf("seed %d: the only j word came %d times in %v", seed, n, por.Words)
+		}
 	}
 }

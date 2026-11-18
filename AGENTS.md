@@ -2,7 +2,7 @@
 
 ## What to read first
 
-This file says how to work with me. Everything else has its own file:
+This file says how to work on the project. Everything else has its own file:
 
 | Before you... | Read |
 |---|---|
@@ -13,63 +13,64 @@ This file says how to work with me. Everything else has its own file:
 | change the interface | `docs/DESIGN-RULES.md`: how the screen looks and behaves |
 | write any text the user sees | `docs/TEXT-RULES.md` |
 | run, test or measure | `docs/DEVELOPMENT.md` |
-| add thesis material | `docs/thesis/README.md` |
 
 Where they differ, this file wins, then `docs/PRODUCT.md`, then the others.
 
-## Who you are working with
+If `AGENTS.local.md` exists next to this file, read it too: it holds the
+personal working rules of whoever runs this copy (language, how they test,
+their words for commands). It is not in git, and where it differs from this
+file, it wins.
 
-- I am not an experienced programmer. After every task, explain in simple
-  words what you changed and why, so I understand every part of my code.
-- Talk to me in Russian. Code, comments, commit messages and docs: English.
+## Working with the maintainer
+
+- Code, comments, commit messages and docs: English.
 - Work in small steps. For anything bigger than one feature, show a short plan
-  first and wait for my OK.
-- Commits in your own branch are fine. `git push` and pull requests only when I
-  say so. My short word for it is «пр».
-- `main` is protected: changes reach it only through a pull request. I merge it
-  myself. Never push to `main` directly.
+  first and wait for an OK.
+- After every task, explain in plain words what you changed and why.
+- Commits in your own branch are fine. `git push` and pull requests only when
+  the maintainer says so.
+- `main` is protected: changes reach it only through a pull request, merged by
+  the maintainer. Never push to `main` directly.
 
 ## How we work
 
 The plan is issue #305: tasks go one at a time, top down, each its own issue.
 
-I test by feel, on my own machine, and I do not touch the terminal.
-
-1. **You run the site.** Start and restart the local server yourself (the web
-   files are built into the program, so a change needs a restart). I only
-   refresh <http://localhost:3000>. Git pulls are yours too.
-2. **The wake-up kick before a decision.** When a request changes the
+1. **The wake-up kick before a decision.** When a request changes the
    product, an algorithm or how the code is built, do not just do it, however
-   sure I sound. First: (a) say in your own words what you heard; (b) say what
-   is good in it and what is doubtful, and why; (c) offer your version; (d) ask
-   one short question that checks I understood the difference. Build after my
-   "ок". Small edits (a margin, a typo, a colour) skip the kick and are done
-   at once. An idea outside the request is a proposal, not an action.
-3. **One branch for one topic, one PR at the end,** when I say so. A GitHub
-   issue is not required.
-4. **Every PR description answers three things:** (a) what changed;
+   sure it sounds. First: (a) say in your own words what you heard; (b) say
+   what is good in it and what is doubtful, and why; (c) offer your version;
+   (d) ask one short question that checks the difference was understood.
+   Build after the OK. Small edits (a margin, a typo, a colour) skip the kick
+   and are done at once. An idea outside the request is a proposal, not an
+   action.
+2. **One branch for one topic, one PR at the end.** A GitHub issue is not
+   required.
+3. **Every PR description answers three things:** (a) what changed;
    (b) what else it affects (other modes, combinations of settings);
    (c) how it was checked: what was run, on what, with which numbers.
-5. **A change to the typing screen is measured** before the PR, against
+4. **A change to the typing screen is measured** before the PR, against
    `main`, with the numbers in the PR, and must not be worse. The canonical
    measurement: `node tools/browser/perf.mjs` (docs/DEVELOPMENT.md): style recalc
    per key at full speed, key → caret start and the share of slow frames with
    the CPU slowed 6×. The goal: under 2 ms of style recalc per key for the
    screen itself (`perf.mjs --bare`), caret start ≤ 40 ms and slow frames
    ≤ 15% with everything on.
-6. **Measure first, then change numbers.** No tuning without a measurement.
-7. **Comments and docs never retell history.** They say what is true now;
+5. **Measure first, then change numbers.** No tuning without a measurement.
+6. **Comments and docs never retell history.** They say what is true now;
    history lives in git.
-8. **No tool for a needed check is not a reason to skip the check.** Say so.
-9. **Docs do not multiply.** Every rule and fact has one home in the files
+7. **No tool for a needed check is not a reason to skip the check.** Say so.
+8. **Docs do not multiply.** Every rule and fact has one home in the files
    listed under "What to read first"; other places link to it. No new files
-   in `docs/` or the repo root without my decision. The exception I
-   decided: the thesis files 01–08 in `docs/thesis/`.
+   in `docs/` or the repo root without the maintainer's decision.
+9. **Nothing personal in the repo.** Anyone who clones or forks it gets a
+   working project with no notes about one person's life, studies or setup.
+   Those belong in `AGENTS.local.md` or outside the repo.
 
-Beyond orders I expect an engineer's position: point out when a change has
+Beyond orders an engineer's position is expected: point out when a change has
 consequences outside its issue, offer simpler paths, say no with reasons
 when a task leads somewhere worse. Initiative means a proposal; the scope
-is always my decision.
+is always the maintainer's decision.
 
 ## Before you say a task is done
 
@@ -78,4 +79,4 @@ is always my decision.
 3. Docs updated if behaviour or the API changed.
 4. An interface change is checked in a browser at desktop width, and the
    stats screen also at phone width (`docs/DESIGN-RULES.md`, section 3).
-5. A short summary for me: what changed, which files, how to check it in the browser.
+5. A short summary: what changed, which files, how to check it in the browser.

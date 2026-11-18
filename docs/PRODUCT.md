@@ -1,23 +1,12 @@
 # Product
 
-What typeTrainer is and the decisions that shape it. Ask the owner before
+What typeTrainer is and the decisions that shape it. Ask the maintainer before
 changing any of them.
 
 ## What it is
 
 typeTrainer is a touch-typing trainer. It tracks every letter's mistakes and
 speed and builds the next words around your weak letters.
-
-The product comes first. It is also an engineering thesis (2027), a side
-quest: its material collects in `docs/thesis/`, one file per item of the
-thesis plan (`01-...md` to `08-...md`, issue #146). A PR that yields
-material for an item (a number, a measurement, a decision) adds a few lines
-to that item's file. Product docs stay where they are; thesis files link to
-them instead of copying. Thesis notes do not limit what we build: if the
-code and a thesis note disagree, the code and `docs/` win. What the thesis
-needs does limit what we cut: the adaptive algorithm, the keyboard with the
-finger layout, input latency, PostgreSQL and the adaptive-vs-random check
-are thesis items and stay.
 
 ## Pillars
 
@@ -32,8 +21,8 @@ are thesis items and stay.
 - **Beginners first.** Learn is the main screen.
 - **The server with PostgreSQL is the main version.** GitHub Pages is a demo
   snapshot and need not have every feature.
-- **The on-screen keyboard with the hands** is part of the product and of the
-  thesis; it can be turned off.
+- **The on-screen keyboard with the hands** is part of the product: it shows
+  which finger presses which key; it can be turned off.
 - **Phones:** the whole site adapts to the screen: the same screens as on a
   computer with fewer elements, and you can type. Rounds typed on a phone are
   stored apart and never enter the letter model or the computer stats: thumbs
@@ -54,10 +43,9 @@ are thesis items and stay.
   screen opens with Reinforce.
 
   **Built now:** Learn, and Reinforce with one word level at a time and a
-  speed goal from 30 to 200 in steps of 10. Learn's letter level still
-  counts speed as well as accuracy. **To build:** Learn on accuracy only, with the finger tour, a key drill
-  for every new letter and a focus with two thresholds
-  (`docs/HOW-THE-MODES-WORK.md`, section 14),
+  speed goal from 30 to 200 in steps of 10. Learn counts accuracy only,
+  with a focus on two thresholds (`docs/HOW-THE-MODES-WORK.md`, section
+  14). **To build:** the finger tour and a key drill for every new letter,
   levels that add up, a level that can be passed, a goal step in the
   settings and no ceiling, Freetype as the third stage with word-to-word
   flow. *Climb* is hidden and goes once the stages are built; until then it
@@ -92,13 +80,14 @@ are thesis items and stay.
   in the simulation (`go run ./tools/sim`) and ask.
 - **A hidden A/B switch.** `?group=random` makes Learn draw random open words
   instead of using the algorithm, so the algorithm can be compared against
-  it on real people (`docs/thesis/08-testing-and-verification.md`). Every round stores its
+  it on real people (`docs/HOW-THE-MODES-WORK.md`, section 10.1). Every round stores its
   group. It is never shown or offered in the interface.
-- **Try things freely:** build an idea, I test it, we keep it or drop it.
+- **Try things freely:** build an idea, try it by feel, keep it or drop it.
 
 ## Planned
 
 Leaderboards, public profile pages, more languages, more themes (a light
 one too), the mascot as a companion, special word sets, Freetype with
-symbols and digits, other layouts (QWERTZ, Dvorak and more). Accounts exist (sign up / log in / log out on the
-normal server, kept in PostgreSQL when it is configured).
+symbols and digits, other layouts (QWERTZ, Dvorak and more). Accounts
+exist (sign up / log in / log out on the normal server, kept in
+PostgreSQL when it is configured).

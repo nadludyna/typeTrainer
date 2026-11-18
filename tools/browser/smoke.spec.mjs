@@ -237,7 +237,9 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   }, [key, extra]);
   const before = await text();
   await page.keyboard.press("Tab");
-  await expect.poll(text).not.toBe(before);
+  // A new round clears the text before its words arrive: wait for the words.
+  const fresh = async () => { const t = await text(); return t && t !== before ? t : ""; };
+  await expect.poll(fresh).not.toBe("");
   const once = await text();
   await held("Tab");
   await page.keyboard.press("Tab");

@@ -15,15 +15,10 @@ import { openCustomText, hasCustomText } from "./customtext.js";
 import { onBarPick, renderModeBar } from "./modebar.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel } from "./learnpanel.js";
-import { buildAmbient } from "./ambient.js";
-import { keySound, missSound } from "./sound.js";
-import { questOpen, questKey } from "./mascot.js";
 import { peekShown, openPeek, closePeek } from "./peek.js";
-import "./share.js";
 import { startGrow } from "./fx.js";
 
 window.addEventListener("resize", () => {
-  buildAmbient();
   fitText();
   requestFit();
   placeCaret(true);
@@ -116,14 +111,9 @@ onSetting((id, value) => {
   } else if (id === "kb") {
     autoKb();
     highlightNextKey();
-  } else if (id === "keySound" || id === "missSound" || id === "volume") {
-    if (id === "missSound" || S.settings.keySound === "off") missSound();
-    else keySound();
   } else if (id === "daily" || id === "goal") {
     renderPanel();
     if (S.view === "stats") renderStats();
-  } else if (id === "bg") {
-    buildAmbient(true);
   } else if (id === "length") {
     barPick({ length: value }).catch(console.error);
   }
@@ -146,7 +136,6 @@ document.addEventListener("keyup", (e) => { if (e.code === PEEK_KEY) closePeek()
 document.addEventListener("keydown", (e) => {
   if (peekShown() && e.code !== PEEK_KEY) closePeek();
   if (document.querySelector("dialog[open]")) return;
-  if (questOpen()) { questKey(e); return; }
   if (introOpen()) { introKey(e); return; }
   if (profileOpen()) {
     if (e.key === "Escape") { e.preventDefault(); closeProfile(); }

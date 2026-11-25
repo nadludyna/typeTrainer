@@ -109,7 +109,6 @@ export function renderStats() {
   renderLengthFilter(s.lengths ?? [], length, s.bests ?? {});
   document.getElementById("len-head").textContent = lengthLabel(length);
   const sessions = [...s.sessions].reverse();
-  document.getElementById("btn-image").disabled = !s.sessionCount;
   const goal = goalFor(mode);
   el.tiles.innerHTML = tiles(sessions, s.sessionCount, goal, mode === "climb" ? s.place?.level : null, s.streaks ?? []);
   drawActivity();

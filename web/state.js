@@ -14,7 +14,6 @@ export const el = {
   viewType: $("view-type"), viewStats: $("view-stats"),
   lengthFilter: $("length-filter"), tiles: $("tiles"), chart: $("chart"), chartNote: $("chart-note"),
   warn: $("layout-warn"), toasts: $("toasts"),
-  streak: $("streak"), streakN: $("streak-n"),
 };
 
 // ---------- state ----------
@@ -39,8 +38,8 @@ export const S = {
   freetypeList: 0,
   freetypeVariant: "",
   climbLevel: null,
-  settings: { length: "words-30", live: false, caret: "line", streak: false, bg: "keys", goal: 0, daily: 15,
-    glide: "smooth", keySound: "off", missSound: "off", volume: "50",
+  settings: { length: "words-30", live: false, caret: "line", goal: 0, daily: 15,
+    glide: "smooth",
     stop: false, nextKey: true, hand: true },
   kbHidden: false,
 };

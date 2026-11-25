@@ -10,7 +10,6 @@ import { showIntro } from "./intro.js";
 import { renderProfile, loadAccount } from "./profile.js";
 import { loadLanguage } from "./languages.js";
 import { loadSettings } from "./settings.js";
-import { buildAmbient } from "./ambient.js";
 
 import { startView } from "./input.js";
 
@@ -42,7 +41,6 @@ async function joinStudy() {
     el.text.textContent = t("err.server");
   }
   startView();
-  buildAmbient();
   const flash = store.get("tt.flash");
   if (flash) {
     store.set("tt.flash", "");

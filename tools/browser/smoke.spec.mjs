@@ -1018,3 +1018,54 @@ test("Welcome: a returning visitor goes straight to Learn, and nothing typed in 
   await page.waitForTimeout(300);
   expect(sent, "Welcome sends no presses").toEqual([]);
 });
+
+test("check-in, Learn: the first visit asks once; \"A little\" opens ten letters", async ({ page }) => {
+  await openApp(page, { "tt.checkin.learn": "" });
+  await page.locator("#tab-learn").click();
+  const card = page.locator("#result .fin");
+  await expect(card.locator("h2")).toHaveText("Have you learned touch typing before?");
+  await card.locator('[data-act="little"]').click();
+  await expect(card).toBeHidden();
+  await waitForText(page);
+  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
+  expect(s.keys.filter((k) => k.unlocked).length).toBe(10);
+  expect(await page.evaluate(() => localStorage.getItem("tt.checkin.learn"))).toBe("1");
+  await page.locator("#tab-learn").click();
+  await expect(page.locator("#result .fin"), "asked once").toBeHidden();
+});
+
+test("check-in, Reinforce: a 30-second sample sends no presses and sets the goal and the word level", async ({ page }) => {
+  await openApp(page, { "tt.checkin.reinforce": "" });
+  await page.locator("#tab-reinforce").click();
+  const card = page.locator("#result .fin");
+  await expect(card.locator("h2")).toHaveText("Let's find where you start");
+  const sent = [];
+  page.on("request", (r) => { if (/\/api\/v1\/(portion|results|abort)/.test(r.url())) sent.push(r.url()); });
+  await page.keyboard.press("Enter");
+  await waitForText(page);
+  await typeRound(page, { delay: 60, done: () => page.locator("#result .fin .ci-pair").isVisible() });
+  await expect(card.locator(".ci-pair")).toBeVisible({ timeout: 40_000 });
+  expect(sent, "the sample sends nothing to the letter model").toEqual([]);
+  await expect(card).toContainText("Your goal starts at");
+  const goal = Number((await card.locator("p b").first().textContent()).match(/\d+/)[0]);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "reinforce");
+  await waitForText(page);
+  const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
+  expect(s.targetWpm, "the goal the card named is kept").toBe(goal);
+  expect(await page.evaluate(() => localStorage.getItem("tt.checkin.reinforce"))).toBe("1");
+});
+
+test("check-in, Freetype: Skip starts the round at once; Welcome brings the check-ins back", async ({ page }) => {
+  await openApp(page, { "tt.checkin.freetype": "" });
+  await page.locator("#tab-freetype").click();
+  await page.locator('#result .fin [data-act="skip"]').click();
+  await expect(page.locator("#result .fin")).toBeHidden();
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "freetype");
+  await waitForText(page);
+  expect(await page.evaluate(() => localStorage.getItem("tt.checkin.freetype"))).toBe("1");
+  await page.locator("#tab-welcome").click();
+  for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowRight");
+  await page.locator("#wl-checkins").click();
+  expect(await page.evaluate(() => ["learn", "reinforce", "freetype"].map((m) => localStorage.getItem(`tt.checkin.${m}`)))).toEqual(["", "", ""]);
+});

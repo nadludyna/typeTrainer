@@ -246,3 +246,11 @@ body[data-live="off"] .live .metric.num { display: none; }
 .result .fin p b { color: var(--text); font-weight: 500; }
 .fin-acts { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
 @media (max-width: 600px) { .fin-acts { flex-direction: column; align-items: stretch; } .result .fin h2 { font-size: var(--fs-l); } }
+
+/* ---------- the check-ins (checkin.js), in the finish screen's card ---------- */
+.result .fin .ci-kick { color: var(--accent-text); font-size: var(--fs-min); margin: 0 0 8px; }
+.result .fin h2 + p { margin-top: 0; }
+.ci-pair { display: flex; gap: 32px; justify-content: center; margin: 0 0 16px; }
+.ci-big { font-size: var(--fs-xl); font-weight: 500; color: var(--accent-big); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ci-big small { font-size: var(--fs-s); color: var(--sub); margin-left: 4px; letter-spacing: 0; }
+.result .fin.ci h2 { font-size: var(--fs-l); color: var(--text); text-wrap: balance; overflow-wrap: anywhere; }

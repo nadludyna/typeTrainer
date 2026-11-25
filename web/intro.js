@@ -3,6 +3,7 @@
 // never sent anywhere.
 
 import { $, el, S, store } from "./state.js";
+import { FX } from "./fx.js";
 import { t } from "./i18n.js";
 import { makeKey } from "./keyboard.js";
 
@@ -184,3 +185,9 @@ export function startLearn() {
 el.intro.querySelectorAll("#wl-chips .wl-chip").forEach((c) =>
   c.addEventListener("click", (e) => { e.currentTarget.blur(); goTo(Number(c.dataset.step)); }));
 $("wl-start").addEventListener("click", (e) => { e.currentTarget.blur(); startLearn(); });
+// The check-ins (checkin.js) are kept as tt.checkin.<mode>; clearing them brings them back.
+$("wl-checkins").addEventListener("click", (e) => {
+  e.currentTarget.blur();
+  for (const m of ["learn", "reinforce", "freetype"]) store.set(`tt.checkin.${m}`, "");
+  FX.toast(t("wl.checkinsDone"));
+});

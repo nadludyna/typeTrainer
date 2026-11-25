@@ -70,6 +70,7 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/learn/history", s.withLang(s.handleLearnHistory))
 	mux.HandleFunc("POST /api/v1/learn/reset", s.withLang(s.handleLearnReset))
 	mux.HandleFunc("POST /api/v1/learn/step", s.withLang(s.handleLearnStep))
+	mux.HandleFunc("POST /api/v1/checkin", s.withLang(s.handleCheckin))
 	mux.HandleFunc("POST /api/v1/freetype/portion", s.withLang(s.handleFreetypePortion))
 	mux.HandleFunc("POST /api/v1/freetype/results", s.withLang(s.handleFreetypeResults))
 	mux.HandleFunc("GET /api/v1/freetype/stats", s.withLang(s.handleFreetypeStats))

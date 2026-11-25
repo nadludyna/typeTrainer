@@ -4,7 +4,7 @@ import { $, el, S, isTouch, focusText, setWordLevel } from "./state.js";
 import { requestFit, highlightNextKey, toggleKb, autoKb } from "./keyboard.js";
 import { refreshStats, renderStats, resetStatsPick } from "./stats.js";
 import { postJSON } from "./api.js";
-import { fitText, placeCaret, handleChar, backspace, restartRound, setTyping, loadExercise, roundStarted, pauseRound, checkLayout } from "./typing.js";
+import { fitText, placeCaret, handleChar, backspace, restartRound, setTyping, loadExercise, roundStarted, pauseRound, checkLayout, cancelProbe } from "./typing.js";
 import { checkCaps } from "./warn.js";
 import { welcomeKey, onWelcomeStart, resetWelcome } from "./intro.js";
 import { profileOpen, closeProfile } from "./profile.js";
@@ -13,6 +13,7 @@ import { settingsOpen, openSettings, onSettingsClose, onSetting, setLength } fro
 import { setMode, refreshFreeplay, renderNav, setFreetypeList, setFreetypeVariant } from "./modes.js";
 import { openCustomText, hasCustomText } from "./customtext.js";
 import { onBarPick, renderModeBar } from "./modebar.js";
+import { needsCheckin, runCheckin } from "./checkin.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel } from "./learnpanel.js";
 import { peekShown, openPeek, closePeek } from "./peek.js";
@@ -58,6 +59,7 @@ export function openWelcome() { setView("welcome"); }
 // ---------- modes: learn / freetype ----------
 function chooseMode(m) {
   if (m !== S.mode) {
+    cancelProbe();
     if (resultOpen()) {
       setMode(m);
       closeResult();
@@ -65,10 +67,19 @@ function chooseMode(m) {
       return;
     } else {
       setMode(m);
-      loadExercise().catch(console.error);
+      startMode().catch(console.error);
     }
+  } else if (needsCheckin(m) && !resultOpen() && !S.busy) {
+    startMode().catch(console.error);
   }
   if (S.view !== "type") setView("type");
+}
+// A mode's first round, after its check-in when it has not had one.
+async function startMode() {
+  for (let i = 0; i < 3 && needsCheckin(S.mode); i++) {
+    if (!(await runCheckin(S.mode))) break;
+  }
+  await loadExercise();
 }
 el.tabLearn.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("learn"); });
 el.tabReinforce.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("reinforce"); });

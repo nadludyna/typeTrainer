@@ -122,7 +122,7 @@ function appendPortions(list) {
   for (let i = old; i < S.text.length; i++) {
     const sp = document.createElement("span");
     sp.textContent = S.text[i];
-    sp.className = (focusMask[i] ? "fx" : "") + (learning() ? " later" : "") + (endAt >= 0 && i >= endAt ? " beyond" : "");
+    sp.className = (focusMask[i] ? "fx" : "") + (learnStream() ? " later" : "") + (endAt >= 0 && i >= endAt ? " beyond" : "");
     if (S.text[i] === " ") sp.dataset.sp = "";
     frag.appendChild(sp);
     spans.push(sp);
@@ -134,7 +134,7 @@ function appendPortions(list) {
 }
 
 function reveal() {
-  if (!learning()) return;
+  if (!learnStream()) return;
   shownWords = Math.max(shownWords, wordsTyped + SHOWN_AHEAD);
   for (; revealAt < spans.length && wordOf[revealAt] < shownWords; revealAt++) {
     spans[revealAt].classList.remove("later");
@@ -172,7 +172,7 @@ function mistypedWords(por) {
 const needMore = () => limit.kind === "time" || wordsLoaded < limit.n;
 
 function portionDone(k) {
-  if (!learning()) return freePortionDone(k);
+  if (!learnStream()) return freePortionDone(k);
   const por = portions[k];
   const samples = records.slice(sentUpTo, por.end + 1).filter(Boolean);
   sentUpTo = por.end + 1;
@@ -198,7 +198,7 @@ function freePortionDone(k) {
   sentUpTo = por.end + 1;
   showPortion(k + 1);
   if (!needMore()) return;
-  const how = { list: roundList(), variant: S.freetypeVariant };
+  const how = probe ? { list: probe.list, variant: "" } : { list: roundList(), variant: S.freetypeVariant };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -208,8 +208,8 @@ function freePortionDone(k) {
   }).catch((err) => { console.error(err); el.hint.textContent = t("err.server"); });
 }
 
-const portionRoute = () => (S.mode === "freetype" ? "/freetype/portion" : "/portion");
-const ownText = () => S.mode === "freetype" && S.freetypeVariant === "custom";
+const portionRoute = () => (probe || S.mode === "freetype" ? "/freetype/portion" : "/portion");
+const ownText = () => !probe && S.mode === "freetype" && S.freetypeVariant === "custom";
 const getPortions = (body) => ownText() ? Promise.resolve(customPortions(body.start, body.words)) : postJSON(portionRoute(), body);
 
 export const roundStarted = () => startTime !== null;
@@ -239,15 +239,51 @@ function resetStream() {
 
 const learnLevel = () => (reinforcing() ? wordLevel() : 0);
 
+// ---------- the check-in's sample: a timed round of common words, sent nowhere ----------
+let probe = null;   // { list, seconds, resolve } while a sample runs
+// Learn's stream (one word at a time, its routes) in Learn and Reinforce, not in a sample.
+const learnStream = () => learning() && !probe;
+export const probing = () => probe !== null;
+export function runProbe(list, seconds) {
+  return new Promise((resolve) => {
+    probe = { list, seconds, resolve };
+    loadExercise().catch(console.error);
+  });
+}
+export function cancelProbe() {
+  if (!probe) return;
+  const p = probe;
+  probe = null;
+  p.resolve(null);
+}
+// The same consistency as the server's (internal/engine/consistency.go).
+function consistencyOf(perSec) {
+  if (perSec.length < 5) return null;
+  const mean = perSec.reduce((a, x) => a + x, 0) / perSec.length;
+  if (!mean) return null;
+  const cv = Math.sqrt(perSec.reduce((a, x) => a + (x - mean) ** 2, 0) / perSec.length) / mean;
+  return 100 * (1 - Math.tanh(cv + cv ** 3 / 3 + cv ** 5 / 5));
+}
+function finishProbe() {
+  const end = lastTime;
+  const p = probe;
+  probe = null;
+  streamId++;
+  setTyping(false);
+  p.resolve({ wpm: currentWpm(end), accuracy: currentAccuracy(), consistency: consistencyOf(fullSeconds(end)) });
+}
+
 export async function loadExercise() {
   resetStream();
   const id = streamId;
   renderModeBar();
-  const next = lengthOf(S.settings.length);
+  const next = probe ? { kind: "time", n: probe.seconds } : lengthOf(S.settings.length);
   if (S.view === "type") renderNav();
-  const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
+  const words = learnStream() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
-  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: learnLevel(), round, portionIndex: 0, ack: 0 };
+  const body = probe
+    ? { start: true, words, recent: [], list: probe.list, variant: "" }
+    : { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: learnLevel(), round, portionIndex: 0, ack: 0 };
   const res = await getPortions(body);
   if (id !== streamId) return;
   roundBefore = S.lastStats;
@@ -449,7 +485,7 @@ function renderProgress() {
   if (!time) {
     const words = Math.min(wordsTyped, roundWords);
     shown = `${words} / ${roundWords}`;
-    const s = learning() && S.lastStats;
+    const s = learnStream() && S.lastStats;
     if (s?.lap) tip = `${t("lp.lap")} ${t("lp.lapOf", { n: s.lap + 1, all: s.lastLap + 1 })}. ${t("lp.lapTip", { w: s.targetWpm })}`;
   } else {
     const passed = startTime === null ? 0 : (performance.now() - startTime) / 1000;
@@ -467,7 +503,7 @@ export function restartRound() {
 }
 
 function abortRound() {
-  if (!learning() || startTime === null || !round) return;
+  if (!learnStream() || startTime === null || !round) return;
   const keys = records.filter(Boolean);
   if (!keys.length) return;
   roundEnded(typedSeconds(lastTime));
@@ -525,7 +561,7 @@ setInterval(() => {
   const now = performance.now();
   if (limit.kind === "time") renderProgress();
   S.roundSeconds = typedSeconds(lastTime);
-  tickGoal();
+  if (!probe) tickGoal();
   if (timeUp(now)) finishRound();
   else if (now - lastTime > IDLE_PAUSE_MS) pauseRound(lastTime);
 }, 500);
@@ -548,6 +584,7 @@ function resumeRound(now) {
 }
 
 async function finishRound() {
+  if (probe) { finishProbe(); return; }
   S.busy = true;
   const end = lastTime;
   roundEnded(typedSeconds(end));

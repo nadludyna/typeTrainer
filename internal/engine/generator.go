@@ -492,6 +492,7 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 			continue
 		}
 		slots[free[g.rng.Intn(len(free))]] = idx
+		uses[idx]++
 		placed++
 	}
 
@@ -502,8 +503,8 @@ func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recen
 				next = slots[i+1]
 			}
 			slots[i] = pl.pickWord(por.Focus, uses, p, g.rng.Float64(), last, next)
+			uses[slots[i]]++
 		}
-		uses[slots[i]]++
 		last = slots[i]
 	}
 	por.Words = make([]string, len(slots))

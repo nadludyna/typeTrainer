@@ -170,6 +170,35 @@ func TestPortion_MaxRepeatsInARound(t *testing.T) {
 	}
 }
 
+// A mistyped word placed in a later slot counts before the slots in front of
+// it are filled, so it never comes a third time in a round, even in an early
+// lesson whose few words run out.
+func TestPortion_MaxRepeatsWithRetry(t *testing.T) {
+	p := testParams
+	p.StartLetters, p.MinWords = 3, 1
+	words := append(abWords()[2:20], "cab", "abc")
+	good := KeyStat{Count: 100, ErrEMA: 0.01, TimeEMA: 300, TimedCount: 100, Held: true}
+	stats := map[string]KeyStat{"a": good, "b": good, "c": {}}
+	for seed := int64(0); seed < 300; seed++ {
+		g := NewGenerator(words, newRng(seed), p)
+		var round []string
+		for i := 0; i < p.RoundPortions; i++ {
+			var retry []string
+			if n := len(round); n >= 2 {
+				retry = []string{round[n-1], round[n-2]}
+			}
+			round = append(round, g.Portion(stats, 3, 0, round, retry, p).Words...)
+		}
+		uses := map[string]int{}
+		for _, w := range round {
+			uses[w]++
+			if uses[w] > p.MaxRepeats {
+				t.Fatalf("seed %d: %q %d times in %v", seed, w, uses[w], round)
+			}
+		}
+	}
+}
+
 func TestNewGenerator_MinWordLetters(t *testing.T) {
 	words := strings.Fields("a i as is sa si ass")
 	p := testParams

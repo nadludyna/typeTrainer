@@ -11,10 +11,15 @@ const cols = $("lp-cols");
 const AVG_ROUNDS = 10, AVG_MIN = 3;
 
 let activity = null, activityLang = "";
+// Seconds of rounds that ended but are not in `activity` yet, so the daily
+// goal never steps back while a round is being saved.
+let pending = 0;
+export function roundEnded(seconds) { pending += seconds; }
 export async function refreshActivity() {
   try {
     activity = (await getJSON(`/activity?tz=${-new Date().getTimezoneOffset()}`)).days;
     activityLang = S.lang;
+    pending = 0;
   } catch (err) { console.error(err); }
   renderPanel();
 }
@@ -94,7 +99,7 @@ function goalState() {
   goalBtn.classList.remove("met");
   if (!goal) { goalBtn.textContent = t("lp.goalNone"); goalBtn.dataset.tipText = t("lp.goalOff"); return; }
   const byDate = activityLang === S.lang && activity ? Object.fromEntries(activity.map((d) => [d.date, d.seconds])) : {};
-  const need = goal * 60, base = byDate[dayKey(0)] ?? 0, today = base + (goalTyping ? S.roundSeconds : 0);
+  const need = goal * 60, base = (byDate[dayKey(0)] ?? 0) + pending, today = base + (goalTyping ? S.roundSeconds : 0);
   const met = today >= need;
   let days = 0;
   for (let back = met ? 0 : 1; (byDate[dayKey(back)] ?? 0) >= need; back++) days++;
@@ -103,14 +108,14 @@ function goalState() {
   fillGoal(today);
   goalBtn.dataset.tipText = [t(met ? "lp.goalMet" : "lp.goal"), days >= 2 ? t("lp.goalDays", { n: days }) : "", t("lp.goalClick")].filter(Boolean).join(" ");
 }
+// Reaching the goal never stops the round: the counter only turns done.
 export function tickGoal() {
-  if (goalBtn.hidden) return false;
+  if (goalBtn.hidden) return;
   if (!goalTyping) renderPanel();
-  if (!goalNow) return false;
+  if (!goalNow) return;
   const today = goalNow.base + S.roundSeconds;
   fillGoal(today);
-  if (today >= goalNow.need) { renderPanel(); return true; }
-  return false;
+  if (today >= goalNow.need) renderPanel();
 }
 goalBtn.addEventListener("click", () => pickDaily(goalBtn, renderPanel));
 

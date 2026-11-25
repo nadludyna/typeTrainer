@@ -16,6 +16,73 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 
 ---
 
+## 0. Three algorithms, one loop
+
+The product has three modes, and each one trains one skill: Learn trains
+accuracy, Reinforce trains speed, Freetype trains rhythm. Each mode runs the
+same loop:
+
+```
+your presses  ->  a model of you  ->  a decision  ->  your next presses
+(letter,          (numbers per        (which words
+ right or wrong,   letter and per      come next, and
+ milliseconds)     pair of letters)    when you move on)
+```
+
+This loop is what "adaptive" means here: the next text and the next step
+are computed from your own measured presses. A fixed or random text does
+not read them. All three modes share the input. Each mode has its own
+model and its own output, and each mode changes its model once per round,
+at `/results`.
+
+### 0.1 Learn: accuracy
+
+| | |
+|---|---|
+| Input | For every press: the letter, and whether it was right on the first try. |
+| Model | The accuracy of each letter over its last `AccWindow = 100` presses, with `AccPrior = 3` presses imagined as misses: `accuracy = right / (presses + 3)`. An unseen letter is at 0 %. A letter falls below 85 % (`AccSlip`): it has slipped, and it stays slipped until it is back at 90 % (`AccMaster`). |
+| Output 1: the next letter | It opens when the newest letter is at 90 % or more and no open letter is under 85 %. At most one letter per round. The order is fixed: the home row first, then by frequency. |
+| Output 2: the focus | The older letter that slipped and is the least accurate. If no older letter slipped, the newest letter. Each portion of 6 words is built around the focus letter. |
+| Output 3: the words | Real words made only of open letters. A word's weight is `exp(mean difficulty of its letters / 0.1)`, where `difficulty = 1 - accuracy` (+ 0.2 while a letter is under 90 %). Weak pairs make a word 3 times more likely, a recent word gets `x 0.3`, and a word comes at most 2 times per round. |
+| Status | Built. Sections 6, 7 and 14. |
+
+### 0.2 Reinforce: speed
+
+| | |
+|---|---|
+| Input | Learn's input, plus the time of each clean press. |
+| Model | For each letter: the error rate (EMA, `ErrAlpha = 0.05`) and the time of a press (EMA, `Alpha = 0.1`). Both are compared with the target speed: `TargetMs = 12000 / TargetWPM`. Together they give a difficulty and a level from 0 to 100 (section 5). The weak pairs are the pairs of letters with the highest cost over the last 20 rounds; a miss costs 1000 ms. |
+| Output 1: the words | At the chosen word level (the 200 ... 25 000 most common words). Each portion has a focus letter, drawn with softmax over difficulty. Slow letters and weak pairs come more often. |
+| Output 2: the speed goal | It goes up by one step of 10 wpm once every letter is mastered at the current goal. It starts at 30 and stops at 200. |
+| Output 3: the word level | Not built yet. Planned: it moves up by itself after 3 rounds at the goal speed with 95 % accuracy or more, and down after 2 rounds below. This is the same pass, hold and fail rule as `freeplay.Judge` and `Standing`, with speed added. A level picked by hand starts the climb from there. |
+| Status | The words and the speed goal are built (section 6.1). The word level only moves by hand. |
+
+### 0.3 Freetype: rhythm
+
+| | |
+|---|---|
+| Input | Learn's input, plus the time between keys and between words. |
+| Model | Planned: for each pair of letters, how much its time varies, and the stumbles (a pause much longer than your own median). The number of the round is consistency (section 0.5). |
+| Output | Planned: words with your stumble pairs come more often, and the level moves by consistency. |
+| Status | Not built. Today Freetype draws words evenly from the N most common words, and consistency is only measured and shown. |
+
+### 0.4 Advice, on top of the three
+
+Planned: each mode's stats read its last rounds and say one thing, for
+example "accuracy holds: try Reinforce" or "slow down, accuracy is
+dropping". Advice never switches the mode by itself. It is not part of the
+adaptive loop. It only helps the person choose a mode.
+
+### 0.5 The numbers of a round
+
+| Number | Formula | Where |
+|---|---|---|
+| WPM | `(correct characters / 5) / minutes` | `web/typing.js` `currentWpm` |
+| Accuracy | `right presses / all presses * 100` | `web/typing.js` `currentAccuracy` |
+| Consistency | `cv = σ / μ` of the keys per second, then `100 * (1 - tanh(cv + cv³/3 + cv⁵/5))`; none under 5 seconds | `internal/engine/consistency.go` |
+
+---
+
 ## 1. The idea in plain words
 
 1. For every letter the program remembers two numbers: how often you make a
@@ -70,13 +137,14 @@ every letter opened. A margin between "reach" and "keep" (hysteresis, as a
 thermostat has) makes the state stable: a letter is reached once and lost only
 for a clear reason.
 
-### Why the forecast counts mistakes
+### Why the forecast draws a line through the level
 
-One slip lifts `ErrEMA` by about `Alpha` = 0.1 at once (section 4). A line
-through the rounds would point up, as if the letter got worse. Counting the
-mistakes of the window and using the EMA's own formula is calm about a single
-slip and still honest: if the recent mistakes are not under 5 %, the EMA cannot
-get there either.
+The forecast (section 6.2) fits a least-squares line through a letter's
+level over its last 10 rounds. Under Learn's accuracy rules the level is
+the letter's accuracy. One round is noisy: a single slip lowers the
+accuracy by about one point, and it lifts `ErrEMA` by `ErrAlpha` = 0.05. A
+line through ten rounds follows the trend, not the last slip. While the
+line does not rise, the forecast gives no answer rather than a wrong one.
 
 ### Why a straight line for the speed
 

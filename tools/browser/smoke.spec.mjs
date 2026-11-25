@@ -75,6 +75,25 @@ test("Learn: the line over the text holds the last round, the daily goal and the
   await expect(page.locator("#mini-pop button[data-key=\"daily\"]").first(), "the number changes the daily goal").toBeVisible();
 });
 
+test("Learn: the daily goal counts typed time only and never steps back", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "learn" });
+  const goal = page.locator("#goal-count");
+  const seconds = async () => {
+    const [m, s] = (await goal.textContent()).split(" ")[0].split(":").map(Number);
+    return m * 60 + s;
+  };
+  for (let i = 0; i < 6; i++) { await page.keyboard.type(await nextChar(page)); await page.waitForTimeout(400); }
+  await page.waitForTimeout(600);
+  const typed = await seconds();
+  expect(typed, "the first keys count").toBeGreaterThanOrEqual(1);
+  await page.waitForTimeout(3000);
+  expect(await seconds(), "time without keys does not count").toBe(typed);
+  await page.keyboard.press("Tab");
+  await waitForText(page);
+  await page.waitForTimeout(800);
+  expect(await seconds(), "a round dropped by Tab keeps its time").toBe(typed);
+});
+
 test("Learn: a best round's speed is gold, the letters change state without motion", async ({ page }) => {
   await withHistory(page);
   await openApp(page, { "tt.mode.en": "learn" });

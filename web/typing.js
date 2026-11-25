@@ -8,7 +8,7 @@ import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
 import { showResult } from "./result.js";
 import { renderLetters } from "./letters.js";
-import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal } from "./learnpanel.js";
+import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal, roundEnded } from "./learnpanel.js";
 import { learning, refreshFreeplay, renderNav } from "./modes.js";
 import { renderModeBar } from "./modebar.js";
 import { lengthOf } from "./settings.js";
@@ -147,7 +147,7 @@ function showPortion(i) {
   renderTop();
 }
 function renderTop() {
-  S.roundSeconds = startTime === null ? 0 : (performance.now() - startTime) / 1000;
+  S.roundSeconds = typedSeconds(lastTime);
   renderLetters();
   renderPanel();
   autoKb();
@@ -470,7 +470,9 @@ function abortRound() {
   if (!learning() || startTime === null || !round) return;
   const keys = records.filter(Boolean);
   if (!keys.length) return;
-  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length, seconds: typedSeconds(lastTime) }).catch(console.error);
+  roundEnded(typedSeconds(lastTime));
+  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length, seconds: typedSeconds(lastTime) })
+    .then(refreshActivity, console.error);
 }
 
 export function checkLayout() {
@@ -488,6 +490,8 @@ function currentRaw(end = performance.now()) {
   const minutes = (end - startTime) / 60000;
   return minutes > 0 ? (presses / 5) / minutes : 0;
 }
+// A round's time is from its first key to its last, pauses left out: the
+// daily goal counts it live, and the same number is saved with the round.
 function typedSeconds(end) {
   return startTime === null || end === null ? 0 : Math.max(0, (end - startTime) / 1000);
 }
@@ -520,7 +524,7 @@ setInterval(() => {
   if (startTime === null || S.busy || pausedAt !== null) return;
   const now = performance.now();
   if (limit.kind === "time") renderProgress();
-  S.roundSeconds = (now - startTime) / 1000;
+  S.roundSeconds = typedSeconds(lastTime);
   tickGoal();
   if (timeUp(now)) finishRound();
   else if (now - lastTime > IDLE_PAUSE_MS) pauseRound(lastTime);
@@ -546,6 +550,7 @@ function resumeRound(now) {
 async function finishRound() {
   S.busy = true;
   const end = lastTime;
+  roundEnded(typedSeconds(end));
   const wpm = Math.round(currentWpm(end) * 10) / 10;
   const accuracy = Math.round(currentAccuracy() * 10) / 10;
   el.live.classList.add("final");

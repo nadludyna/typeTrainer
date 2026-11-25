@@ -102,4 +102,3 @@ func TestWeakPairs_TopFew(t *testing.T) {
 		t.Fatalf("top three: %v", got)
 	}
 }
-

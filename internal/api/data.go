@@ -21,11 +21,11 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request, user string
 }
 
 type langExport struct {
-	Unlocked    int                       `json:"unlocked"`
-	Keys        map[string]engine.KeyStat `json:"keys"`
-	Sessions    []storage.Session         `json:"sessions"`
-	Lap         int                       `json:"lap,omitempty"`
-	Freetype    map[string]freeplayExport `json:"freetype,omitempty"`
+	Unlocked int                       `json:"unlocked"`
+	Keys     map[string]engine.KeyStat `json:"keys"`
+	Sessions []storage.Session         `json:"sessions"`
+	Lap      int                       `json:"lap,omitempty"`
+	Freetype map[string]freeplayExport `json:"freetype,omitempty"`
 }
 
 type freeplayExport struct {

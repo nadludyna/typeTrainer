@@ -205,4 +205,3 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 	}
 	return found
 }
-

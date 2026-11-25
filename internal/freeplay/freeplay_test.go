@@ -219,4 +219,3 @@ func TestDraw_FullWeighing(t *testing.T) {
 		}
 	}
 }
-

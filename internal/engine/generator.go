@@ -552,4 +552,3 @@ func WeightedPick(weights []float64, r float64) int {
 	}
 	return len(weights) - 1
 }
-

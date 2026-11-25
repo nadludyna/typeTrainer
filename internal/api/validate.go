@@ -65,7 +65,6 @@ func validLength(length string, maxWords, maxSeconds int) bool {
 	return false
 }
 
-
 func validDevice(d string) bool {
 	return d == "" || d == storage.DeviceKeyboard || d == storage.DeviceTouch
 }

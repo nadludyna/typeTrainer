@@ -54,26 +54,27 @@ func (s *Server) handleLearnStep(w http.ResponseWriter, r *http.Request, user st
 		badRequest(w, "step: 0 to the last step")
 		return
 	}
-	lap, err := s.store.Lap(user, id)
-	if err != nil {
+	if err := s.setStep(user, id, req.Step); err != nil {
 		serverError(w, err)
 		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"step": req.Step, "targetWpm": who.base.ForLap(req.Step, s.cfg.Laps).TargetWPM})
+}
+
+// setStep moves Reinforce's speed goal to a step. Mastery starts over at the
+// new goal, as after a step reached by typing. The caller holds writeMu.
+func (s *Server) setStep(user, id string, step int) error {
+	lap, err := s.store.Lap(user, id)
+	if err != nil || step == lap {
+		return err
 	}
 	unlocked, err := s.store.Unlocked(user, id)
 	if err != nil {
-		serverError(w, err)
-		return
+		return err
 	}
-	if req.Step != lap {
-		stats, err := s.store.KeyStats(user, id)
-		if err != nil {
-			serverError(w, err)
-			return
-		}
-		if err := s.store.SaveLearned(user, id, storage.Learned{Stats: engine.StartLap(stats), Unlocked: unlocked, Lap: req.Step}); err != nil {
-			serverError(w, err)
-			return
-		}
+	stats, err := s.store.KeyStats(user, id)
+	if err != nil {
+		return err
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"step": req.Step, "targetWpm": who.base.ForLap(req.Step, s.cfg.Laps).TargetWPM})
+	return s.store.SaveLearned(user, id, storage.Learned{Stats: engine.StartLap(stats), Unlocked: unlocked, Lap: step})
 }

@@ -44,7 +44,21 @@ type Config struct {
 	Forecast              engine.ForecastParams
 	Words                 engine.WordParams
 	Freeplay              freeplay.Params
+	Checkin               Checkin
 	Sim                   sim.Params
+}
+
+// Checkin is the first visit of a mode (docs/HOW-THE-MODES-WORK.md, section 0.6).
+type Checkin struct {
+	SampleWords   int       // the Reinforce sample's word list
+	FreetypeWords int       // the Freetype sample's word list
+	SampleSeconds int       // how long a sample is
+	SomeLetters   int       // Learn's start for "a little" and "yes"
+	GoalMargin    float64   // the goal is the first step this far above the sample's speed
+	LevelAccuracy []float64 // a word level for each accuracy, highest first
+	LevelFor      []int     // ... the word level (1 = the first) for each of them
+	ListSpeed     []float64 // a Freetype list for each speed, highest first
+	ListFor       []int     // ... the list for each of them
 }
 
 type Server struct {
@@ -88,8 +102,15 @@ func Default() Config {
 		StreakAccuracies:      []float64{95, 97, 100},
 		ConfusionMin:          3,
 		Laps:                  engine.LapParams{StepWPM: 10, MaxWPM: 200},
-		Forecast:              engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
-		ConfusionShown:        6,
+		Checkin: Checkin{
+			SampleWords: 200, FreetypeWords: 1000, SampleSeconds: 30,
+			SomeLetters:   10,
+			GoalMargin:    5,
+			LevelAccuracy: []float64{97, 94}, LevelFor: []int{3, 2},
+			ListSpeed: []float64{70, 40}, ListFor: []int{5000, 1000},
+		},
+		Forecast:       engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
+		ConfusionShown: 6,
 		Auth: auth.Params{
 			Iterations:    600000,
 			LoginDays:     30,

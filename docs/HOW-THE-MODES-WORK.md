@@ -38,15 +38,14 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
    common words to type (200 up to 25k), weak letters and letter pairs come
    more often, and the speed goal grows in steps up to 200 wpm (section 6.1).
 
-Climb and Freetype (sections 12-13) are hidden and not developed; they never
-feed this model.
+Freetype (section 13) is hidden and not developed; it never feeds this model.
 
 ## 2. Design decisions
 
 | Decision | Alternative | Why this one |
 |---|---|---|
 | Real words only | Generated letter combinations (pseudo-words) | Words are what people type in real life, they are easier to read and read faster, and they keep motivation up. Cost: early lessons have fewer possible texts. Handled by the unlock order and the `MinWords` rule (section 6). |
-| Statistics per letter | Per key pair (bigram), per word | Simplest unit that can be explained and shown on the keyboard. Climb tracks pairs (section 12.1). |
+| Statistics per letter | Per key pair (bigram), per word | Simplest unit that can be explained and shown on the keyboard. Reinforce brings weak pairs more often (section 6.1). |
 | Smoothed recent statistics (EMA) | Lifetime totals | Skill changes. A lifetime error rate remembers mistakes from weeks ago forever. |
 | Probabilistic choice (softmax) | Always train the single worst letter | Always drilling one letter is boring and over-fits; probabilities give focus *and* variety. |
 | Gradual unlocking | All 26 letters from the start | A beginner cannot learn 26 finger positions at once. Experienced typists go through the same steps, only much faster. |
@@ -191,7 +190,7 @@ raw      = (all keypresses / 5) / minutes             (wrong presses count too)
 accuracy = correct keypresses / all keypresses * 100  (a skipped letter = one wrong press)
 ```
 
-`raw` is shown on the result screen of Climb and Freetype; it is not sent to
+`raw` is shown on the result screen of Freetype; it is not sent to
 the server and the model does not use it.
 
 **Consistency** (`internal/engine/consistency.go`) tells how even the speed
@@ -365,16 +364,36 @@ letter row with the word level and the speed goal (`web/modebar.js`,
 
 **Word level.** The learner picks one of ten levels, the most common
 200, 500, 1k, 2k, 3k, 5k, 7.5k, 10k, 15k or 25k words of the long list
-(`free.txt`; the same sizes as Climb, `Freeplay.Levels`). The words come
+(`free.txt`, `Freeplay.Levels`). The words come
 only from that level (`Generator.WithWords`), the whole level at once:
 no rank penalty inside it. The browser keeps the choice per language
 (`tt.wordLevel.<lang>`) and sends it with every portion; a round keeps its
 level (`sessions.level`).
 
-**Weak pairs** (in Learn too, from its first rounds). The letter pairs that slow the last `WeakRounds` Learn
-rounds down the most (`freeplay.WeakPairs`, as in Climb) make their words
-more likely: the weight of a word grows by `PairBoost` (2, so 3 times) for
-each weak pair in it (`Generator.WithPairs`).
+| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Words | 200 | 500 | 1 000 | 2 000 | 3 000 | 5 000 | 7 500 | 10 000 | 15 000 | 25 000 |
+
+The steps roughly double because word frequencies fall steeply (Zipf's law).
+The level moves only by hand for now. The rule planned for moving it by
+itself (section 0.2) is already in `internal/freeplay` (`Judge`,
+`Standing`): a round at 96 % accuracy or more passes, under 92 % fails,
+between them counts for nothing; three passes with no fail between them
+move one level up, two fails in a row one down.
+
+**Weak pairs** (in Learn too, from its first rounds). A typist who can
+already type is slow on a movement between two keys, not on a letter. From
+the raw keys of the last `WeakRounds = 20` Learn rounds
+(`internal/freeplay/weak.go`):
+
+```
+cost(pair) = (sum of clean timed ms + mistakes * 1000) / (clean timed presses + mistakes)
+```
+
+The `WeakPairs = 3` most costly pairs with at least `WeakMinSamples = 15`
+presses and a cost over the typist's average are weak. They make their
+words more likely: the weight of a word grows by `PairBoost` (2, so 3
+times) for each weak pair in it (`Generator.WithPairs`).
 
 **Speed goal steps** (`engine.LapParams`, `lap.go`):
 
@@ -515,7 +534,7 @@ words or an hour at 30 WPM; then the penalty is gone. Choices behind this:
   lengths (10 words to 90 seconds, section 7, "The round"), so "N rounds"
   would mean different amounts of practice. Typed letters do not depend on
   the round length. Letter mastery no longer measures progress here: every
-  letter is already mastered once the last one opens. Climb does not
+  letter is already mastered once the last one opens. Freetype does not
   count: it never touches learning data. The number is computed from the
   history, so it needs no new stored field and survives export/import; a
   reset starts it again.
@@ -567,7 +586,7 @@ out of learning when the generator is made (`NewGenerator`): `a` and
 `i`. They are among the most common words of the list, so they came up often, and a lone letter is not a word to
 practise. They are left out before anything is
 counted, so they take no part in the unlock order, the first lesson or the
-ranks. The word list keeps them (section 11): Climb and Freetype are not
+ranks. The word list keeps them (section 11): Freetype is not
 affected.
 
 **Mistyped words come back.** Words the user typed with a mistake (a wrong or
@@ -609,7 +628,7 @@ seconds without a key, pauses it: the time away is taken out of the round
 the last key on), and the first key after the pause is not measured, like
 the first key after a Backspace.
 
-A Learn round is 30 words (`RoundPortions` portions); Climb and Freetype also offer 10 to 50 words or
+A Learn round is 30 words (`RoundPortions` portions); Freetype also offers 10 to 50 words or
 15 to 90 seconds (`web/settings.js`, `LENGTHS`). Only the end of the round moves: the stream
 keeps asking for portions until the round has enough words (a time round
 until the time is up), and a words round ends on the last letter of its
@@ -782,18 +801,6 @@ simulation compares strategies under the same assumptions; it does not predict
 how fast a real person learns. The variety numbers are simple proxies; how
 boring an exercise feels can only be measured with real users.
 
-### 10.1 Checking it on people
-
-A hidden control group lets the algorithm be compared with random words on
-real people. `?group=random` in the address puts that browser (or account)
-into the control group, `?group=adaptive` takes it back (`web/app.js`,
-`POST /api/v1/group`). The group is never shown. In the control group Learn
-works as usual except the word choice: `Generator.RandomPortion` draws the
-open words evenly, never the same word twice in a row, with no focus letter,
-no frequency penalty and no mistyped words coming back. Every Learn round
-stores its group (`Session.Group`, in `/export` too). A reset or a new
-browser drops the group.
-
 ## 11. Layout and word lists
 
 **Layout** (`data/layouts/`): English QWERTY. Finger zones are by key position.
@@ -814,45 +821,9 @@ FrequencyWords (Hermit Dave), counted in the OpenSubtitles 2018 corpus
 only use a few letters, from repeating the same words: short words that are
 not common are what those lessons need most.
 
-## 12. Climb, hidden
+## 13. Freetype
 
-Code: `internal/freeplay` (tests in `freeplay_test.go`), routes in
-`internal/api/freeplay.go`. Hidden from the menu and not developed; it never
-touches Learn's data. Its parts that Reinforce may reuse:
-
-**Levels** (`Params.Levels`): level n draws evenly from the n-th number of
-most common words of the long list (section 13), words of one letter left
-out; a recent word is rarer, never the same word twice in a row.
-
-| Level | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Words | 200 | 500 | 1 000 | 2 000 | 3 000 | 5 000 | 7 500 | 10 000 | 15 000 | 25 000 |
-
-The steps roughly double because word frequencies fall steeply (Zipf's law).
-
-**Verdict and moving** (`Judge`, `Standing`): a round at 96 % accuracy or
-more passes, under 92 % fails, between them counts for nothing. Three passes
-with no fail between them move one level up, two fails in a row one down.
-Speed never counts. Every round keeps its level; nothing else is stored.
-
-### 12.1 Weak pairs
-
-Code: `internal/freeplay/weak.go`. A typist who can already type is slow on
-a movement between two keys, not on a letter. From the raw keys of the last
-`WeakRounds = 20` Climb rounds:
-
-```
-cost(pair) = (sum of clean timed ms + mistakes * 1000) / (clean timed presses + mistakes)
-```
-
-The `WeakPairs = 3` most costly pairs with at least `WeakMinSamples = 15`
-presses and a cost over the typist's average are weak. Each word of a
-portion is, with the chance `WeakShare = 0.5`, drawn from the words with a
-weak pair (only if the level has at least `WeakMinWords = 10` of them).
-
-## 13. Freetype, hidden
-
-Hidden from the menu and not developed. Words drawn evenly from the n most
+Hidden from the menu for now and not developed. Words drawn evenly from the n most
 common of the long list (`FreetypeLists`: 200 to 25 000), or a kind of text
 with its own history: long words (6+ letters), real sentences, or your own
 pasted text (kept in the browser only). Nothing adapts.

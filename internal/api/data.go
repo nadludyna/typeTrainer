@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
 	"typingtrainer/internal/storage"
 )
 
@@ -22,14 +21,11 @@ func (s *Server) handleReset(w http.ResponseWriter, r *http.Request, user string
 }
 
 type langExport struct {
-	Unlocked    int                       `json:"unlocked"`
-	Keys        map[string]engine.KeyStat `json:"keys"`
-	Sessions    []storage.Session         `json:"sessions"`
-	Group       string                    `json:"group,omitempty"`
-	Lap         int                       `json:"lap,omitempty"`
-	Freeplay    *freeplayExport           `json:"freeplay,omitempty"`
-	ClimbLevels int                       `json:"climbLevels,omitempty"`
-	Freetype    map[string]freeplayExport `json:"freetype,omitempty"`
+	Unlocked int                       `json:"unlocked"`
+	Keys     map[string]engine.KeyStat `json:"keys"`
+	Sessions []storage.Session         `json:"sessions"`
+	Lap      int                       `json:"lap,omitempty"`
+	Freetype map[string]freeplayExport `json:"freetype,omitempty"`
 }
 
 type freeplayExport struct {
@@ -74,17 +70,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 		serverError(w, err)
 		return
 	}
-	group, err := s.store.Group(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 	lap, err := s.store.Lap(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	free, err := s.allFreeplay(user, id, storage.ModeClimb)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -102,8 +88,8 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 		}
 	}
 	writeJSON(w, http.StatusOK, langExport{
-		Unlocked: unlocked, Keys: keys, Sessions: oldestFirst(newestFirst), Group: group, Lap: lap,
-		Freeplay: &freeplayExport{Sessions: free}, ClimbLevels: len(s.cfg.Freeplay.Levels), Freetype: freetype,
+		Unlocked: unlocked, Keys: keys, Sessions: oldestFirst(newestFirst), Lap: lap,
+		Freetype: freetype,
 	})
 }
 
@@ -136,14 +122,6 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	}
 	id := l.Info.ID
 	histories := map[string][]storage.Session{}
-	if in.Freeplay != nil {
-		if in.ClimbLevels == 0 {
-			for i := range in.Freeplay.Sessions {
-				in.Freeplay.Sessions[i].Level = float64(freeplay.LevelFromOld(in.Freeplay.Sessions[i].Level))
-			}
-		}
-		histories[storage.ModeClimb] = in.Freeplay.Sessions
-	}
 	for list, f := range in.Freetype {
 		n, v, _ := storage.ParseFreetypeKey(list)
 		histories[storage.FreetypeMode(n, v)] = f.Sessions
@@ -152,34 +130,13 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
 	if err := s.store.Import(user, id, storage.ImportData{
-		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap, Group: in.Group,
+		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap,
 		Sessions: in.Sessions, Freeplay: histories,
 	}); err != nil {
 		serverError(w, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"unlocked": in.Unlocked, "sessions": len(in.Sessions)})
-}
-
-func (s *Server) handleGroup(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	var req struct {
-		Group string `json:"group"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxSmallBodyBytes))).Decode(&req); err != nil {
-		badRequest(w, "invalid JSON")
-		return
-	}
-	if !validGroup(req.Group) {
-		badRequest(w, "group: unknown")
-		return
-	}
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	if err := s.store.SetGroup(user, l.Info.ID, req.Group); err != nil {
-		serverError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"group": req.Group})
 }
 
 // POST: Learn starts over; the other modes keep their rounds.

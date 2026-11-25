@@ -45,13 +45,6 @@ body.reinforce .letter-row { flex: none; }
 .stand { display: flex; align-items: flex-end; gap: 40px; height: 180px; margin-top: 44px; }
 body[data-mode="learn"] .stand, body.tb-resulting .stand { display: none; }
 body.typing-now .stand { visibility: hidden; }
-.steps { flex: 1; min-width: 0; height: 100%; display: flex; gap: 6px; align-items: flex-end; }
-.step { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 6px; color: var(--sub); font-size: var(--fs-min); }
-.step i { width: 100%; height: calc(14px + var(--i) * 14px); border-radius: 6px 6px 2px 2px; background: var(--panel-2); box-shadow: var(--ring); }
-.step.past { color: var(--text); }
-.step.past i { background: color-mix(in srgb, var(--accent) 35%, var(--panel-2)); }
-.step.on { color: var(--accent-text); }
-.step.on i { background: var(--accent); }
 .stand-fact { flex: none; margin: 0; display: flex; flex-direction: column; gap: 4px; }
 .stand-fact small { color: var(--label); font-size: var(--fs-min); }
 .stand-fact b { font-size: var(--fs-l); font-weight: 500; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
@@ -61,8 +54,6 @@ body.typing-now .stand { visibility: hidden; }
 .stand-none { margin: 0; color: var(--label); }
 /* with the keyboard on, the block is a strip between the text and the keys */
 body:not(.kb-hidden) .stand { height: 40px; margin-top: 8px; gap: 24px; }
-body:not(.kb-hidden) .step > span { display: none; }
-body:not(.kb-hidden) .step i { height: calc(4px + var(--i) * 4px); }
 body:not(.kb-hidden) .stand-fact { flex-direction: row; align-items: baseline; gap: 8px; }
 body:not(.kb-hidden) .stand-fact b { font-size: var(--fs-m); }
 
@@ -82,15 +73,10 @@ body.peek-on :is(#keyboard, #stand, #kb-away) { visibility: hidden; }
 .peek-end { margin-left: auto; }
 .peek-key { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 2rem; padding: 0 6px; border-radius: var(--r-sm); background: var(--panel-2); color: var(--text); font-size: var(--fs-s); font-weight: 500; }
 
-.climb-status { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--sub); font-size: var(--fs-min); white-space: nowrap; cursor: default; }
-.climb-status b { color: var(--text); font-weight: 500; }
-.climb-status .pips { margin-left: 0; }
 :root { --text-l: 32px; --text-r: 32px; }
-/* Learn's last round and Climb's first note wait where the numbers come */
-.lp-cols, .climb-note { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; }
-.climb-note { right: 8rem; color: var(--label); font-size: var(--fs-min); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.climb-note[hidden] { display: none; }
-body.typing-now .climb-note, body.typing-now:not([data-live="off"]) .lp-cols { visibility: hidden; }
+/* Learn's last round waits where the numbers come */
+.lp-cols { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; }
+body.typing-now:not([data-live="off"]) .lp-cols { visibility: hidden; }
 .lp-cell { display: flex; align-items: baseline; gap: .5ch; font-size: var(--fs-s); line-height: 1.3; color: var(--text); white-space: nowrap; cursor: default; }
 .lp-cell b { font-size: var(--fs-m); font-weight: 500; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 .lp-cell small { font-size: var(--fs-min); color: var(--label); }
@@ -174,7 +160,6 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
   color: var(--accent-text); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-text) 60%, transparent);
 }
 .pause-ic svg { width: 22px; height: 22px; fill: currentColor; }
-.pause-ic .goal-ic { fill: none; }
 .pause-note b { font-size: var(--fs-m); font-weight: 500; letter-spacing: -.01em; color: var(--text); margin-bottom: 10px; }
 .pause-go { color: var(--sub); font-size: var(--fs-min); }
 .pause-go kbd {
@@ -183,10 +168,6 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
 }
 .pause-note small { color: var(--label); font-size: var(--fs-min); margin-top: 4px; }
 .text-box.paused .pause-note { opacity: 1; }
-.pause-note .goal-only, .pause-ic .goal-ic, .text-box.goal .pause-ic svg:not(.goal-ic),
-.text-box.goal .pause-note > :is([data-i18n="pause.title"], [data-i18n="pause.away"]) { display: none; }
-.text-box.goal .pause-note .goal-only, .text-box.goal .pause-ic .goal-ic { display: revert; }
-.text-box.goal .pause-ic { color: var(--ok); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ok) 60%, transparent); }
 .text, .live, .focus-hint, .pause-note {
   transition: opacity var(--t-in) var(--ease), visibility var(--t-in) allow-discrete;
 }
@@ -383,9 +364,5 @@ body.kb-nofit:not(.kb-hidden) .kb-away { display: block; }
     0 2px 0 rgba(0, 0, 0, .35);
 }
 
-.pips { display: inline-flex; gap: 5px; margin-left: 8px; vertical-align: middle; }
-.pips i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--sub); }
-.pips i.on { background: var(--ok); border-color: var(--ok); }
-.pips i.slip { background: var(--error); border-color: var(--error); }
 .r-unsaved { margin: 0; font-size: var(--fs-m); color: var(--error); display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .r-unsaved .btn { font-size: var(--fs-s); }

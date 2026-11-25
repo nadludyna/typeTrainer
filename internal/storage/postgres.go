@@ -209,21 +209,6 @@ func (p *PostgresStore) ResetLearn(user, lang string) error {
 	})
 }
 
-func (p *PostgresStore) Group(user, lang string) (string, error) {
-	var g string
-	err := p.db.QueryRow(`SELECT study_group FROM progress WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&g)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
-	}
-	return g, err
-}
-
-func (p *PostgresStore) SetGroup(user, lang, group string) error {
-	_, err := p.db.Exec(`INSERT INTO progress (user_id, lang, study_group) VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, lang) DO UPDATE SET study_group = EXCLUDED.study_group`, user, lang, group)
-	return err
-}
-
 const modeLearning = "learning"
 
 type execer interface {
@@ -257,10 +242,10 @@ func addSession(db execer, user, lang, mode string, s Session) error {
 	}
 	s = s.WithLength()
 	_, err := db.Exec(`INSERT INTO sessions
-		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, round_id, epoch, aborted, seconds)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NULLIF($16, ''), $17, $18, NULLIF($19::double precision, 0))
+		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, round_id, epoch, aborted, seconds)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULLIF($15, ''), $16, $17, NULLIF($18::double precision, 0))
 		ON CONFLICT DO NOTHING`,
-		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Group, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds)
+		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds)
 	return err
 }
 
@@ -275,7 +260,7 @@ func (p *PostgresStore) HasRound(user, lang, round string) (bool, error) {
 }
 
 func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, study_group, device, level, lap, epoch, aborted, COALESCE(seconds, 0)
+	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, epoch, aborted, COALESCE(seconds, 0)
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND ($4 = '' OR length = $4)
 		ORDER BY id DESC LIMIT $5`, user, lang, mode, length, limit)
 	if err != nil {
@@ -287,7 +272,7 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 		var s Session
 		var consistency sql.NullFloat64
 		var keys []byte
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Group, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds); err != nil {
+		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {
@@ -304,7 +289,7 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 }
 
 func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session, error) {
-	rows, err := p.db.Query(`SELECT DISTINCT ON (length) wpm, accuracy, chars, consistency, unlocked, finished_at, length, study_group, device, level, lap, epoch, aborted
+	rows, err := p.db.Query(`SELECT DISTINCT ON (length) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted
 		ORDER BY length, wpm DESC, id`, user, lang, mode)
 	if err != nil {
@@ -315,7 +300,7 @@ func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session,
 	for rows.Next() {
 		var s Session
 		var consistency sql.NullFloat64
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &s.FinishedAt, &s.Length, &s.Group, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted); err != nil {
+		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {
@@ -444,9 +429,9 @@ func (p *PostgresStore) Import(user, lang string, data ImportData) error {
 		if err := saveKeyStats(tx, user, lang, data.Keys); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap, study_group) VALUES ($1, $2, $3, $4, $5)
-			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap, study_group = EXCLUDED.study_group`,
-			user, lang, data.Unlocked, data.Lap, data.Group); err != nil {
+		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap) VALUES ($1, $2, $3, $4)
+			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap`,
+			user, lang, data.Unlocked, data.Lap); err != nil {
 			return err
 		}
 		for _, s := range data.Sessions {

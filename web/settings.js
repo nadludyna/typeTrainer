@@ -61,19 +61,10 @@ function valueLabel(s, v) {
 }
 const nameOf = (s) => t("settings." + s.id);
 const tipOf = (s) => (s.tip ? t(`settings.${s.id}Desc`) : "");
-const modeName = (m) => t(m === "climb" ? "mode.free" : "mode." + m);
-
-// The old single "tt.sound" (off / errors / keys) becomes the two settings.
-function splitOldSound() {
-  const old = store.get("tt.sound");
-  if (old === null) return;
-  if (store.get(BY_ID.keySound.store) === null) store.set(BY_ID.keySound.store, old === "keys" ? "deep" : "off");
-  if (store.get(BY_ID.missSound.store) === null) store.set(BY_ID.missSound.store, old === "off" ? "off" : "thud");
-}
+const modeName = (m) => t("mode." + m);
 
 // ---------- loading and saving ----------
 export function loadSettings() {
-  splitOldSound();
   S.settings.length = lengthFor(S.mode);
   for (const s of SETTINGS) {
     if (s.store) S.settings[s.id] = parse(s, store.get(s.store)) ?? s.def;

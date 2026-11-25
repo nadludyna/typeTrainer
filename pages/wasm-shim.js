@@ -27,8 +27,8 @@
   }
 
   const SAVE_AFTER = new Set([
-    "/api/v1/results", "/api/v1/freeplay/results", "/api/v1/freetype/results",
-    "/api/v1/progress", "/api/v1/group", "/api/v1/import",
+    "/api/v1/results", "/api/v1/freetype/results",
+    "/api/v1/progress", "/api/v1/import",
     "/api/v1/learn/reset", "/api/v1/learn/step",
   ]);
   const dirty = new Set();

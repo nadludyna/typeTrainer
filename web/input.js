@@ -15,15 +15,10 @@ import { openCustomText, hasCustomText } from "./customtext.js";
 import { onBarPick, renderModeBar } from "./modebar.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel } from "./learnpanel.js";
-import { buildAmbient } from "./ambient.js";
-import { keySound, missSound } from "./sound.js";
-import { questOpen, questKey } from "./mascot.js";
 import { peekShown, openPeek, closePeek } from "./peek.js";
-import "./share.js";
 import { startGrow } from "./fx.js";
 
 window.addEventListener("resize", () => {
-  buildAmbient();
   fitText();
   requestFit();
   placeCaret(true);
@@ -31,14 +26,7 @@ window.addEventListener("resize", () => {
 });
 
 // ---------- screens: typing / stats ----------
-// Phones show the whole site for now, the same as a computer.
-const statsOnly = false;
-document.body.classList.toggle("stats-only", statsOnly);
-export function startView() {
-  if (statsOnly) setView("stats");
-}
 function setView(name) {
-  if (statsOnly) name = "stats";
   S.view = name;
   document.body.dataset.view = name;
   const stats = name === "stats";
@@ -60,7 +48,7 @@ function setView(name) {
 }
 el.tabStats.addEventListener("click", (e) => { e.currentTarget.blur(); setView("stats"); });
 
-// ---------- modes: learn / climb / freetype ----------
+// ---------- modes: learn / freetype ----------
 function chooseMode(m) {
   if (m !== S.mode) {
     if (resultOpen()) {
@@ -76,7 +64,6 @@ function chooseMode(m) {
   if (S.view !== "type") setView("type");
 }
 el.tabLearn.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("learn"); });
-el.tabClimb.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("climb"); });
 el.tabFreetype.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("freetype"); });
 document.getElementById("logo").addEventListener("click", () => {
   if (S.view !== "type") setView("type");
@@ -90,7 +77,6 @@ async function barPick(pick) {
   }
   if (pick.variant !== undefined) await setFreetypeVariant(pick.variant);
   if (pick.list) await setFreetypeList(pick.list);
-  if (pick.level) { S.climbLevel = pick.level; renderLetters(); }
   if (pick.wordLevel) setWordLevel(pick.wordLevel);
   if (pick.step !== undefined) {
     await postJSON("/learn/step", { step: pick.step });
@@ -116,14 +102,9 @@ onSetting((id, value) => {
   } else if (id === "kb") {
     autoKb();
     highlightNextKey();
-  } else if (id === "keySound" || id === "missSound" || id === "volume") {
-    if (id === "missSound" || S.settings.keySound === "off") missSound();
-    else keySound();
   } else if (id === "daily" || id === "goal") {
     renderPanel();
     if (S.view === "stats") renderStats();
-  } else if (id === "bg") {
-    buildAmbient(true);
   } else if (id === "length") {
     barPick({ length: value }).catch(console.error);
   }
@@ -146,7 +127,6 @@ document.addEventListener("keyup", (e) => { if (e.code === PEEK_KEY) closePeek()
 document.addEventListener("keydown", (e) => {
   if (peekShown() && e.code !== PEEK_KEY) closePeek();
   if (document.querySelector("dialog[open]")) return;
-  if (questOpen()) { questKey(e); return; }
   if (introOpen()) { introKey(e); return; }
   if (profileOpen()) {
     if (e.key === "Escape") { e.preventDefault(); closeProfile(); }

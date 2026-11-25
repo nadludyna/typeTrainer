@@ -84,10 +84,9 @@ func TestApp_Freetype(t *testing.T) {
 	}
 	_, k := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000", "")
 	_, big := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=25000", "")
-	_, climb := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en", "")
 	_, learn := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if k["sessionCount"] != float64(2) || big["sessionCount"] != float64(1) || climb["sessionCount"] != float64(0) || learn["sessionCount"] != float64(0) {
-		t.Fatalf("histories: 1k %v, 25k %v, climb %v, learning %v", k["sessionCount"], big["sessionCount"], climb["sessionCount"], learn["sessionCount"])
+	if k["sessionCount"] != float64(2) || big["sessionCount"] != float64(1) || learn["sessionCount"] != float64(0) {
+		t.Fatalf("histories: 1k %v, 25k %v, learning %v", k["sessionCount"], big["sessionCount"], learn["sessionCount"])
 	}
 	if code, _ := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=7", ""); code != 400 {
 		t.Fatal("stats of a list not offered must be rejected")

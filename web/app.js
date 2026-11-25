@@ -3,27 +3,15 @@
 import { t } from "./i18n.js";
 import { FX } from "./fx.js";
 import { el, S, store, isTouch } from "./state.js";
-import { getJSON, postJSON } from "./api.js";
+import { getJSON } from "./api.js";
 import { labelTips } from "./tools.js";
 import { autoKb } from "./keyboard.js";
 import { showIntro } from "./intro.js";
 import { renderProfile, loadAccount } from "./profile.js";
 import { loadLanguage } from "./languages.js";
 import { loadSettings } from "./settings.js";
-import { buildAmbient } from "./ambient.js";
 
-import { startView } from "./input.js";
-
-// ---------- user study ----------
-async function joinStudy() {
-  const url = new URL(location.href);
-  const g = url.searchParams.get("group");
-  if (g !== "random" && g !== "adaptive") return;
-  const group = g === "random" ? "random" : "";
-  await Promise.all(S.languages.map((l) => postJSON("/group", { group }, l.id)));
-  url.searchParams.delete("group");
-  history.replaceState(null, "", url);
-}
+import "./input.js";
 
 // ---------- start ----------
 (async function init() {
@@ -35,14 +23,11 @@ async function joinStudy() {
   try {
     await loadAccount();
     S.languages = await getJSON("/languages", true);
-    await joinStudy();
     await loadLanguage(S.languages[0].id);
   } catch (err) {
     console.error(err);
     el.text.textContent = t("err.server");
   }
-  startView();
-  buildAmbient();
   const flash = store.get("tt.flash");
   if (flash) {
     store.set("tt.flash", "");

@@ -22,15 +22,12 @@ type Session struct {
 	Unlocked int             `json:"unlocked,omitempty"`
 	Level    float64         `json:"level,omitempty"`
 	Lap      int             `json:"lap,omitempty"`
-	Group    string          `json:"group,omitempty"`
 	Device   string          `json:"device,omitempty"`
 	Epoch    int             `json:"epoch"`
 	Aborted  bool            `json:"aborted,omitempty"`
 	Seconds  float64         `json:"seconds,omitempty"`
 	Round    string          `json:"-"`
 }
-
-const ModeClimb = "freeplay"
 
 const (
 	VariantLong      = "long"
@@ -103,8 +100,6 @@ const (
 	DeviceTouch    = "touch"
 )
 
-const GroupRandom = "random"
-
 const DefaultLength = "words-30"
 
 func (s Session) WithLength() Session {
@@ -144,7 +139,6 @@ type ImportData struct {
 	Keys     map[string]engine.KeyStat
 	Unlocked int
 	Lap      int
-	Group    string
 	Sessions []Session
 	Freeplay map[string][]Session
 }
@@ -172,9 +166,6 @@ type Store interface {
 	BestRounds(user, lang string) (map[string]Session, error)
 	LettersTyped(user, lang string, unlocked int) (int, error)
 
-	Group(user, lang string) (string, error)
-	SetGroup(user, lang, group string) error
-
 	AddFreeplaySession(user, lang, mode string, s Session) error
 	RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error)
 	FreeplaySessionCount(user, lang, mode, length string) (int, error)
@@ -188,7 +179,7 @@ type Store interface {
 
 	Reset(user, lang string) error
 	// ResetLearn starts Learn over: its letters and rounds; the
-	// other modes and the study group stay.
+	// other modes stay.
 	ResetLearn(user, lang string) error
 	Import(user, lang string, data ImportData) error
 

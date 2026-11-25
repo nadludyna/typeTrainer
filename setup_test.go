@@ -154,7 +154,7 @@ func TestApp_ImportRejectsBadDataAndKeepsOldData(t *testing.T) {
 		`{"sessions":[{"wpm":30,"accuracy":90,"unlocked":9999}]}`,
 		`{"sessions":[{"wpm":30,"accuracy":90,"keys":[{"char":"ж","errors":0,"ms":300}]}]}`,
 		`{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":"2030-01-01T00:00:00Z"}]}`,
-		`{"freeplay":{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":"2030-01-01T00:00:00Z"}]}}`,
+		`{"freetype":{"1000":{"sessions":[{"wpm":30,"accuracy":90,"finishedAt":"2030-01-01T00:00:00Z"}]}}}`,
 	}
 	for _, b := range bad {
 		if code, _ := call(t, h, "POST", "/api/v1/import?lang=en", b); code != 400 {
@@ -208,21 +208,21 @@ func TestApp_RawKeysKept(t *testing.T) {
 	}
 
 	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
-	free := `{"keys":[{"char":"a","errors":0,"ms":250}],"chars":1,"wpm":60,"accuracy":100,"level":1}`
-	if code, out := call(t, h, "POST", "/api/v1/freeplay/results?lang=en", free); code != 200 {
-		t.Fatalf("freeplay results: %d %v", code, out)
+	free := `{"keys":[{"char":"a","errors":0,"ms":250}],"chars":1,"wpm":60,"accuracy":100,"list":1000}`
+	if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", free); code != 200 {
+		t.Fatalf("freetype results: %d %v", code, out)
 	}
 	_, exp = call(t, h, "GET", "/api/v1/export?lang=en", "")
-	fs := exp["freeplay"].(map[string]any)["sessions"].([]any)[0].(map[string]any)
+	fs := exp["freetype"].(map[string]any)["1000"].(map[string]any)["sessions"].([]any)[0].(map[string]any)
 	if k, _ := fs["keys"].([]any); len(k) != 1 {
-		t.Fatalf("freeplay raw keys not kept: %v", fs)
+		t.Fatalf("freetype raw keys not kept: %v", fs)
 	}
 	if n := exp["keys"].(map[string]any)["a"].(map[string]any)["count"].(float64); n != 1 {
 		t.Fatalf("free practice changed the letter model: a count %v", n)
 	}
-	_, fst := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en", "")
+	_, fst := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000", "")
 	if _, has := fst["sessions"].([]any)[0].(map[string]any)["keys"]; has {
-		t.Fatal("/freeplay/stats must not send raw keys")
+		t.Fatal("/freetype/stats must not send raw keys")
 	}
 }
 
@@ -230,8 +230,8 @@ func TestApp_RoundLengths(t *testing.T) {
 	h, _, _ := newApp()
 	round := func(path, length string, wpm int) int {
 		body := fmt.Sprintf(`{"chars":20,"wpm":%d,"accuracy":100,"length":%q}`, wpm, length)
-		if strings.Contains(path, "freeplay") {
-			body = strings.Replace(body, "{", `{"level":3,`, 1)
+		if strings.Contains(path, "freetype") {
+			body = strings.Replace(body, "{", `{"list":1000,`, 1)
 		}
 		code, _ := call(t, h, "POST", path, body)
 		return code
@@ -264,12 +264,12 @@ func TestApp_RoundLengths(t *testing.T) {
 	if code, _ := call(t, h, "GET", "/api/v1/stats?lang=en&length=nope", ""); code != 400 {
 		t.Fatalf("unknown length in stats: %d", code)
 	}
-	if code := round("/api/v1/freeplay/results?lang=en", "time-30", 60); code != 200 {
-		t.Fatalf("freeplay results: %d", code)
+	if code := round("/api/v1/freetype/results?lang=en", "time-30", 60); code != 200 {
+		t.Fatalf("freetype results: %d", code)
 	}
-	_, free := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en&length=time-30", "")
+	_, free := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000&length=time-30", "")
 	if free["sessionCount"].(float64) != 1 || fmt.Sprint(free["lengths"]) != "[time-30]" {
-		t.Fatalf("freeplay: %v %v", free["sessionCount"], free["lengths"])
+		t.Fatalf("freetype: %v %v", free["sessionCount"], free["lengths"])
 	}
 	_, exp := call(t, h, "GET", "/api/v1/export?lang=en", "")
 	raw, _ := json.Marshal(exp)

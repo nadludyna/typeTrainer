@@ -12,11 +12,11 @@ import { roundStarted } from "./typing.js";
 const box = $("peek");
 const ROUNDS = 50, WEAK_LETTERS = 4, TOP_ROOM = 1.08, HOVER_MS = 200, GAP = 20;
 
-const statsOfMode = () => (S.mode === "learn" ? S.lastStats : S.mode === "climb" ? S.climb : S.freetype);
+const statsOfMode = () => (S.mode === "learn" ? S.lastStats : S.freetype);
 
 // ---------- what it shows ----------
 function title(length) {
-  const parts = [t(`mode.${S.mode === "climb" ? "free" : S.mode}`)];
+  const parts = [t(`mode.${S.mode}`)];
   if (S.mode === "freetype") {
     const v = S.freetypeVariant;
     if (v) parts.push(t(`ft.${v}`).toLowerCase());
@@ -57,10 +57,6 @@ function facts(s) {
     const f = forecastText(s.forecast, (s.sessions[0]?.unlocked ?? 0) >= s.order.length);
     left = chips(t("peek.weak"), weak);
     if (f) right = `${f.label}: ${f.value}`;
-  }
-  if (S.mode === "climb") {
-    left = chips(t("climb.weak"), (s.weak ?? []).map((w) => w.pair));
-    if (s.levels?.length) right = s.place?.level < s.levels.length ? t("climb.words", { up: s.passesUp, pass: s.passAccuracy }) : t("climb.top");
   }
   if (!left && !right) return "";
   return `<div class="peek-facts">${left}<span class="peek-end">${right}</span></div>`;

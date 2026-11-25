@@ -79,15 +79,15 @@ nothing else declares a setting. A new setting is one entry plus its texts.
 An entry has:
 
 - `id`: its name in `S.settings` and in the texts.
-- `cat`: one of `CATEGORIES` (text, caret, typing, sound, keyboard, goals,
+- `cat`: one of `CATEGORIES` (text, caret, typing, keyboard, goals,
   data). A new category is a decision, not a side effect.
 - `kind`: `switch` (off / on), `choice` (one of `values`), `number`
   (`min`, `max`, `step`, `start`; 0 means off), `action` (buttons, no
   value) or `length` (the round length of the current mode).
 - `def`: the value for a new user.
 - `store`: its `localStorage` key, `tt.<something>`. Keep a key once users
-  have it; when a setting changes shape, convert the old key on load (as
-  `splitOldSound` does) instead of dropping it.
+  have it; when a setting changes shape, convert the old key on load
+  instead of dropping it.
 - optional: `tip` (it has a tooltip), `unit` (a text key with `{n}` for
   number values), `icons`, `body` (the value goes to `<body data-<id>>` for
   the CSS; switches as `on` / `off`), `preview` (the typing preview beside

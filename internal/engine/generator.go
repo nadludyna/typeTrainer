@@ -552,22 +552,3 @@ func WeightedPick(weights []float64, r float64) int {
 	}
 	return len(weights) - 1
 }
-
-func (g *Generator) RandomPortion(unlocked int, last string, p Params) Portion {
-	unlocked = g.Clamp(unlocked)
-	por := Portion{}
-	por.Unlocked, por.Locked = g.letters(unlocked)
-	words := g.eligible(unlocked)
-	if len(words) == 0 || p.PortionWords <= 0 {
-		return por
-	}
-	for len(por.Words) < p.PortionWords {
-		w := words[g.rng.Intn(len(words))]
-		if w == last && len(words) > 1 {
-			continue
-		}
-		por.Words = append(por.Words, w)
-		last = w
-	}
-	return por
-}

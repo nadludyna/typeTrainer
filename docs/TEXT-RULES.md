@@ -17,7 +17,7 @@ against them before calling the work done.
 
 1. **Names are short, sentences are human.** A label (button, tab,
    setting name) is one or two words. Everything that is a sentence
-   (tooltips, messages, the mascot) is a whole, living sentence,
+   (tooltips, messages) is a whole, living sentence,
    the way a friend next to you would say it. A tooltip appears
    only when the look doesn't say enough, and says what the thing means
    for you, not how it is computed.
@@ -98,11 +98,10 @@ sentence that bores the reader gets rewritten.
   one person sits at the screen, and "we" only makes them ask who that is.
   What the site does is said about the thing itself: "Words are picked
   from the letters you miss.", not "We pick words from your mistakes.".
-  The mascot is the one character and speaks as "I". Present tense, active
+  Present tense, active
   voice where a person acts ("You open a new letter.").
 - **A little humour everywhere.** A light touch fits any text: a tooltip,
-  a toast ("Your fingers have earned a break."). The
-  mascot may joke and tease more. Humour never hides a fact and never
+  a toast ("Your fingers have earned a break."). Humour never hides a fact and never
   makes fun of the user's mistakes. Errors, the reset window and anything
   that deletes data stay plain. An exclamation mark is fine wherever the
   moment earns it ("Well done, you've mastered every letter!").
@@ -142,8 +141,7 @@ sentence that bores the reader gets rewritten.
 Join parts with words or a comma, not "A · B"; only a tooltip uses "·",
 before its shortcut. Labels, buttons, headings and short name-like values ("New best",
 "Mastered", "≈ 3 rounds") have no full stop. Every text that is a
-sentence (a description, tooltip, message, news line, guide step, the
-mascot) ends with a full stop, a question mark or an exclamation mark.
+sentence (a description, tooltip, message, news line, guide step) ends with a full stop, a question mark or an exclamation mark.
 
 ## Word list
 
@@ -152,9 +150,8 @@ mascot) ends with a full stop, a question mark or an exclamation mark.
 | one typing run (10–50 words or 15–90 s) | round |
 | the learning mode, the main one | Learn |
 | the part after Learn, when every letter is open | Reinforce |
-| the second mode, harder as you get better | Climb |
-| how hard Climb is now, 1 to 10 (which words) | level |
-| the third mode, plain typing | Freetype |
+| how many common words Reinforce draws from (200 ... 25k) | Words ("200", "1k" ... "25k" on the buttons) |
+| the second mode, plain typing | Freetype |
 | the n most common words Freetype draws from | word list ("200", "1k" ... "25k" on the buttons) |
 | the letter the trainer is drilling now | focus |
 | a letter that meets the goal | mastered |

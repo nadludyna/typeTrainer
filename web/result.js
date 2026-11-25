@@ -42,7 +42,6 @@ export function showResult(r) {
     if (c.missed) facts.push(fact(`<b>${c.missed}</b> ${t("result.missed")}`, " bad", "result.missedTip"));
   }
   let note = "";
-  if (r.climb?.weak?.length) facts.push(fact(`${t("climb.weak")} <b>${r.climb.weak.map((w) => w.pair).join(" ")}</b>`, "", "climb.weakTip"));
 
   if (r.unsaved) note = `<p class="r-unsaved" role="status"><span>${r.unsaved.text}</span>` +
     (r.unsaved.retry ? ` <button type="button" class="btn r-again">${t("save.again")}</button>` : "") + `</p>`;

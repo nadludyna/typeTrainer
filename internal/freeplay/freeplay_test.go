@@ -4,28 +4,27 @@ import (
 	"math"
 	"math/rand"
 	"slices"
-	"strings"
 	"testing"
 )
 
 var testParams = Params{
 	PortionWords: 6, MaxStartWords: 60, RecentWords: 20, RepeatPenalty: 0.3,
 	Levels: []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000}, LevelStart: 1,
-	PassAccuracy: 96, FailAccuracy: 92, PassesUp: 3, FailsDown: 2, History: 50, MinLetters: 2,
-	WeakRounds: 20, WeakMinSamples: 15, WeakMissMs: 1000, WeakPairs: 3, WeakShare: 0.5, WeakMinWords: 10,
+	PassAccuracy: 96, FailAccuracy: 92, PassesUp: 3, FailsDown: 2, History: 50,
+	WeakRounds: 20, WeakMinSamples: 15, WeakMissMs: 1000, WeakPairs: 3,
 	LongMin: 6, TextMarks: ".,?!;:'-", SentenceTries: 20,
 }
 
 func plain() Params { return testParams }
 
-func TestPortion_Uniform(t *testing.T) {
+func TestDraw_Uniform(t *testing.T) {
 	words := []string{"a", "bb", "ccc", "dddd", "eeeee", "the", "zebra", "quixotic"}
 	pk := NewPicker(words, rand.New(rand.NewSource(1)))
 	p := plain()
 	p.RecentWords = 0
 	count := map[string]int{}
 	const n = 80000
-	for _, w := range pk.Portion(nil, n, 1, nil, p) {
+	for _, w := range pk.Freetype(nil, n, len(words), false, p) {
 		count[w]++
 	}
 	mean := float64(n) / float64(len(words))
@@ -36,52 +35,21 @@ func TestPortion_Uniform(t *testing.T) {
 	}
 }
 
-func TestMaxRank(t *testing.T) {
-	words := make([]string, 1200)
-	for i := range words {
-		words[i] = strings.Repeat("a", i%7+1) + string(rune('a'+i%26))
-	}
-	pk := NewPicker(words, rand.New(rand.NewSource(1)))
-	for _, c := range []struct{ level, want int }{{1, 200}, {2, 500}, {3, 1000}, {4, 1200}, {10, 1200}, {0, 200}, {-3, 200}, {11, 1200}} {
-		if got := pk.MaxRank(c.level, testParams); got != c.want {
-			t.Errorf("level %d: MaxRank %d, want %d", c.level, got, c.want)
-		}
-	}
-	short := NewPicker([]string{"a", "b"}, rand.New(rand.NewSource(1)))
-	if got := short.MaxRank(1, testParams); got != 2 {
-		t.Errorf("a list shorter than the first level: %d, want 2", got)
-	}
-	if got := NewPicker(nil, rand.New(rand.NewSource(1))).MaxRank(5, testParams); got != 0 {
-		t.Errorf("no words: MaxRank %d, want 0", got)
-	}
-	idx := map[string]int{}
-	for i, w := range words {
-		if _, ok := idx[w]; !ok {
-			idx[w] = i
-		}
-	}
-	for _, w := range pk.Portion(nil, 500, 1, nil, plain()) {
-		if idx[w] >= 200 {
-			t.Fatalf("level 1 gave %q at rank %d", w, idx[w])
-		}
-	}
-}
-
-func TestPortion_WordsOnly(t *testing.T) {
+func TestDraw_WordsOnly(t *testing.T) {
 	words := []string{"one", "two", "three", "four", "five", "six", "seven", "eight"}
 	pk := NewPicker(words, rand.New(rand.NewSource(5)))
-	for level := 1; level <= 10; level++ {
-		for _, w := range pk.Portion(nil, 200, level, nil, testParams) {
+	for size := 1; size <= 10; size++ {
+		for _, w := range pk.Freetype(nil, 200, size, false, testParams) {
 			if !slices.Contains(words, w) {
-				t.Fatalf("level %d: %q is not a word of the list", level, w)
+				t.Fatalf("size %d: %q is not a word of the list", size, w)
 			}
 		}
 	}
 }
 
-func TestPortion_NeverTheSameWordTwiceInARow(t *testing.T) {
+func TestDraw_NeverTheSameWordTwiceInARow(t *testing.T) {
 	pk := NewPicker([]string{"ab", "ba"}, rand.New(rand.NewSource(2)))
-	got := pk.Portion([]string{"ab"}, 50, 1, nil, testParams)
+	got := pk.Freetype([]string{"ab"}, 50, 2, false, testParams)
 	prev := "ab"
 	for _, w := range got {
 		if w == prev {
@@ -91,13 +59,13 @@ func TestPortion_NeverTheSameWordTwiceInARow(t *testing.T) {
 	}
 }
 
-func TestPortion_RecentWordsAreRarer(t *testing.T) {
+func TestDraw_RecentWordsAreRarer(t *testing.T) {
 	words := []string{"one", "two", "three"}
 	pk := NewPicker(words, rand.New(rand.NewSource(3)))
 	recent := []string{"one", "one", "one", "two"}
 	count := map[string]int{}
 	for i := 0; i < 3000; i++ {
-		count[pk.Portion(recent, 1, 1, nil, plain())[0]]++
+		count[pk.Freetype(recent, 1, 3, false, plain())[0]]++
 	}
 	if count["two"] != 0 {
 		t.Fatalf("the last word came again: %v", count)
@@ -107,25 +75,25 @@ func TestPortion_RecentWordsAreRarer(t *testing.T) {
 	}
 }
 
-func TestPortion_EdgeCases(t *testing.T) {
-	if got := NewPicker(nil, rand.New(rand.NewSource(1))).Portion(nil, 6, 5, []string{"aa"}, testParams); got != nil {
+func TestDraw_EdgeCases(t *testing.T) {
+	if got := NewPicker(nil, rand.New(rand.NewSource(1))).Freetype(nil, 6, 5, false, testParams); got != nil {
 		t.Fatalf("no words: %v", got)
 	}
 	pk := NewPicker([]string{"aaa"}, rand.New(rand.NewSource(1)))
-	if got := pk.Portion(nil, 0, 5, nil, testParams); got != nil {
+	if got := pk.Freetype(nil, 0, 5, false, testParams); got != nil {
 		t.Fatalf("n = 0: %v", got)
 	}
-	if got := pk.Portion([]string{"aaa"}, 6, 5, nil, testParams); len(got) != 6 {
+	if got := pk.Freetype([]string{"aaa"}, 6, 5, false, testParams); len(got) != 6 {
 		t.Fatalf("one word: %v", got)
 	}
 }
 
-func TestPortion_DoesNotChangeRecent(t *testing.T) {
+func TestDraw_DoesNotChangeRecent(t *testing.T) {
 	recent := make([]string, 2, 10)
 	recent[0], recent[1] = "one", "two"
 	spare := recent[:3]
 	spare[2] = "keep"
-	NewPicker([]string{"one", "two", "three"}, rand.New(rand.NewSource(4))).Portion(recent, 6, 10, nil, testParams)
+	NewPicker([]string{"one", "two", "three"}, rand.New(rand.NewSource(4))).Freetype(recent, 6, 10, false, testParams)
 	if spare[2] != "keep" || recent[0] != "one" || recent[1] != "two" {
 		t.Fatalf("recent changed: %v", spare)
 	}
@@ -172,14 +140,6 @@ func TestStanding(t *testing.T) {
 	} {
 		if got := Standing(c.rounds, p); got != c.want {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
-		}
-	}
-}
-
-func TestLevelFromOld(t *testing.T) {
-	for old, want := range map[float64]int{0: 1, 0.09: 1, 0.1: 2, 0.43: 5, 0.2: 3, 0.9: 9, 0.91: 10, 1: 10, -1: 1, 2: 10} {
-		if got := LevelFromOld(old); got != want {
-			t.Errorf("old %v (shown %v): %d, want %d", old, math.Round(old*99)+1, got, want)
 		}
 	}
 }
@@ -257,18 +217,5 @@ func TestDraw_FullWeighing(t *testing.T) {
 		if got := pk.Freetype([]string{"a", "b"}, 1, 2, false, p)[0]; got != "a" && got != "b" {
 			t.Fatalf("all weights 0: %q is not a word of the list", got)
 		}
-	}
-}
-
-func TestLonger(t *testing.T) {
-	got := Longer([]string{"a", "the", "i", "żó", "ż", "of"}, 2)
-	if want := []string{"the", "żó", "of"}; !slices.Equal(got, want) {
-		t.Errorf("Longer: %v, want %v", got, want)
-	}
-	if got := Longer([]string{"a"}, 2); len(got) != 0 {
-		t.Errorf("only short words: %v", got)
-	}
-	if got := Longer([]string{"a", "bb"}, 0); len(got) != 2 {
-		t.Errorf("min 0 keeps all: %v", got)
 	}
 }

@@ -84,7 +84,6 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	gen := engine.NewGenerator(long, rand.New(rand.NewSource(seed)), cfg.Engine)
 	gen.SetHome(lay.RestingKeys(), cfg.Engine)
 	gen.SetWordParams(cfg.Words)
-	free := freeplay.NewPicker(freeplay.Longer(long, cfg.Freeplay.MinLetters), rand.New(rand.NewSource(seed+1)))
 	freetype := freeplay.NewPicker(long, rand.New(rand.NewSource(seed+2)))
 	var sentences *freeplay.Sentences
 	if data, err := files.ReadFile("data/langs/" + info.ID + "/sentences.txt"); err == nil {
@@ -94,5 +93,5 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	for _, n := range cfg.Freeplay.Levels {
 		levels = append(levels, gen.WithWords(long[:min(n, len(long))], cfg.Engine))
 	}
-	return &api.Language{Info: info, Gen: gen, Free: free, Freetype: freetype, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON}, nil
+	return &api.Language{Info: info, Gen: gen, Freetype: freetype, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON}, nil
 }

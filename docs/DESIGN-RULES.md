@@ -26,7 +26,7 @@ there is a reason not to).
 - Every feature answers "what does this help the user learn or understand?"
   If the answer is "it looks nice" or "other apps have it", it waits.
 - Prefer improving what exists over adding something new.
-- A feature that touches Learn data must not leak into Climb or Freetype,
+- A feature that touches Learn data must not leak into Freetype,
   and the other way round.
 
 ## 2. Layout and space
@@ -165,7 +165,7 @@ consequences, the same word for the same thing. All text lives in
   destructive), `data-tip` tooltips, `--ctl` (32 px) as the height of every
   control. Text sizes come from `--fs-min` to `--fs-xxl`, corners from
   `--r-sm`, `--r-md`, `--r-lg` (`web/base.css`).
-- Naming: Learn, Climb, Freetype, Stats, Settings; round, focus, mastered, level
+- Naming: Learn, Reinforce, Freetype, Stats, Settings; round, focus, mastered, level
   (`docs/TEXT-RULES.md`, word list).
 
 **Recommended**

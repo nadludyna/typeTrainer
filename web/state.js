@@ -10,11 +10,10 @@ export const el = {
   tooltip: $("tooltip"),
   hands: $("hands"),
   intro: $("intro"),
-  nav: $("nav-switch"), tabLearn: $("tab-learn"), tabClimb: $("tab-climb"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
+  nav: $("nav-switch"), tabLearn: $("tab-learn"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
   viewType: $("view-type"), viewStats: $("view-stats"),
   lengthFilter: $("length-filter"), tiles: $("tiles"), chart: $("chart"), chartNote: $("chart-note"),
   warn: $("layout-warn"), toasts: $("toasts"),
-  streak: $("streak"), streakN: $("streak-n"),
 };
 
 // ---------- state ----------
@@ -34,13 +33,11 @@ export const S = {
   busy: false,
   view: "type",
   mode: "learn",
-  climb: null,
   freetype: null,
   freetypeList: 0,
   freetypeVariant: "",
-  climbLevel: null,
-  settings: { length: "words-30", live: false, caret: "line", streak: false, bg: "keys", goal: 0, daily: 15,
-    glide: "smooth", keySound: "off", missSound: "off", volume: "50",
+  settings: { length: "words-30", live: false, caret: "line", goal: 0, daily: 15,
+    glide: "smooth",
     stop: false, nextKey: true, hand: true },
   kbHidden: false,
 };
@@ -50,8 +47,7 @@ export const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
-export const introOpen = () => !el.intro.classList.contains("hidden") && !el.intro.classList.contains("closing");
-export const levelWords = (n) => (S.climb?.levels?.[n - 1] ?? 0).toLocaleString("en");
+export const introOpen = () => !el.intro.classList.contains("hidden");
 export const listless = (v) => v === "sentences" || v === "custom";
 export const roundList = () => listless(S.freetypeVariant) ? 0 : S.freetypeList;
 export const listLabel = (n) => n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : String(n);
@@ -69,9 +65,9 @@ export function focusText() {
   el.textBox.classList.remove("blurred");
 }
 
-// Climb and Freetype are hidden: their code and saved rounds stay.
-// tt.allModes = "1" shows them again (browser checks only).
-export const SHOWN_MODES = store.get("tt.allModes") === "1" ? ["learn", "climb", "freetype"] : ["learn"];
+// Freetype is hidden for now: its code and saved rounds stay.
+// tt.allModes = "1" shows it (browser checks only).
+export const SHOWN_MODES = store.get("tt.allModes") === "1" ? ["learn", "freetype"] : ["learn"];
 export const shownMode = (m) => SHOWN_MODES.includes(m);
 
 // Reinforce: Learn once every letter is open. The word level is this

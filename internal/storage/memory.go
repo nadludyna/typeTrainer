@@ -33,7 +33,6 @@ type langData struct {
 	stats    map[string]engine.KeyStat
 	unlocked int
 	lap      int
-	group    string
 	sessions []Session
 
 	freeplay map[string][]Session
@@ -262,19 +261,6 @@ func (m *MemoryStore) LettersTyped(user, lang string, unlocked int) (int, error)
 	return n, nil
 }
 
-func (m *MemoryStore) Group(user, lang string) (string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.data(user, lang).group, nil
-}
-
-func (m *MemoryStore) SetGroup(user, lang, group string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.data(user, lang).group = group
-	return nil
-}
-
 func (m *MemoryStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -360,7 +346,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	k := key{user, lang}
 	next := &langData{
 		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
-		unlocked: data.Unlocked, lap: data.Lap, group: data.Group,
+		unlocked: data.Unlocked, lap: data.Lap,
 		sessions: make([]Session, 0, len(data.Sessions)),
 		freeplay: make(map[string][]Session, len(data.Freeplay)),
 	}

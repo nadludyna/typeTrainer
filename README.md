@@ -22,8 +22,8 @@ typeTrainer times every key you press, notices which letters slow you down
 or trip you up, and picks the next words around them. Every word is a real
 word you could meet in a book.
 
-A computer keyboard is needed to practise. On a phone the site shows your
-stats only.
+A computer keyboard is best for practice. A phone shows the same site and
+you can type on it too.
 
 The project is changing fast right now, so this page stays short. To see
 what it does today, [open the site](https://nadludyna.github.io/typeTrainer/).

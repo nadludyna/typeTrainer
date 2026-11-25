@@ -48,9 +48,8 @@ speed and builds the next words around your weak letters.
   14). **To build:** the finger tour and a key drill for every new letter,
   levels that add up, a level that can be passed, a goal step in the
   settings and no ceiling, Freetype as the third stage with word-to-word
-  flow. *Climb* is hidden and goes once the stages are built; until then it
-  never touches Learn's data, and every mode, list and round length keeps
-  its own history.
+  flow. Every mode, list and round length keeps its own history, and
+  nothing outside Learn touches Learn's data.
 - **What adapts and what does not.** The trainer cannot bend to everyone,
   so the line is drawn here:
   - *The trainer adapts:* which letter is in focus, which words come, when
@@ -78,10 +77,6 @@ speed and builds the next words around your weak letters.
   `internal/engine/model.go` or their values in `config.go` on your own: a
   silent change moves every user's progress. Explain the change, show it
   in the simulation (`go run ./tools/sim`) and ask.
-- **A hidden A/B switch.** `?group=random` makes Learn draw random open words
-  instead of using the algorithm, so the algorithm can be compared against
-  it on real people (`docs/HOW-THE-MODES-WORK.md`, section 10.1). Every round stores its
-  group. It is never shown or offered in the interface.
 - **Try things freely:** build an idea, try it by feel, keep it or drop it.
 
 ## Planned

@@ -101,11 +101,6 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	stats, unlocked := done.stats, done.unlocked
 	gen := done.who.gen
 	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps).ForStage(unlocked, len(done.who.gen.Order()))
-	group, err := s.store.Group(user, l.Info.ID)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 	typed := 0
 	if all := len(gen.Order()); unlocked == all && s.validWordLevel(l, req.Level) {
 		gen = l.Levels[req.Level-1]
@@ -130,15 +125,6 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	out := make([]engine.Portion, count)
 	s.genMu.Lock()
 	for i := range out {
-		if group == storage.GroupRandom {
-			last := ""
-			if len(recent) > 0 {
-				last = recent[len(recent)-1]
-			}
-			out[i] = gen.RandomPortion(unlocked, last, p)
-			recent = append(recent, out[i].Words...)
-			continue
-		}
 		out[i] = gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
 		recent = append(recent, out[i].Words...)
 		req.Retry = nil
@@ -365,14 +351,9 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	if v, ok := engine.Consistency(req.PerSecond, s.cfg.ConsistencyMinSeconds); ok {
 		consistency = &v
 	}
-	group, err := s.store.Group(user, l.Info.ID)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 	err = s.store.SaveLearned(user, l.Info.ID, done.record(&storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Group: group, Device: req.Device,
+		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Device: req.Device,
 		Lap:     done.lap,
 		Level:   reinforceLevel(done, req.Level, len(l.Levels)),
 		Round:   req.Round,
@@ -473,11 +454,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		serverError(w, err)
 		return
 	}
-	group, err := s.store.Group(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 	bests, err := s.store.BestRounds(user, id)
 	if err != nil {
 		serverError(w, err)
@@ -502,7 +478,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"order":   gen.Order(),
 		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
 		"masteryMin": masteryMin, "masteryLevel": masteryLevel, "accuracy": p.AccWindow > 0,
-		"lengths": lengths, "group": group, "bests": bests,
+		"lengths": lengths, "bests": bests,
 		"learnRounds": len(every),
 		"wordLevels":  s.wordLevels(l),
 	})

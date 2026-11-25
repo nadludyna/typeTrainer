@@ -64,7 +64,6 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/abort", s.withLang(s.handleAbort))
 	mux.HandleFunc("POST /api/v1/results", s.withLang(s.handleResults))
 	mux.HandleFunc("POST /api/v1/progress", s.withLang(s.handleProgress))
-	mux.HandleFunc("POST /api/v1/group", s.withLang(s.handleGroup))
 	mux.HandleFunc("POST /api/v1/reset", s.withLang(s.handleReset))
 	mux.HandleFunc("GET /api/v1/export", s.withLang(s.handleExport))
 	mux.HandleFunc("POST /api/v1/import", s.withLang(s.handleImport))

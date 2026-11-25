@@ -29,7 +29,6 @@ var storeTests = map[string]func(*testing.T, Store){
 	"KeyStatsFields":            testKeyStatsFields,
 	"Lengths":                   testLengths,
 	"LettersTyped":              testLettersTyped,
-	"Group":                     testGroup,
 	"Lap":                       testLap,
 	"Device":                    testDevice,
 	"PracticeDays":              testPracticeDays,
@@ -80,7 +79,6 @@ func testRoundSentTwice(t *testing.T, m Store) {
 }
 
 func testSaveLearned(t *testing.T, m Store) {
-	m.SetGroup(u, "en", GroupRandom)
 	stats := map[string]engine.KeyStat{"a": {Count: 3, Hits: "101", Slipped: true}, "s": {Count: 1}}
 	round := Session{WPM: 40, Chars: 2, Round: "r1"}
 	if err := m.SaveLearned(u, "en", Learned{Stats: stats, Unlocked: 7, Lap: 1, Session: &round}); err != nil {
@@ -104,9 +102,6 @@ func testSaveLearned(t *testing.T, m Store) {
 	check("round sent again", 1)
 	m.SaveLearned(u, "en", Learned{Unlocked: 1})
 	check("empty portion", 1)
-	if g, _ := m.Group(u, "en"); g != GroupRandom {
-		t.Fatalf("group = %q, want it kept", g)
-	}
 	m.SaveLearned(u, "en", Learned{Stats: map[string]engine.KeyStat{"a": {Count: 4}}, Unlocked: 8, Lap: 1})
 	if got, _ := m.KeyStats(u, "en"); len(got) != 1 || got["a"].Count != 4 {
 		t.Fatalf("portion: stats %v", got)
@@ -491,7 +486,6 @@ func testLap(t *testing.T, m Store) {
 		t.Fatalf("new user: lap %d, %v", n, err)
 	}
 	m.SetUnlocked(u, "en", 26)
-	m.SetGroup(u, "en", GroupRandom)
 	if err := m.SetLap(u, "en", 2); err != nil {
 		t.Fatal(err)
 	}
@@ -500,9 +494,6 @@ func testLap(t *testing.T, m Store) {
 	}
 	if n, _ := m.Unlocked(u, "en"); n != 26 {
 		t.Fatalf("the lap changed unlocked to %d", n)
-	}
-	if g, _ := m.Group(u, "en"); g != GroupRandom {
-		t.Fatalf("the lap changed the group to %q", g)
 	}
 	if n, _ := m.Lap(u, "pl"); n != 0 {
 		t.Fatalf("another language: lap %d", n)
@@ -514,36 +505,6 @@ func testLap(t *testing.T, m Store) {
 	m.Reset(u, "en")
 	if n, _ := m.Lap(u, "en"); n != 0 {
 		t.Fatalf("after reset: lap %d", n)
-	}
-}
-
-func testGroup(t *testing.T, m Store) {
-	if g, err := m.Group(u, "en"); err != nil || g != "" {
-		t.Fatalf("new user: %q, %v; want \"\"", g, err)
-	}
-	m.SetUnlocked(u, "en", 7)
-	m.SetGroup(u, "en", GroupRandom)
-	if g, _ := m.Group(u, "en"); g != GroupRandom {
-		t.Fatalf("group = %q, want %q", g, GroupRandom)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 7 {
-		t.Fatalf("unlocked changed to %d", n)
-	}
-	if g, _ := m.Group(u, "pl"); g != "" {
-		t.Fatalf("another language got group %q", g)
-	}
-	m.AddSession(u, "en", Session{WPM: 30, Group: GroupRandom})
-	if got, _ := m.RecentSessions(u, "en", "", 1); len(got) != 1 || got[0].Group != GroupRandom {
-		t.Fatalf("session group lost: %+v", got)
-	}
-	m.SetGroup(u, "en", "")
-	if g, _ := m.Group(u, "en"); g != "" {
-		t.Fatalf("back to normal: %q", g)
-	}
-	m.SetGroup(u, "en", GroupRandom)
-	m.Reset(u, "en")
-	if g, _ := m.Group(u, "en"); g != "" {
-		t.Fatalf("after reset: %q", g)
 	}
 }
 
@@ -661,7 +622,7 @@ func testImportAtomic(t *testing.T, m Store) {
 	}
 
 	good := ImportData{
-		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1, Group: GroupRandom,
+		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1,
 		Sessions: []Session{{WPM: 12, FinishedAt: when}},
 		Freeplay: map[string][]Session{ModeClimb: {{WPM: 30, FinishedAt: when}}},
 	}
@@ -676,9 +637,6 @@ func testImportAtomic(t *testing.T, m Store) {
 	}
 	if n, _ := m.Lap(u, "en"); n != 1 {
 		t.Fatalf("import did not replace the lap: %d", n)
-	}
-	if g, _ := m.Group(u, "en"); g != GroupRandom {
-		t.Fatalf("import did not replace the group: %q", g)
 	}
 	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 12 {
 		t.Fatalf("import did not replace the sessions: %+v", got)

@@ -65,7 +65,6 @@ func validLength(length string, maxWords, maxSeconds int) bool {
 	return false
 }
 
-func validGroup(g string) bool { return g == "" || g == storage.GroupRandom }
 
 func validDevice(d string) bool {
 	return d == "" || d == storage.DeviceKeyboard || d == storage.DeviceTouch
@@ -92,9 +91,6 @@ func validateSamples(samples []engine.Sample, max int, alphabet string) string {
 func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string, futureTolerance time.Duration) string {
 	if in.Unlocked < 0 || in.Unlocked > letters {
 		return "unlocked: out of range"
-	}
-	if !validGroup(in.Group) {
-		return "group: unknown"
 	}
 	if in.Lap < 0 || in.Lap > laps {
 		return "lap: out of range"
@@ -166,9 +162,6 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		}
 		if !okLength(sess.Length) {
 			return "sessions: unknown length " + sess.Length
-		}
-		if !validGroup(sess.Group) {
-			return "sessions: unknown group " + sess.Group
 		}
 		if !validDevice(sess.Device) {
 			return "sessions: unknown device " + sess.Device

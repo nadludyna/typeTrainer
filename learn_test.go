@@ -425,9 +425,10 @@ func TestApp_StartLearnOver(t *testing.T) {
 
 func TestApp_ReinforceWordLevelsAndGoalSteps(t *testing.T) {
 	h, _, _ := newApp()
-	if code, _ := call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":2}`); code != 409 {
-		t.Fatalf("a step with letters still locked: %d, want 409", code)
+	if code, out := call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":2}`); code != 200 || out["targetWpm"].(float64) != 50 {
+		t.Fatalf("Reinforce's speed goal does not wait for Learn: %d %v", code, out)
 	}
+	call(t, h, "POST", "/api/v1/learn/step?lang=en", `{"step":0}`)
 	keys := []string{}
 	for _, c := range "abcdefghijklmnopqrstuvwxyz" {
 		keys = append(keys, fmt.Sprintf(`"%c":{"count":50,"errEma":0.3,"timeEma":600,"timedCount":50}`, c))
@@ -486,4 +487,75 @@ func readData(t *testing.T, path string) string {
 		t.Fatal(err)
 	}
 	return string(b)
+}
+
+// Reinforce before Learn is finished: every letter comes, the presses count
+// for each letter, but only Learn opens the next one.
+func TestApp_ReinforceBeforeLearnIsFinished(t *testing.T) {
+	h, _, _ := newApp()
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	open := 0
+	for _, k := range st["keys"].([]any) {
+		if k.(map[string]any)["unlocked"] == true {
+			open++
+		}
+	}
+	if open >= 26 {
+		t.Fatalf("a new user should start with a few letters, has %d", open)
+	}
+	_, out := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true,"level":3}`)
+	locked := map[string]bool{}
+	for _, c := range out["portions"].([]any)[0].(map[string]any)["locked"].([]any) {
+		locked[c.(string)] = true
+	}
+	if len(locked) != 0 {
+		t.Fatalf("a Reinforce portion has every letter open, locked: %v", locked)
+	}
+	sawLocked := false
+	_, learnPor := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true}`)
+	learnLocked := map[string]bool{}
+	for _, c := range learnPor["portions"].([]any)[0].(map[string]any)["locked"].([]any) {
+		learnLocked[c.(string)] = true
+	}
+	for _, p := range out["portions"].([]any) {
+		for _, w := range p.(map[string]any)["words"].([]any) {
+			for _, c := range w.(string) {
+				if learnLocked[string(c)] {
+					sawLocked = true
+				}
+			}
+		}
+	}
+	if !sawLocked {
+		t.Fatal("Reinforce should bring words with letters Learn has not opened yet")
+	}
+	var presses []string
+	for i := 0; i < 120; i++ {
+		presses = append(presses, `{"char":"z","errors":0,"ms":200}`)
+	}
+	body := `{"keys":[` + strings.Join(presses, ",") + `],"chars":120,"wpm":60,"accuracy":100,"level":3}`
+	if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 || out["newLetter"] != nil && out["newLetter"] != "" {
+		t.Fatalf("a Reinforce round must not open a letter: %d %v", code, out)
+	}
+	_, after := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	n := 0
+	var z map[string]any
+	for _, k := range after["keys"].([]any) {
+		k := k.(map[string]any)
+		if k["unlocked"] == true {
+			n++
+		}
+		if k["char"] == "z" {
+			z = k
+		}
+	}
+	if n != open {
+		t.Fatalf("open letters changed in Reinforce: %d, was %d", n, open)
+	}
+	if z == nil || z["count"].(float64) != 120 {
+		t.Fatalf("Reinforce's presses count for the letter z: %v", z)
+	}
+	if s := after["sessions"].([]any)[0].(map[string]any); s["level"] != 3.0 {
+		t.Fatalf("a Reinforce round keeps its word level before Learn is finished: %v", s["level"])
+	}
 }

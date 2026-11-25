@@ -1,12 +1,12 @@
 // Keys and buttons, routed to the modules that handle them.
 
-import { $, el, S, introOpen, isTouch, focusText, setWordLevel } from "./state.js";
+import { $, el, S, isTouch, focusText, setWordLevel } from "./state.js";
 import { requestFit, highlightNextKey, toggleKb, autoKb } from "./keyboard.js";
 import { refreshStats, renderStats, resetStatsPick } from "./stats.js";
 import { postJSON } from "./api.js";
 import { fitText, placeCaret, handleChar, backspace, restartRound, setTyping, loadExercise, roundStarted, pauseRound, checkLayout } from "./typing.js";
 import { checkCaps } from "./warn.js";
-import { introKey } from "./intro.js";
+import { welcomeKey, onWelcomeStart, resetWelcome } from "./intro.js";
 import { profileOpen, closeProfile } from "./profile.js";
 import { resultOpen, closeResult } from "./result.js";
 import { settingsOpen, openSettings, onSettingsClose, onSetting, setLength } from "./settings.js";
@@ -25,15 +25,20 @@ window.addEventListener("resize", () => {
   if (S.view === "stats") renderStats();
 });
 
-// ---------- screens: typing / stats ----------
+// ---------- screens: welcome / typing / stats ----------
 function setView(name) {
+  if (S.view === "type" && name !== "type" && roundStarted()) pauseRound();
   S.view = name;
   document.body.dataset.view = name;
-  const stats = name === "stats";
+  const stats = name === "stats", welcome = name === "welcome";
   renderNav();
-  el.viewType.hidden = stats;
+  el.viewType.hidden = stats || welcome;
   el.viewStats.hidden = !stats;
-  if (stats) {
+  el.intro.hidden = !welcome;
+  if (welcome) {
+    setTyping(false);
+    resetWelcome();
+  } else if (stats) {
     startGrow();
     resetStatsPick();
     setTyping(false);
@@ -47,6 +52,8 @@ function setView(name) {
   }
 }
 el.tabStats.addEventListener("click", (e) => { e.currentTarget.blur(); setView("stats"); });
+el.tabWelcome.addEventListener("click", (e) => { e.currentTarget.blur(); if (S.view !== "welcome") setView("welcome"); });
+export function openWelcome() { setView("welcome"); }
 
 // ---------- modes: learn / freetype ----------
 function chooseMode(m) {
@@ -64,6 +71,7 @@ function chooseMode(m) {
   if (S.view !== "type") setView("type");
 }
 el.tabLearn.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("learn"); });
+onWelcomeStart(() => chooseMode("learn"));
 el.tabFreetype.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("freetype"); });
 document.getElementById("logo").addEventListener("click", () => {
   if (S.view !== "type") setView("type");
@@ -127,7 +135,6 @@ document.addEventListener("keyup", (e) => { if (e.code === PEEK_KEY) closePeek()
 document.addEventListener("keydown", (e) => {
   if (peekShown() && e.code !== PEEK_KEY) closePeek();
   if (document.querySelector("dialog[open]")) return;
-  if (introOpen()) { introKey(e); return; }
   if (profileOpen()) {
     if (e.key === "Escape") { e.preventDefault(); closeProfile(); }
     return;
@@ -138,6 +145,7 @@ document.addEventListener("keydown", (e) => {
     openSettings();
     return;
   }
+  if (S.view === "welcome") { welcomeKey(e); return; }
   const altGr = e.getModifierState?.("AltGraph");
   if (e.altKey && !e.ctrlKey && !e.metaKey && !altGr && e.code === "KeyK") {
     if (shortcut(e, "kb") && S.view === "type") toggleKb();

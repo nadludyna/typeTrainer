@@ -9,8 +9,8 @@ export const el = {
   letters: $("letters"),
   tooltip: $("tooltip"),
   hands: $("hands"),
-  intro: $("intro"),
-  nav: $("nav-switch"), tabLearn: $("tab-learn"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
+  intro: $("view-welcome"),
+  nav: $("nav-switch"), tabWelcome: $("tab-welcome"), tabLearn: $("tab-learn"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
   viewType: $("view-type"), viewStats: $("view-stats"),
   lengthFilter: $("length-filter"), tiles: $("tiles"), chart: $("chart"), chartNote: $("chart-note"),
   warn: $("layout-warn"), toasts: $("toasts"),
@@ -47,7 +47,7 @@ export const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
-export const introOpen = () => !el.intro.classList.contains("hidden");
+export const introOpen = () => S.view === "welcome";
 export const listless = (v) => v === "sentences" || v === "custom";
 export const roundList = () => listless(S.freetypeVariant) ? 0 : S.freetypeList;
 export const listLabel = (n) => n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : String(n);

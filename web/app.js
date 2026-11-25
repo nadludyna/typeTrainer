@@ -6,12 +6,11 @@ import { el, S, store, isTouch } from "./state.js";
 import { getJSON } from "./api.js";
 import { labelTips } from "./tools.js";
 import { autoKb } from "./keyboard.js";
-import { showIntro } from "./intro.js";
 import { renderProfile, loadAccount } from "./profile.js";
 import { loadLanguage } from "./languages.js";
 import { loadSettings } from "./settings.js";
 
-import "./input.js";
+import { openWelcome } from "./input.js";
 
 // ---------- start ----------
 (async function init() {
@@ -33,5 +32,5 @@ import "./input.js";
     store.set("tt.flash", "");
     FX.toast(t("toast.imported", { n: flash }));
   }
-  if (!store.get("tt.introDone") && S.layout && !isTouch()) showIntro();
+  if (!store.get("tt.introDone") && S.layout && !isTouch()) openWelcome();
 })();

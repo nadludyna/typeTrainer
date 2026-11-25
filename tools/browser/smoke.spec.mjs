@@ -929,3 +929,52 @@ test("Reinforce: with every letter open, Learn offers word levels and speed goal
   }
   expect((await asked).postDataJSON().level, "the next words come from the chosen level").toBe(10);
 });
+
+test("Welcome: a first visit opens it; the home row, the finger tour, then Learn; the tab brings it back", async ({ page }) => {
+  await openApp(page, { "tt.introDone": "" });
+  const step = () => page.locator("#view-welcome .intro-step.active").getAttribute("data-step");
+  await expect(page.locator("body")).toHaveAttribute("data-view", "welcome");
+  await expect(page.locator("#tab-welcome")).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#view-type")).toBeHidden();
+  await page.keyboard.press("x");
+  expect(await step(), "any key leaves the first step").toBe("1");
+  for (const k of ["a", "s", "d", "f", "j", "k", "l", ";"]) await page.keyboard.press(k);
+  expect(await step(), "the home row alone is not enough").toBe("1");
+  await page.keyboard.press("Space");
+  await expect.poll(step).toBe("2");
+  await expect(page.locator("#tour-of")).toHaveText("Finger 1 of 8 · left pinky");
+  await expect(page.locator("#tour-map .key.next .lbl")).toHaveText("q");
+  await page.keyboard.press("w");
+  await expect(page.locator("#tour-map .key.next .lbl"), "a wrong key changes nothing").toHaveText("q");
+  for (let i = 0; i < 300 && await step() === "2"; i++) {
+    const next = page.locator("#tour-map .key.next .lbl");
+    if (await next.count()) await page.keyboard.press(await next.textContent());
+    else await page.waitForTimeout(100);
+  }
+  expect(await step(), "eight fingers lead to the start").toBe("3");
+  await expect(page.locator("#wl-chips .wl-chip.done")).toHaveCount(3);
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toHaveAttribute("data-view", "type");
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "learn");
+  await waitForText(page);
+  expect(await page.evaluate(() => localStorage.getItem("tt.introDone"))).toBe("1");
+  await page.locator("#tab-welcome").click();
+  await expect(page.locator("body")).toHaveAttribute("data-view", "welcome");
+  expect(await step(), "Welcome opens at its start again").toBe("0");
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowRight");
+  expect(await step(), "the arrows walk the steps").toBe("2");
+  await page.locator("#wl-start").click();
+  await expect(page.locator("body")).toHaveAttribute("data-view", "type");
+});
+
+test("Welcome: a returning visitor goes straight to Learn, and nothing typed in Welcome is sent", async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator("body")).toHaveAttribute("data-view", "type");
+  const sent = [];
+  page.on("request", (r) => { if (/\/api\/v1\/(portion|results|abort)/.test(r.url())) sent.push(r.url()); });
+  await page.locator("#tab-welcome").click();
+  for (const k of ["x", "a", "s", "d", "f", "Space"]) await page.keyboard.press(k);
+  await page.waitForTimeout(300);
+  expect(sent, "Welcome sends no presses").toEqual([]);
+});

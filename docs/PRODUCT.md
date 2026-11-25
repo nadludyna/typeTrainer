@@ -42,10 +42,11 @@ speed and builds the next words around your weak letters.
   between words. The letter row is all the progress Learn shows; the stats
   screen opens with Reinforce.
 
-  **Built now:** Learn, and Reinforce with one word level at a time and a
+  **Built now:** a Welcome screen with the finger tour (section 14.1 of
+  `docs/HOW-THE-MODES-WORK.md`), Learn, and Reinforce with one word level at a time and a
   speed goal from 30 to 200 in steps of 10. Learn counts accuracy only,
   with a focus on two thresholds (`docs/HOW-THE-MODES-WORK.md`, section
-  14). **To build:** the finger tour and a key drill for every new letter,
+  14). **To build:** a key drill for every new letter,
   levels that add up, a level that can be passed, a goal step in the
   settings and no ceiling, Freetype as the third stage with word-to-word
   flow. Every mode, list and round length keeps its own history, and

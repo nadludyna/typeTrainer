@@ -7,7 +7,7 @@ formula here is exactly what the code does, and every number comes from
 Section 14 is Learn's accuracy rules: its accuracy, focus and next letter
 are built and on (`AccWindow = 100`) and replace the level, mastery, focus
 and unlock rules of sections 5-7 while letters are still closed; the
-finger tour and the key drill are not built yet. Once every letter is open
+finger tour is built (in Welcome), the key drill is not built yet. Once every letter is open
 (Reinforce) the rules of sections 5-7 apply as written.
 
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
@@ -845,24 +845,30 @@ only, Reinforce adds speed, Freetype adds consistency
 (`docs/PRODUCT.md`, "One mode, three stages"). Learn below replaces the
 level, mastery, focus and unlock rules of sections 5-7.
 
-### 14.1 The intro: finger tour
+### 14.1 Welcome: the finger tour
 
-The first visit to Learn starts with the **finger tour**, before any word.
-The fingers rest on F and J (the bumps). The tour walks the keyboard
+The **finger tour** is a step of the Welcome screen (`web/intro.js`), which
+opens by itself on the first visit and from its tab any time later. Its
+steps: what touch typing is; the home row and space (press all eight keys
+and space); the finger tour; start. The fingers rest on F and J (the bumps). The tour walks the keyboard
 **finger by finger**, from the left little finger to the right one: the
 little finger's column `q a z`, the ring finger's `w s x`, and so on; an
-index finger has two columns (`r f v t g b`). The finger has its colour
-on the on-screen keyboard and its column lights up.
+index finger has two columns (`r f v t g b`); only the letter block
+(`q`…`p`, `a`…`;`, `z`…`/`) is in the tour. The finger has its colour
+on the keyboard picture and its column lights up; the next key is filled
+with the finger's colour.
 
 - Each key of the finger is one sub-step: press it once. A wrong key
-  shows the right one again; nothing is counted against you.
-- Progress on two levels: "fingers: 3 of 8" over the keyboard, and the
-  finger's own keys ticked off (`q ✓ a ✓ z ·`).
-- A "to words" button is there from the first second; whoever knows the
-  keyboard leaves at once.
-- The tour can be opened again at any time from Learn.
-- Its presses never enter the letter statistics: the site sees the key,
-  not the finger, so the tour can show the right finger but not check it.
+  makes the right one pulse; nothing is counted against you. After the
+  finger's last key the next finger comes by itself.
+- Progress on two levels: a strip of eight fingers and "Finger 3 of 8 ·
+  left middle" over the keyboard, and the finger's own keys ticked off
+  under it (`E ✓ D C`).
+- "Start Learn" (or Enter) is there on every step; whoever knows the
+  keyboard leaves at once. ← → and the step chips move between steps.
+- The Welcome tab opens it again at any time, from its first step.
+- Its presses are never sent, so they never enter the letter
+  statistics: the site sees the key, not the finger, so the tour can show the right finger but not check it.
 
 It takes under a minute.
 

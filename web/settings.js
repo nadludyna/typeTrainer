@@ -61,7 +61,7 @@ function valueLabel(s, v) {
 }
 const nameOf = (s) => t("settings." + s.id);
 const tipOf = (s) => (s.tip ? t(`settings.${s.id}Desc`) : "");
-const modeName = (m) => t(m === "climb" ? "mode.free" : "mode." + m);
+const modeName = (m) => t("mode." + m);
 
 // ---------- loading and saving ----------
 export function loadSettings() {

@@ -17,7 +17,6 @@ export async function loadLanguage(id) {
   S.busy = true;
   try {
     S.lang = id;
-    S.climbLevel = null;
     const info = S.languages.find((l) => l.id === id);
     S.alphabet = new Set(info.alphabet);
     document.documentElement.lang = id;

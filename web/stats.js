@@ -92,10 +92,9 @@ const keyOf = (p) => `${p.mode} ${p.list} ${p.variant} ${p.length}`;
 function own(p) {
   if (p.length !== lengthFor(p.mode)) return null;
   if (p.mode === "learn") return S.lastStats;
-  if (p.mode === "climb") return S.climb;
   return p.list === S.freetypeList && p.variant === S.freetypeVariant ? S.freetype : null;
 }
-const statsUrl = (p) => p.mode === "learn" ? `/stats?length=${p.length}` : p.mode === "climb" ? `/freeplay/stats?length=${p.length}` : freetypeUrl(p.length, p.list, p.variant);
+const statsUrl = (p) => p.mode === "learn" ? `/stats?length=${p.length}` : freetypeUrl(p.length, p.list, p.variant);
 
 export function shownStats() {
   if (!pick.length) resetStatsPick();
@@ -110,7 +109,7 @@ export function renderStats() {
   document.getElementById("len-head").textContent = lengthLabel(length);
   const sessions = [...s.sessions].reverse();
   const goal = goalFor(mode);
-  el.tiles.innerHTML = tiles(sessions, s.sessionCount, goal, mode === "climb" ? s.place?.level : null, s.streaks ?? []);
+  el.tiles.innerHTML = tiles(sessions, s.sessionCount, goal, s.streaks ?? []);
   drawActivity();
   if (activityStale) loadActivity();
 
@@ -130,7 +129,7 @@ export function trendTag(sessions, f) {
   if (!d) return "";
   return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
 }
-function tiles(sessions, count, goal, level, streaks) {
+function tiles(sessions, count, goal, streaks) {
   const last = sessions.slice(-10);
   const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
   const tile = (value, label, meta = "", cls = "") =>
@@ -138,7 +137,6 @@ function tiles(sessions, count, goal, level, streaks) {
   const last10 = (f) => t("tile.last10") + trendTag(sessions, f);
   const wpm = avg(last, (x) => x.wpm);
   const out = [
-    level != null ? `<div class="tile level"><b>${level}</b><small>${t("tile.level")}</small><span class="meta">${t("tile.levelNote", { list: compact.format(S.climb?.levels?.[level - 1] ?? 0).toLowerCase() })}</span></div>` : "",
     tile(count, t("tile.exercises")),
     tile(num(wpm), t("tile.wpm"), last10((x) => x.wpm), " speed"),
     tile(num(avg(last, (x) => x.accuracy), "%"), t("tile.acc"), last10((x) => x.accuracy)),
@@ -272,7 +270,7 @@ const pickEl = $("stats-pick");
 function renderPick(mode, list, variant) {
   const ft = mode === "freetype", lists = ft && !listless(variant) ? (S.freetype?.lists ?? []) : [];
   const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"];
-  const modes = [["learn", "mode.learn"], ["climb", "mode.free"], ["freetype", "mode.freetype"]].filter(([m]) => shownMode(m));
+  const modes = [["learn", "mode.learn"], ["freetype", "mode.freetype"]].filter(([m]) => shownMode(m));
   pickEl.innerHTML = (modes.length > 1 ? ring(t("stats.modes"), modes.map(([m, key]) => ringBtn(`data-mode="${m}"`, t(key), m === mode))) : "") +
     (ft ? ring(t("ft.kind"), kinds.map((k) => ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), variant === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""))) : "") +
     (lists.length ? ring(t("freetype.list"), lists.map((n) => ringBtn(`data-list="${n}"`, listLabel(n), n === list, t("freetype.listN", { n })))) : "");

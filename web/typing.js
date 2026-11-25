@@ -10,7 +10,7 @@ import { showResult } from "./result.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal } from "./learnpanel.js";
 import { learning, refreshFreeplay, renderNav } from "./modes.js";
-import { renderModeBar, climbAnswer } from "./modebar.js";
+import { renderModeBar } from "./modebar.js";
 import { lengthOf } from "./settings.js";
 import { customPortions, customRoundDone } from "./customtext.js";
 import { paceGlide, resetGlide, scrollText, stopScroll } from "./caret.js";
@@ -198,7 +198,7 @@ function freePortionDone(k) {
   sentUpTo = por.end + 1;
   showPortion(k + 1);
   if (!needMore()) return;
-  const how = S.mode === "climb" ? { level: S.climbLevel } : { list: roundList(), variant: S.freetypeVariant };
+  const how = { list: roundList(), variant: S.freetypeVariant };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -208,7 +208,7 @@ function freePortionDone(k) {
   }).catch((err) => { console.error(err); el.hint.textContent = t("err.server"); });
 }
 
-const portionRoute = () => ({ learn: "/portion", climb: "/freeplay/portion", freetype: "/freetype/portion" })[S.mode];
+const portionRoute = () => ({ learn: "/portion", freetype: "/freetype/portion" })[S.mode];
 const ownText = () => S.mode === "freetype" && S.freetypeVariant === "custom";
 const getPortions = (body) => ownText() ? Promise.resolve(customPortions(body.start, body.words)) : postJSON(portionRoute(), body);
 
@@ -247,11 +247,10 @@ export async function loadExercise() {
   if (S.view === "type") renderNav();
   const words = learning() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
-  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: S.mode === "climb" ? S.climbLevel ?? 0 : learnLevel(), round, portionIndex: 0, ack: 0 };
+  const body = { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: learnLevel(), round, portionIndex: 0, ack: 0 };
   const res = await getPortions(body);
   if (id !== streamId) return;
   roundBefore = S.lastStats;
-  if (S.mode === "climb" && res.level !== S.climbLevel) { S.climbLevel = res.level; renderModeBar(); renderLetters(); }
   limit = next;
   roundWords = limit.kind === "words" ? limit.n : 0;
   appendPortions(res.portions);
@@ -560,7 +559,6 @@ async function finishRound() {
     await queue;
     streamId++;
     if (!typed.length) { await loadExercise(); return; }
-    if (S.mode === "climb") { await finishFree(wpm, accuracy, typed, fullSeconds(end)); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
     const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel() };
     learnRound++;
@@ -607,29 +605,6 @@ function learnUnsaved(err, body) {
 
 const device = () => (isTouch() ? "touch" : "keyboard");
 const roundId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
-
-async function finishFree(wpm, accuracy, keys, perSecond) {
-  const before = S.climb?.sessions ?? [];
-  const level = S.climbLevel;
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), level, round, seconds: typedSeconds(lastTime) };
-  const saved = async (res) => {
-    S.climbLevel = res.place.level;
-    refreshActivity();
-    await refreshFreeplay();
-    renderLetters();
-    climbAnswer();
-    return { verdict: res.verdict, place: res.place, weak: res.weak };
-  };
-  const shown = { wpm, accuracy, words: typedWords(), ...roundFacts() };
-  const { res, unsaved } = await trySave("/freeplay/results", body, saved);
-  if (res) {
-    const best = before.length > 0 && wpm > Math.max(...before.map((x) => x.wpm));
-    await showResult({ ...shown, consistency: res.consistency, best, climb: { level, ...(await saved(res)) } });
-  } else {
-    await showResult({ ...shown, consistency: null, climb: { level }, unsaved });
-  }
-  await loadExercise();
-}
 
 async function trySave(path, body, saved) {
   const why = (err) => { console.error(err); return t(retryable(err) ? "save.failed" : "save.impossible"); };

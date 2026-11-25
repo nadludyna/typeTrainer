@@ -20,7 +20,7 @@ export const SETTINGS = [
 
   // ---------- typing ----------
   { id: "stop", cat: "typing", kind: "switch", def: false, store: "tt.stop", tip: true, words: "mistake error block" },
-  { id: "length", cat: "typing", kind: "length", values: LENGTHS, modes: ["climb", "freetype"], tip: true, words: "words time seconds round",
+  { id: "length", cat: "typing", kind: "length", values: LENGTHS, modes: ["freetype"], tip: true, words: "words time seconds round",
     show: () => S.mode !== "learn" },
 
   // ---------- keyboard ----------
@@ -31,7 +31,7 @@ export const SETTINGS = [
 
   // ---------- goals ----------
   { id: "daily", cat: "goals", kind: "choice", values: DAILY, def: 15, store: "tt.daily", words: "minutes day" },
-  { id: "goal", cat: "goals", kind: "number", min: 20, max: 300, step: 5, start: 40, def: 0, store: "tt.goal", tip: true, modes: ["climb", "freetype"],
+  { id: "goal", cat: "goals", kind: "number", min: 20, max: 300, step: 5, start: 40, def: 0, store: "tt.goal", tip: true, modes: ["freetype"],
     words: "wpm speed target chart line" },
 
   // ---------- data ----------

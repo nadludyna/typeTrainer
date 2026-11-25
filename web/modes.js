@@ -1,4 +1,4 @@
-// The three modes and their tabs.
+// The modes and their tabs.
 
 import { el, S, store, shownMode, statsShown } from "./state.js";
 import { getJSON } from "./api.js";
@@ -7,7 +7,7 @@ import { lengthFor } from "./settings.js";
 import { renderModeBar } from "./modebar.js";
 import { hasCustomText } from "./customtext.js";
 
-const MODES = ["learn", "climb", "freetype"];
+const MODES = ["learn", "freetype"];
 
 export const learning = () => S.mode === "learn";
 
@@ -15,17 +15,13 @@ export const freetypeUrl = (length, list, variant) =>
   `/freetype/stats?length=${length}${list ? `&list=${list}` : ""}${variant ? `&variant=${variant}` : ""}`;
 
 export async function refreshFreeplay() {
-  const climbLength = lengthFor("climb"), length = lengthFor("freetype");
+  const length = lengthFor("freetype");
   const list = Number(store.get(`tt.list.${S.lang}`)) || 0;
   let variant = store.get(`tt.variant.${S.lang}`) ?? "";
   if (variant === "custom" && !hasCustomText()) variant = "";
   if (variant === "sentences" && S.freetype && !S.freetype.sentences) variant = "";
-  const [climb, freetype] = await Promise.all([
-    getJSON(`/freeplay/stats?length=${climbLength}`),
-    getJSON(freetypeUrl(length, list, variant))
-      .catch(() => getJSON(freetypeUrl(length, 0, ""))),
-  ]);
-  S.climb = climb;
+  const freetype = await getJSON(freetypeUrl(length, list, variant))
+    .catch(() => getJSON(freetypeUrl(length, 0, "")));
   S.freetype = freetype;
   S.freetypeList = freetype.list || S.freetypeList || list || freetype.lists?.[0] || 0;
   S.freetypeVariant = freetype.variant ?? "";
@@ -63,12 +59,11 @@ export function setMode(m) {
   autoKb();
 }
 
-el.tabClimb.hidden = !shownMode("climb");
 el.tabFreetype.hidden = !shownMode("freetype");
 
 export function renderNav() {
   el.tabStats.hidden = !statsShown();
-  const tabs = [el.tabLearn, el.tabClimb, el.tabFreetype, el.tabStats];
+  const tabs = [el.tabLearn, el.tabFreetype, el.tabStats];
   const mine = S.view === "stats" ? el.tabStats : tabs[MODES.indexOf(S.mode)];
   const shown = tabs.filter((b) => !b.hidden);
   el.nav.style.setProperty("--n", shown.length);

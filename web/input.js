@@ -55,7 +55,7 @@ function setView(name) {
 }
 el.tabStats.addEventListener("click", (e) => { e.currentTarget.blur(); setView("stats"); });
 
-// ---------- modes: learn / climb / freetype ----------
+// ---------- modes: learn / freetype ----------
 function chooseMode(m) {
   if (m !== S.mode) {
     if (resultOpen()) {
@@ -71,7 +71,6 @@ function chooseMode(m) {
   if (S.view !== "type") setView("type");
 }
 el.tabLearn.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("learn"); });
-el.tabClimb.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("climb"); });
 el.tabFreetype.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("freetype"); });
 document.getElementById("logo").addEventListener("click", () => {
   if (S.view !== "type") setView("type");
@@ -85,7 +84,6 @@ async function barPick(pick) {
   }
   if (pick.variant !== undefined) await setFreetypeVariant(pick.variant);
   if (pick.list) await setFreetypeList(pick.list);
-  if (pick.level) { S.climbLevel = pick.level; renderLetters(); }
   if (pick.wordLevel) setWordLevel(pick.wordLevel);
   if (pick.step !== undefined) {
     await postJSON("/learn/step", { step: pick.step });

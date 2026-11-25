@@ -3,7 +3,6 @@
 import { t } from "./i18n.js";
 import { el, S } from "./state.js";
 import { learning } from "./modes.js";
-import { renderModeBar } from "./modebar.js";
 
 let builtFor = "";
 let chipOf = {};
@@ -76,7 +75,6 @@ function renderFreeLetters() {
   el.letters.replaceChildren();
   for (const key of Object.values(S.keyEls)) key.classList.remove("locked", "known");
   if (S.altgrEl) S.altgrEl.classList.remove("locked");
-  if (S.mode === "climb") renderModeBar();
 }
 
 // ---------- one letter's progress ----------

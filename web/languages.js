@@ -6,7 +6,6 @@ import { getJSON } from "./api.js";
 import { labelTips } from "./tools.js";
 import { drawKeyboard } from "./keyboard.js";
 import { refreshStats, renderStats } from "./stats.js";
-import { restoreTune } from "./tune.js";
 import { loadExercise } from "./typing.js";
 import { hideWarn } from "./warn.js";
 import { refreshActivity } from "./learnpanel.js";
@@ -34,7 +33,6 @@ export async function loadLanguage(id) {
     applyI18n();
     renderProfile();
     labelTips();
-    await restoreTune();
     await refreshStats();
     await refreshFreeplay();
     refreshActivity();

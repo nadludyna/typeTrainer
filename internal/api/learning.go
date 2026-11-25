@@ -192,7 +192,7 @@ type learner struct {
 }
 
 func (s *Server) learner(user string, l *Language) learner {
-	return learner{gen: l.Gen, base: s.params(user)}
+	return learner{gen: l.Gen, base: s.cfg.Engine}
 }
 
 func (s *Server) lapParams(user, lang string, who learner) (engine.Params, int, error) {

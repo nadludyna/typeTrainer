@@ -150,7 +150,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 
 
-- `intro.js`: The intro, "touch typing basics" (what it is, home row, space, eyes up); opens by itself on the first visit only; ← → / A D to go back and on.
+- `intro.js`: The Welcome screen (`#view-welcome`, the Welcome tab): four steps on a row of chips (touch typing, the home row and space, the finger tour, start; docs/HOW-THE-MODES-WORK.md section 14.1) and "Start Learn" on every step (Enter). Opens by itself on the first visit (`tt.introDone`, set when Learn starts from it) and from its tab any time, always from its first step. ← → move between steps; its keys never reach typing and nothing is sent (`welcomeKey`, called by `input.js` while `S.view` is `welcome`).
 
 - `languages.js`: `loadLanguage()`.
 

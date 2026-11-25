@@ -63,8 +63,8 @@ el.tabFreetype.hidden = !shownMode("freetype");
 
 export function renderNav() {
   el.tabStats.hidden = !statsShown();
-  const tabs = [el.tabLearn, el.tabFreetype, el.tabStats];
-  const mine = S.view === "stats" ? el.tabStats : tabs[MODES.indexOf(S.mode)];
+  const tabs = [el.tabWelcome, el.tabLearn, el.tabFreetype, el.tabStats];
+  const mine = S.view === "stats" ? el.tabStats : S.view === "welcome" ? el.tabWelcome : tabs[MODES.indexOf(S.mode) + 1];
   const shown = tabs.filter((b) => !b.hidden);
   el.nav.style.setProperty("--n", shown.length);
   el.nav.style.setProperty("--i", shown.indexOf(mine));

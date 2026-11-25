@@ -121,6 +121,7 @@ body:not([data-view="stats"]) .hints .stats-line { display: none; }
 body.tb-resulting:not([data-view="stats"]) .hints .result-only { display: inline; }
 body[data-view="stats"] .hints :is(.type-only, .round-only) { display: none; }
 body[data-view="stats"] .hints .stats-hint { display: inline; }
+body[data-view="welcome"] .bottom { display: none; }
 button {
   color: var(--sub); background: var(--panel); border: 0;
   padding: 8px 14px; border-radius: var(--r-sm); cursor: pointer;

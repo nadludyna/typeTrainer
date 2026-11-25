@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="theme-color" content="#0e0f12">
 </head>
-<body>
+<body data-view="type">
   <header class="top">
     <div class="logo" id="logo">
       <svg class="logo-key" viewBox="0 0 64 64" aria-hidden="true"><rect class="logo-side" x="9" y="12" width="46" height="44" rx="10" fill="#a8851a"/><g class="logo-cap"><rect x="9" y="8" width="46" height="42" rx="10" fill="#e2b714"/><rect x="22" y="38" width="20" height="5" rx="2.5" fill="#15171a"/></g></svg>
@@ -129,11 +129,58 @@
       <div class="learn-stats" id="learn-stats" hidden></div>
 
     </section>
+
+    <!-- ================= WELCOME VIEW ================= -->
+    <section id="view-welcome" class="view intro" role="tabpanel" aria-labelledby="tab-welcome" hidden>
+      <div class="wl-top">
+        <div class="wl-chips" id="wl-chips">
+          <button type="button" class="wl-chip" data-step="0" data-i18n="wl.chip0">Touch typing</button>
+          <button type="button" class="wl-chip" data-step="1" data-i18n="wl.chip1">Home row</button>
+          <button type="button" class="wl-chip" data-step="2" data-i18n="wl.chip2">Finger tour</button>
+          <button type="button" class="wl-chip" data-step="3" data-i18n="wl.chip3">Start</button>
+        </div>
+        <button id="wl-start" type="button" class="primary" data-i18n="wl.start">Start Learn <kbd>enter</kbd></button>
+      </div>
+      <section class="intro-step" data-step="0">
+        <p class="intro-kicker" data-i18n="intro.kickerWhat">Touch typing</p>
+        <h2 id="intro-title" data-i18n="intro.titleWhat">Use all ten fingers, keep your eyes on the text</h2>
+        <div class="intro-map" id="intro-map" aria-hidden="true"></div>
+        <p data-i18n="intro.pWhat"></p>
+        <p class="intro-small" data-i18n="intro.posture"></p>
+        <p class="intro-do" data-i18n="intro.doWhat">Press any key</p>
+      </section>
+      <section class="intro-step" data-step="1">
+        <p class="intro-kicker" data-i18n="intro.kicker0">Home row</p>
+        <h2 data-i18n="intro.title0">Place your fingers on the home row</h2>
+        <div class="home-row" id="intro-home" aria-hidden="true"></div>
+        <div class="intro-space" id="intro-space" aria-hidden="true"><span data-i18n="key.space">Space</span></div>
+        <p data-i18n="intro.p0"></p>
+        <p class="intro-do" data-i18n="intro.do0">Press all eight keys and space</p>
+      </section>
+      <section class="intro-step" data-step="2">
+        <p class="intro-kicker" data-i18n="tour.kicker">Finger tour</p>
+        <h2 data-i18n="tour.title">Each finger has its own keys</h2>
+        <div class="tour-fingers" id="tour-fingers" aria-hidden="true"></div>
+        <p class="tour-of" id="tour-of"></p>
+        <div class="intro-map tour-map" id="tour-map" aria-hidden="true"></div>
+        <p class="tour-keys" id="tour-keys" aria-live="polite"></p>
+        <p id="tour-text"></p>
+        <p class="intro-do" id="tour-do"></p>
+      </section>
+      <section class="intro-step" data-step="3">
+        <p class="intro-kicker"><span data-i18n="intro.kicker3">Ready</span><span id="intro-lang"></span></p>
+        <h2 data-i18n="intro.title3">Start with a few letters</h2>
+        <p data-i18n="intro.p3"></p>
+        <p class="intro-do" data-i18n="wl.doStart">Press enter</p>
+      </section>
+      <p class="wl-foot"><span><kbd>←</kbd> <kbd>→</kbd> <span data-i18n="wl.steps">steps</span></span><span data-i18n="wl.free">Presses here never count in Learn</span></p>
+    </section>
   </main>
 
   <nav class="rail" id="rail" aria-label="Navigation">
     <div class="switch rail-group nav-switch" id="nav-switch" role="tablist" aria-label="Screen">
       <span class="switch-thumb" aria-hidden="true"></span>
+      <button type="button" role="tab" id="tab-welcome" aria-selected="false" aria-controls="view-welcome" data-tip="tip.welcome"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 10h1M10 10h1M14 10h1M18 10h0M7 14h10"/></svg><small data-i18n="nav.welcome">Welcome</small></button>
       <button type="button" role="tab" id="tab-learn" aria-selected="true" aria-controls="view-type" data-tip="tip.learn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9.5L12 5l9.5 4.5L12 14z"/><path d="M6.5 11.5v4.3c3.2 2.3 7.8 2.3 11 0v-4.3M21.5 9.5v5"/></svg><small data-i18n="mode.learn">Learn</small></button>
       <button type="button" role="tab" id="tab-freetype" hidden aria-selected="false" aria-controls="view-type" data-tip="tip.freetype"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><path d="M16 8 2 22"/><path d="M17.5 15H9"/></svg><small data-i18n="mode.freetype">Freetype</small></button>
       <button type="button" role="tab" id="tab-stats" aria-selected="false" aria-controls="view-stats" data-tip="tip.stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 18.5a9.5 9.5 0 1 1 17 0"/><path d="m12 14 4.5-5"/><circle cx="12" cy="14" r="1.2"/></svg><small data-i18n="nav.stats">Stats</small></button>
@@ -192,55 +239,6 @@
   </footer>
 
   <div id="tooltip" class="tooltip" role="tooltip" popover="manual"></div>
-
-  <div id="intro" class="intro hidden" role="dialog" aria-modal="true" aria-labelledby="intro-title">
-    <div class="intro-card">
-      <div class="intro-steps" id="intro-steps">
-        <section class="intro-step" data-step="0">
-          <p class="intro-kicker" data-i18n="intro.kickerWhat">Touch typing</p>
-          <h2 id="intro-title" data-i18n="intro.titleWhat">Use all ten fingers, keep your eyes on the text</h2>
-          <div class="intro-map" id="intro-map" aria-hidden="true"></div>
-          <p data-i18n="intro.pWhat">The colours show which finger belongs on each key. Once your fingers know their places, your eyes can stay on the text and the mistakes go down.</p>
-          <p class="intro-small" data-i18n="intro.posture">Sit up, relax your shoulders and keep your wrists just above the keyboard.</p>
-          <p class="intro-do" data-i18n="intro.doWhat">Press any key</p>
-        </section>
-        <section class="intro-step" data-step="1">
-          <p class="intro-kicker" data-i18n="intro.kicker0">Home row</p>
-          <h2 data-i18n="intro.title0">Place your fingers on the home row</h2>
-          <div class="home-row" id="intro-home" aria-hidden="true"></div>
-          <p data-i18n="intro.p0">Left hand on <b>A S D F</b>, right hand on <b>J K L ;</b>. Feel the bumps on <b>F</b> and <b>J</b> to find where your index fingers belong.</p>
-          <p class="intro-do" data-i18n="intro.do0">Press all eight keys</p>
-        </section>
-        <section class="intro-step" data-step="2">
-          <p class="intro-kicker" data-i18n="intro.kicker1">Thumbs</p>
-          <h2 data-i18n="intro.title1">Rest your thumbs on the space bar</h2>
-          <div class="intro-space" id="intro-space" aria-hidden="true"><span data-i18n="key.space">Space</span></div>
-          <p data-i18n="intro.p1">Either thumb can press the space bar. Keep your other fingers on the home row.</p>
-          <p class="intro-do" data-i18n="intro.do1">Press space</p>
-        </section>
-        <section class="intro-step" data-step="3">
-          <p class="intro-kicker" data-i18n="intro.kicker2">Eyes up</p>
-          <h2 data-i18n="intro.title2">Watch the text, not your hands</h2>
-          <div class="hands intro-hands" id="intro-hands" aria-hidden="true"></div>
-          <p data-i18n="intro.p2">The highlighted key is the one to press next, and the little hand shows which finger to use. Don't worry about mistakes: the letters you miss simply come up more often.</p>
-          <p class="intro-do" data-i18n="intro.do2">Press any key</p>
-        </section>
-        <section class="intro-step" data-step="4">
-          <p class="intro-kicker"><span data-i18n="intro.kicker3">Ready</span><span id="intro-lang"></span></p>
-          <h2 data-i18n="intro.title3">Start with a few letters</h2>
-          <p data-i18n="intro.p3"></p>
-          <div class="intro-choice">
-            <button id="intro-new" type="button" class="primary" data-i18n="intro.new">Start <kbd>enter</kbd></button>
-          </div>
-        </section>
-      </div>
-      <div class="intro-nav">
-        <button id="intro-skip" type="button" class="link" data-i18n="intro.skip">Skip</button>
-        <div class="dots" id="intro-dots"><i></i><i></i><i></i><i></i><i></i></div>
-        <button id="intro-next" type="button" class="link" data-i18n="intro.next">Next</button>
-      </div>
-    </div>
-  </div>
 
   <script src="file-check.js"></script>
   <script type="module" src="app.js"></script>

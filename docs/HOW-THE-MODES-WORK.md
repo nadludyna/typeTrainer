@@ -661,7 +661,7 @@ All in `internal/config/config.go`.
 | `MaxRepeats` | 2 | a word comes at most this many times in a round | the penalty alone let a rare letter's 10 words come 5-6 times in 30 (section 7); 2 still lets a mistyped word come back |
 | `MinWordLetters` | 2 | shorter words never appear in learning | `a`, `i`, `в` are filler, not practice (section 7) |
 | `ExerciseWords` | 20 | words per exercise of the earlier strategy (`Next`), and the unit of the simulation | short loop, model updates often |
-| `PortionWords` | 6 | words per portion of the stream, one focus letter each | about one line: the model reacts after every line, the focus changes often enough not to bore |
+| `PortionWords` | 6 | words per portion of the stream, one focus letter each | about one line: the focus changes every line, often enough not to bore (the model itself learns once per round) |
 | `AheadPortions` | 2 | portions waiting after the one being typed | about two lines to read ahead; fewer would leave the window half empty |
 | `RecentWords` | 24 | the repeat penalty and the cap look at this many last words | with the portion being built (6), a whole round of 30 |
 | `RetryWords` | 2 | most mistyped words put back into one portion | at most a third of a portion is repetition |
@@ -737,9 +737,10 @@ random numbers:
    the highest mean letter score is taken;
 3. **adaptive (softmax):** this project's `Generator.Next`, 20 words at once,
    statistics updated after each exercise (the app before the stream);
-4. **stream:** this project's `Generator.Portion` exactly as the app uses it
-   now (section 7): rounds of 5 portions of 6 words, 2 waiting, statistics
-   updated after each portion, mistyped words come back;
+4. **stream:** this project's `Generator.Portion` (section 7): rounds of 5
+   portions of 6 words, 2 waiting, mistyped words come back; statistics
+   updated after each portion by default, or once per round as the app
+   does with `-apply round`;
 5. **stream, no frequency penalty:** the same, with `RankPenalty` off, to show
    what the "common words first" rule of section 7 changes.
 

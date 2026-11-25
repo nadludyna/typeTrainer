@@ -43,7 +43,7 @@ speed and builds the next words around your weak letters.
   screen opens with Reinforce.
 
   **Built now:** a Welcome screen with the finger tour (section 14.1 of
-  `docs/HOW-THE-MODES-WORK.md`), Learn, and Reinforce with one word level at a time and a
+  `docs/HOW-THE-MODES-WORK.md`), a check-in when each mode is first opened (section 0.6), Learn, and Reinforce with one word level at a time and a
   speed goal from 30 to 200 in steps of 10. Learn counts accuracy only,
   with a focus on two thresholds (`docs/HOW-THE-MODES-WORK.md`, section
   14). **To build:** a key drill for every new letter,

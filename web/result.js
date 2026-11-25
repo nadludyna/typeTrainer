@@ -144,6 +144,23 @@ export function closeResult(how = "") {
   resolve(how);
 }
 
+// ---------- a card in the text box (the check-ins) ----------
+// Resolves with the data-act of the button pressed; Enter is `primary`,
+// Tab is "tab", and "" when something else closed it (a mode switch).
+export function showCard(html, primary) {
+  box.innerHTML = `<div class="fin ci">${html}</div>`;
+  box.querySelector(".fin").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    e.stopPropagation();
+    b.blur();
+    closeResult(b.dataset.act);
+  });
+  box.hidden = false;
+  boxState(true, "resulting");
+  return new Promise((resolve) => { done = (how) => resolve(how === "enter" ? primary : how); });
+}
+
 // ---------- the finish screen: Learn has opened every letter ----------
 // Resolves with "reinforce" (Enter or its button) or "stay" (Tab or its
 // button); "Start Learn over" opens the same question as the settings.

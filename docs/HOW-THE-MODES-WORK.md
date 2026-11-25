@@ -81,6 +81,23 @@ adaptive loop. It only helps the person choose a mode.
 | Accuracy | `right presses / all presses * 100` | `web/typing.js` `currentAccuracy` |
 | Consistency | `cv = σ / μ` of the keys per second, then `100 * (1 - tanh(cv + cv³/3 + cv⁵/5))`; none under 5 seconds | `internal/engine/consistency.go` |
 
+
+### 0.6 The check-in: where a mode starts
+
+The first time a mode is opened, one question or a 30-second sample sets
+where it starts, so the loop does not begin from the same place for a
+beginner and for someone who already types (`internal/api/checkin.go`,
+`web/checkin.js`; the numbers in `Checkin`, `internal/config/config.go`).
+Each answer changes exactly one thing; Skip keeps today's start. A mode
+that already has rounds of its own skips it. The sample's presses are sent
+nowhere: only its speed and accuracy reach `/checkin`.
+
+| Mode | Input | Rule | Output |
+|---|---|---|---|
+| Learn | "Have you learned touch typing before?" no / a little / yes | no → the start (6 letters); a little or yes → `SomeLetters = 10` (the home row and e, i, r); only while Learn has no rounds, and never fewer letters than now | the letters open at the start; "yes" also offers Reinforce |
+| Reinforce | 30 s on the 200 most common words: speed, accuracy | goal = the first speed goal step at least `GoalMargin = 5` wpm above the speed (47 → 60, 25 → 30, over 195 → 200); word level 1k from 97 %, 500 from 94 %, else 200 | the speed goal step and the word level |
+| Freetype | 30 s on the 1 000 most common words: speed, consistency | list 5k from 70 wpm, 1k from 40, else 200; the consistency is kept in the browser for Freetype's own loop (0.3) | the word list |
+
 ---
 
 ## 1. The idea in plain words

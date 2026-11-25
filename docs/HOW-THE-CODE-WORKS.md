@@ -64,6 +64,7 @@ its own.
 
 - `internal/api/learning.go`: Learning routes: `/portion`, `/results`, `/stats`, `/activity`, `/progress`.
 - `internal/api/reinforce.go`: Reinforce: word levels, a learner's weak pairs (Learn uses them too), `/learn/step` (the speed goal by hand).
+- `internal/api/checkin.go`: `/checkin`, the first visit of a mode: its rules (`checkinLetters`, `checkinStep`, `pickBy`) as docs/HOW-THE-MODES-WORK.md section 0.6 gives them, and what they change.
 
 - `internal/api/data.go`: `/reset`, `/learn/reset` (Start Learn over), `/export`, `/import` (Learn and Freetype data together).
 
@@ -151,6 +152,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 
 - `intro.js`: The Welcome screen (`#view-welcome`, the Welcome tab): four steps on a row of chips (touch typing, the home row and space, the finger tour, start; docs/HOW-THE-MODES-WORK.md section 14.1) and "Start Learn" on every step (Enter). Opens by itself on the first visit (`tt.introDone`, set when Learn starts from it) and from its tab any time, always from its first step. ← → move between steps; its keys never reach typing and nothing is sent (`welcomeKey`, called by `input.js` while `S.view` is `welcome`).
+- `checkin.js`: The check-in when a mode is first opened (`needsCheckin`, `runCheckin`, called by `input.js` before the mode's first round): Learn's question, or Reinforce's and Freetype's 30-second sample (`runProbe` in `typing.js`: a timed round of the 200 or 1 000 most common words from `/freetype/portion`, finished in the browser and sent nowhere), then `/checkin`, in cards in the text box (`showCard`, `result.js`). Done once per mode (`tt.checkin.<mode>`); Welcome's last step brings them back. Freetype's sample rhythm is kept in `tt.rhythm.<lang>`.
 
 - `languages.js`: `loadLanguage()`.
 
@@ -287,7 +289,8 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/results` | `{samples: [{char, errors, ms}], keys: [the same shape, the whole round], chars, wpm, accuracy, perSecond: [keypresses in each full second], length, seconds}` | `{unlocked, newLetter, newLap, consistency}` (`consistency` 0–100, `null` for a round under `ConsistencyMinSeconds`); the round is over: one history entry |
 | POST | `/api/v1/progress` | `{unlockAll: true\|false}` | `{unlocked}`; for development only, the interface no longer calls it |
 | POST | `/api/v1/reset` | | `{ok: true}`; deletes all progress (the reset button) |
-| POST | `/api/v1/learn/step` | `{step}` | `{step, targetWpm}`: Reinforce's speed goal step by hand, 0 to the last; 409 while letters are locked |
+| POST | `/api/v1/learn/step` | `{step}` | `{step, targetWpm}`: Reinforce's speed goal step by hand, 0 to the last, at any time |
+| POST | `/api/v1/checkin` | `{mode, answer, wpm, accuracy}` | Learn (`answer` no / little / yes): `{unlocked}`, the start letters, changed only while Learn has no rounds; Reinforce: `{step, targetWpm, wordLevel}`, the speed goal step is set; Freetype: `{list}`. The rules: docs/HOW-THE-MODES-WORK.md section 0.6 |
 | POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters, rounds and test go, the other modes stay |
 | GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freetype` is missing in older files; an older file's `freeplay`, `climbLevels` and `group` are ignored on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |

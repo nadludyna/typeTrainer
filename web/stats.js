@@ -13,7 +13,7 @@ import { grow } from "./fx.js";
 const goalPick = $("goal-pick");
 const GOAL_STEP = 5, GOAL_MIN = 20, GOAL_START = 40, GOAL_TOP = 300, GOAL_SAVE_MS = 400;
 let goalShown = 0, goalKind = "", saveTimer = 0;
-export const goalFor = (mode) => (mode === "learn" ? S.lastStats?.targetWpm ?? 0 : S.settings.goal);
+export const goalFor = (mode) => (mode === "freetype" ? S.settings.goal : S.lastStats?.targetWpm ?? 0);
 const goalText = (g) => (g ? t("stats.goalIs", { wpm: `<b>${g}</b>` }) : t("stats.goalOff"));
 function drawGoalPick(mode) {
   const kind = mode === "learn" ? "learn" : "own";
@@ -84,7 +84,7 @@ export async function refreshStats() {
 
 const pick = { mode: "learn", list: 0, variant: "", length: "" };
 export function resetStatsPick() {
-  const mode = shownMode(S.mode) ? S.mode : "learn";
+  const mode = S.mode === "freetype" ? "freetype" : "learn";
   Object.assign(pick, { mode, list: S.freetypeList, variant: S.freetypeVariant, length: lengthFor(mode) });
 }
 let other = null;

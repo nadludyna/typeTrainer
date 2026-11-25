@@ -71,6 +71,7 @@ function chooseMode(m) {
   if (S.view !== "type") setView("type");
 }
 el.tabLearn.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("learn"); });
+el.tabReinforce.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("reinforce"); });
 onWelcomeStart(() => chooseMode("learn"));
 el.tabFreetype.addEventListener("click", (e) => { e.currentTarget.blur(); chooseMode("freetype"); });
 document.getElementById("logo").addEventListener("click", () => {
@@ -157,7 +158,7 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (resultOpen()) {
-    if (e.key === "Enter" || e.key === "Tab") { if (shortcut(e, "tab")) closeResult(); }
+    if (e.key === "Enter" || e.key === "Tab") { if (shortcut(e, "tab")) closeResult(e.key === "Enter" ? "enter" : "tab"); }
     else if (e.key.length === 1) e.preventDefault();
     return;
   }

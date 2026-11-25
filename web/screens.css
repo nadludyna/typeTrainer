@@ -238,3 +238,11 @@ body[data-live="off"] .live .metric.num { display: none; }
 .cs { display: inline-block; height: 12px; border-radius: 1px; background: currentColor; }
 .cs.line { width: 2px; }
 .cs.block { width: 8px; opacity: .4; }
+
+/* ---------- the finish screen: Learn has opened every letter (result.js) ---------- */
+.result .fin { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 32px 16px; }
+.result .fin h2 { font-size: var(--fs-xl); font-weight: 500; letter-spacing: -.02em; color: var(--accent-big); margin: 0 0 8px; }
+.result .fin p { color: color-mix(in srgb, var(--text) 80%, var(--sub)); line-height: 1.6; margin: 0 0 32px; max-width: 52ch; }
+.result .fin p b { color: var(--text); font-weight: 500; }
+.fin-acts { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+@media (max-width: 600px) { .fin-acts { flex-direction: column; align-items: stretch; } .result .fin h2 { font-size: var(--fs-l); } }

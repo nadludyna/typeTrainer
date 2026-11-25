@@ -93,16 +93,20 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	done, err := s.learn(user, l, nil)
+	reinforce := s.validWordLevel(l, req.Level)
+	done, err := s.learn(user, l, nil, reinforce)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
 	stats, unlocked := done.stats, done.unlocked
 	gen := done.who.gen
+	if reinforce {
+		unlocked = len(gen.Order())
+	}
 	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps).ForStage(unlocked, len(done.who.gen.Order()))
 	typed := 0
-	if all := len(gen.Order()); unlocked == all && s.validWordLevel(l, req.Level) {
+	if all := len(gen.Order()); reinforce {
 		gen = l.Levels[req.Level-1]
 		typed = math.MaxInt32
 	} else if unlocked == all {
@@ -207,7 +211,11 @@ func (done learned) record(round *storage.Session) storage.Learned {
 	return out
 }
 
-func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out learned, err error) {
+// learn applies a round's presses to the letter model. A Reinforce round
+// (reinforce) trains every letter: its presses count for each letter as
+// Learn's would, but only a Learn round opens the next letter, and the speed
+// goal steps on every letter, open in Learn or not.
+func (s *Server) learn(user string, l *Language, samples []engine.Sample, reinforce bool) (out learned, err error) {
 	id := l.Info.ID
 	out.who = s.learner(user, l)
 	gen := out.who.gen
@@ -231,20 +239,26 @@ func (s *Server) learn(user string, l *Language, samples []engine.Sample) (out l
 	out.changed = true
 	all := len(gen.Order())
 	out.stats = engine.Apply(out.stats, samples, p.ForStage(before, all))
-	out.unlocked = gen.NextUnlocked(out.stats, before, p.ForStage(before, all))
+	if !reinforce {
+		out.unlocked = gen.NextUnlocked(out.stats, before, p.ForStage(before, all))
+	}
 	if out.unlocked > before {
 		out.newLetter = gen.Order()[out.unlocked-1]
 	}
-	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), out.unlocked, p.ForStage(out.unlocked, all)) {
+	open := out.unlocked
+	if reinforce {
+		open = all
+	}
+	if lap < out.who.base.LastLap(s.cfg.Laps) && engine.LapDone(out.stats, gen.Order(), open, p.ForStage(open, all)) {
 		out.stats, out.lapAfter = engine.StartLap(out.stats), lap+1
 	}
 	return
 }
 
-// reinforceLevel is the word level a round was typed at: only once every
-// letter was open, 0 otherwise.
-func reinforceLevel(done learned, level float64, levels int) float64 {
-	if level < 1 || level > float64(levels) || level != math.Trunc(level) || done.unlocked < len(done.who.gen.Order()) {
+// reinforceLevel is the word level a Reinforce round was typed at; 0 marks
+// a Learn round.
+func reinforceLevel(level float64, levels int) float64 {
+	if level < 1 || level > float64(levels) || level != math.Trunc(level) {
 		return 0
 	}
 	return level
@@ -342,7 +356,8 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	if again {
 		req.Keys = nil
 	}
-	done, err := s.learn(user, l, req.Keys)
+	reinforce := req.Level >= 1 && req.Level == math.Trunc(req.Level) && s.validWordLevel(l, int(req.Level))
+	done, err := s.learn(user, l, req.Keys, reinforce)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -355,7 +370,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Device: req.Device,
 		Lap:     done.lap,
-		Level:   reinforceLevel(done, req.Level, len(l.Levels)),
+		Level:   reinforceLevel(req.Level, len(l.Levels)),
 		Round:   req.Round,
 		Seconds: s.typedSeconds(req.Seconds),
 	}))

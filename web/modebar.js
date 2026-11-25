@@ -1,7 +1,7 @@
 // The round bar above the text.
 
 import { t } from "./i18n.js";
-import { $, S, listLabel, listless, reinforcing, wordLevel } from "./state.js";
+import { $, S, listLabel, listless, reinforcing, learnDone, wordLevel } from "./state.js";
 import { LENGTHS, lengthOf, lengthLabel } from "./settings.js";
 import { hasCustomText } from "./customtext.js";
 import { ring, ringBtn } from "./minipop.js";
@@ -11,18 +11,19 @@ const bar = $("mode-bar"), stand = $("stand");
 export function renderModeBar() {
   const cur = S.settings.length;
   const parts = [];
-  bar.hidden = S.mode === "learn" && !reinforcing();
-  document.body.classList.toggle("reinforce", S.mode === "learn" && !bar.hidden);
-  if (S.mode === "learn" && !bar.hidden) {
+  bar.hidden = S.mode === "learn";
+  document.body.classList.toggle("reinforce", reinforcing());
+  if (bar.hidden) {
+    bar.innerHTML = "";
+    stand.innerHTML = "";
+    return;
+  }
+  if (reinforcing()) {
     bar.innerHTML = reinforceBar();
     stand.innerHTML = "";
     return;
   }
-  stand.innerHTML = S.mode === "freetype" ? freetypeStand() : "";
-  if (bar.hidden) {
-    bar.innerHTML = "";
-    return;
-  }
+  stand.innerHTML = freetypeStand();
   if (S.mode === "freetype") {
     const v = S.freetypeVariant;
     const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"].map((k) =>
@@ -44,6 +45,7 @@ export function renderModeBar() {
 // ---------- Reinforce: the word level and the speed goal ----------
 function reinforceBar() {
   const s = S.lastStats, at = wordLevel();
+  if (!s) return "";
   const levels = ring(t("re.words"), (s.wordLevels ?? []).map((n, i) =>
     ringBtn(`data-wlevel="${i + 1}"`, kLabel(n), i + 1 === at, t("re.wordsTip", { n: n.toLocaleString("en") }))));
   const step = s.lap ?? 0, last = s.lastLap ?? 0;
@@ -51,7 +53,9 @@ function reinforceBar() {
     `<button type="button" data-step="${step - 1}" aria-label="${t("re.down")}"${step > 0 ? "" : " disabled"}>−</button>` +
     `<output data-tip-text="${t("re.goalTip", { n: step + 1, all: last + 1 })}">${Math.round(s.targetWpm)} wpm</output>` +
     `<button type="button" data-step="${step + 1}" aria-label="${t("re.up")}"${step < last ? "" : " disabled"}>+</button></span>`;
-  return `<span class="bar-side"><b class="bar-title">${t("re.title")}</b>${levels}</span><span class="bar-side">${goal}</span>`;
+  const left = s.keys.filter((k) => !k.unlocked).length;
+  const note = learnDone() ? "" : `<p class="re-note">${t("re.learnLeft", { n: left })}</p>`;
+  return `<span class="bar-side"><b class="bar-title">${t("re.title")}</b>${levels}</span><span class="bar-side">${goal}</span>${note}`;
 }
 
 const kLabel = (n) => n >= 1000 ? `${Math.round(n / 500) / 2}k` : String(n);

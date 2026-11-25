@@ -21,7 +21,7 @@ export const SETTINGS = [
   // ---------- typing ----------
   { id: "stop", cat: "typing", kind: "switch", def: false, store: "tt.stop", tip: true, words: "mistake error block" },
   { id: "length", cat: "typing", kind: "length", values: LENGTHS, modes: ["freetype"], tip: true, words: "words time seconds round",
-    show: () => S.mode !== "learn" },
+    show: () => S.mode === "freetype" },
 
   // ---------- keyboard ----------
   { id: "kb", cat: "keyboard", kind: "switch", tip: true, words: "on-screen alt+k", touch: false,

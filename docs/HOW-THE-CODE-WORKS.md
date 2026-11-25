@@ -418,11 +418,10 @@ the page there, so there are no cookies, and the only guest is `local`.
 
 ## Modes
 
-Two modes in the code (`web/modes.js`); only Learn is shown. Freetype is
-hidden: no tab, no setting, no stats switch, and a saved hidden mode opens
-Learn (`SHOWN_MODES` in `web/state.js`). The browser checks turn it back on
-with `localStorage` `tt.allModes = "1"`. They share no data: Freetype has its
-own routes and histories (the `AddFreeplaySession` family of the store, with
+Three modes, each a tab after Welcome (`web/modes.js`): Learn, Reinforce
+and Freetype. Learn and Reinforce share the letter model and its routes
+(`/portion`, `/results`; `learning()` in the browser is true for both);
+Freetype shares no data: it has its own routes and histories (the `AddFreeplaySession` family of the store, with
 a mode: `FreetypeMode(n, variant)` for each list and kind of text).
 
 - **Learn**, for beginners, is the adaptive trainer described in
@@ -431,8 +430,18 @@ a mode: `FreetypeMode(n, variant)` for each list and kind of text).
   letters row (a colour and a bar per letter, tooltips with what each still
   needs, the mastered letters fading from the keyboard) and the line over
   the text (`web/learnpanel.js`); its rounds follow one another with no
-  result screen. Once every letter is open it becomes Reinforce (word
-  levels and the speed goal, docs/HOW-THE-MODES-WORK.md section 6.1).
+  result screen. The round that opens the last letter ends on the finish
+  screen (`showFinish` in `web/result.js`): Enter goes to Reinforce, Tab or
+  "Keep practising" stays in Learn, "Start Learn over" asks as the settings
+  do. With every letter open Learn goes on with its common words.
+- **Reinforce** is open from the start, with every letter (docs/HOW-THE-MODES-WORK.md
+  section 6.1): word levels and the speed goal on the bar above the text, and
+  a line saying how many letters Learn still has to open. A round asks for a
+  word level (`level` 1..10 in `/portion` and `/results`), which marks it as
+  Reinforce: its presses count for every letter like Learn's, but it never
+  opens a letter (`learn(…, reinforce)` in `internal/api/learning.go`); the
+  speed goal steps over every letter. Its rounds stay in Learn's history,
+  marked by their word level, and its stats are Learn's for now.
 - **Freetype**, for just typing (`internal/freeplay`, docs/HOW-THE-MODES-WORK.md
   section 13): words drawn evenly from the n most common of the long list
   (`free.txt`), n picked in the row above the text (200 to 25 000;

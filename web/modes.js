@@ -7,9 +7,10 @@ import { lengthFor } from "./settings.js";
 import { renderModeBar } from "./modebar.js";
 import { hasCustomText } from "./customtext.js";
 
-const MODES = ["learn", "freetype"];
+const MODES = ["learn", "reinforce", "freetype"];
 
-export const learning = () => S.mode === "learn";
+// Learn and Reinforce share the letter model and its routes (/portion, /results).
+export const learning = () => S.mode === "learn" || S.mode === "reinforce";
 
 export const freetypeUrl = (length, list, variant) =>
   `/freetype/stats?length=${length}${list ? `&list=${list}` : ""}${variant ? `&variant=${variant}` : ""}`;
@@ -59,11 +60,10 @@ export function setMode(m) {
   autoKb();
 }
 
-el.tabFreetype.hidden = !shownMode("freetype");
 
 export function renderNav() {
   el.tabStats.hidden = !statsShown();
-  const tabs = [el.tabWelcome, el.tabLearn, el.tabFreetype, el.tabStats];
+  const tabs = [el.tabWelcome, el.tabLearn, el.tabReinforce, el.tabFreetype, el.tabStats];
   const mine = S.view === "stats" ? el.tabStats : S.view === "welcome" ? el.tabWelcome : tabs[MODES.indexOf(S.mode) + 1];
   const shown = tabs.filter((b) => !b.hidden);
   el.nav.style.setProperty("--n", shown.length);

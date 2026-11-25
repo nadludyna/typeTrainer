@@ -36,8 +36,7 @@ func (s *Server) wordLevels(l *Language) []int {
 	return s.cfg.Freeplay.Levels[:len(l.Levels)]
 }
 
-// POST {step}: picks a speed goal step by hand, up or down, once every
-// letter is open. Mastery starts over at the new goal, as after a step
+// POST {step}: picks Reinforce's speed goal step by hand, up or down. Mastery starts over at the new goal, as after a step
 // reached by typing.
 func (s *Server) handleLearnStep(w http.ResponseWriter, r *http.Request, user string, l *Language) {
 	var req struct {
@@ -55,16 +54,12 @@ func (s *Server) handleLearnStep(w http.ResponseWriter, r *http.Request, user st
 		badRequest(w, "step: 0 to the last step")
 		return
 	}
-	unlocked, err := s.store.Unlocked(user, id)
+	lap, err := s.store.Lap(user, id)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
-	if who.gen.Clamp(unlocked) < len(who.gen.Order()) {
-		writeJSON(w, http.StatusConflict, map[string]string{"error": "step: some letters are still locked"})
-		return
-	}
-	lap, err := s.store.Lap(user, id)
+	unlocked, err := s.store.Unlocked(user, id)
 	if err != nil {
 		serverError(w, err)
 		return

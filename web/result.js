@@ -2,7 +2,7 @@
 
 import { t } from "./i18n.js";
 import { $, el, isTouch, boxState } from "./state.js";
-import { showTip } from "./tools.js";
+import { showTip, askReset } from "./tools.js";
 
 const box = $("result");
 
@@ -133,11 +133,40 @@ function open(body, btn) {
   return new Promise((resolve) => { done = resolve; });
 }
 
-export function closeResult() {
+// closeResult: `how` is the key or button that closed it ("enter", "tab",
+// or a finish screen's choice).
+export function closeResult(how = "") {
   if (!done) return;
   const resolve = done;
   done = null;
   box.hidden = true;
   boxState(false, "resulting");
-  resolve();
+  resolve(how);
+}
+
+// ---------- the finish screen: Learn has opened every letter ----------
+// Resolves with "reinforce" (Enter or its button) or "stay" (Tab or its
+// button); "Start Learn over" opens the same question as the settings.
+export function showFinish(f) {
+  box.innerHTML = `<div class="fin">` +
+    `<h2>${t("fin.title")}</h2>` +
+    `<p>${t("fin.text", { n: f.letters, rounds: f.rounds, acc: Math.round(f.accuracy) })}</p>` +
+    `<div class="fin-acts">` +
+    `<button type="button" class="primary" data-fin="reinforce">${t("fin.reinforce")}</button>` +
+    `<button type="button" data-fin="stay">${t("fin.stay")}</button>` +
+    `<button type="button" class="link" data-fin="over">${t("fin.over")}</button>` +
+    `</div></div>`;
+  box.querySelector(".fin-acts").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-fin]");
+    if (!b) return;
+    e.stopPropagation();
+    b.blur();
+    if (b.dataset.fin === "over") { askReset(true); return; }
+    closeResult(b.dataset.fin);
+  });
+  box.hidden = false;
+  boxState(true, "resulting");
+  return new Promise((resolve) => {
+    done = (how) => resolve(how === "tab" || how === "stay" ? "stay" : "reinforce");
+  });
 }

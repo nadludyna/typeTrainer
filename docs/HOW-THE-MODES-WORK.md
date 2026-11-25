@@ -8,7 +8,7 @@ Section 14 is Learn's accuracy rules: its accuracy, focus and next letter
 are built and on (`AccWindow = 100`) and replace the level, mastery, focus
 and unlock rules of sections 5-7 while letters are still closed; the
 finger tour is built (in Welcome), the key drill is not built yet. Once every letter is open
-(Reinforce) the rules of sections 5-7 apply as written.
+in Learn, the rules of sections 5-7 apply as written (and in Reinforce).
 
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
 (unlocking and word selection). Tests that check each claim:
@@ -34,8 +34,8 @@ Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
    word comes back two lines later.
 5. Only real words made of open letters. Learning has no settings: the
    model alone decides what to practise.
-6. Once every letter is open, Learn becomes **Reinforce**: you pick how many
-   common words to type (200 up to 25k), weak letters and letter pairs come
+6. **Reinforce**, its own tab, open from the start with every letter: you
+   pick how many common words to type (200 up to 25k), weak letters and letter pairs come
    more often, and the speed goal grows in steps up to 200 wpm (section 6.1).
 
 Freetype (section 13) is hidden and not developed; it never feeds this model.
@@ -357,10 +357,14 @@ Learn's letters and rounds and starts again from the first lesson.
 
 ### 6.1 Reinforce: after every letter is open
 
-Once the last letter opens, Learn becomes **Reinforce**: a bar over the
-letter row with the word level and the speed goal (`web/modebar.js`,
-`api/reinforce.go`). The model, the focus and the word weights of sections
-4-7 stay; two things change.
+**Reinforce** is its own tab, open from the start: a bar over the letter
+row with the word level and the speed goal (`web/modebar.js`,
+`api/reinforce.go`). It uses the same letter model as Learn: a Reinforce
+round's presses count for each letter as a Learn round's would (with the
+accuracy rules while Learn is not finished), so letters typed well here open
+fast later in Learn; but only a Learn round opens a letter. Its portions use
+every letter, with the focus and word weights of sections 4-7 (softmax over
+difficulty); two things are its own.
 
 **Word level.** The learner picks one of ten levels, the most common
 200, 500, 1k, 2k, 3k, 5k, 7.5k, 10k, 15k or 25k words of the long list

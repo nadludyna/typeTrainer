@@ -1,4 +1,5 @@
-// Climb's weak letter pairs.
+// The weak letter pairs of a typist: the pairs that slow the rounds down
+// the most. Reinforce brings words with them more often.
 
 package freeplay
 

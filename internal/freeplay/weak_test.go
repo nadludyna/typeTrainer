@@ -1,7 +1,6 @@
 package freeplay
 
 import (
-	"math/rand"
 	"strings"
 	"testing"
 )
@@ -104,33 +103,3 @@ func TestWeakPairs_TopFew(t *testing.T) {
 	}
 }
 
-func TestPortion_WeakShare(t *testing.T) {
-	words := make([]string, 200)
-	for i := range words {
-		words[i] = "w" + strings.Repeat("a", i%5+1) + string(rune('a'+i%26)) + string(rune('a'+i/26))
-	}
-	words[7], words[50], words[99], words[120], words[150] = "xqz", "axqa", "bxqb", "cxqc", "dxqd"
-	for i := 0; i < 10; i++ {
-		words[160+i] += "xq"
-	}
-	pk := NewPicker(words, rand.New(rand.NewSource(3)))
-	p := plain()
-	with := func(got []string) int {
-		n := 0
-		for _, w := range got {
-			if strings.Contains(w, "xq") {
-				n++
-			}
-		}
-		return n
-	}
-	got := pk.Portion(nil, 4000, 1, []string{"xq"}, p)
-	if share := float64(with(got)) / 4000; share < p.WeakShare || share > p.WeakShare+0.1 {
-		t.Fatalf("share of words with the weak pair: %.2f, want about %.2f", share, p.WeakShare)
-	}
-	p.WeakMinWords = 100
-	got = pk.Portion(nil, 4000, 1, []string{"xq"}, p)
-	if share := float64(with(got)) / 4000; share > 0.15 {
-		t.Fatalf("too few words with the pair: share %.2f, want the plain ~0.08", share)
-	}
-}

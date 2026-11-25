@@ -29,8 +29,6 @@ type Session struct {
 	Round    string          `json:"-"`
 }
 
-const ModeClimb = "freeplay"
-
 const (
 	VariantLong      = "long"
 	VariantSentences = "sentences"

@@ -1,11 +1,11 @@
-// Package freeplay is Climb and Freetype.
+// Package freeplay is the word draws outside Learn's letter model
+// (Freetype), the weak letter pairs, and the pass / hold / fail rule of a
+// level (Judge, Standing).
 package freeplay
 
 import (
 	"math"
 	"math/rand"
-	"slices"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -22,14 +22,11 @@ type Params struct {
 	PassesUp     int
 	FailsDown    int
 	History      int
-	MinLetters   int
 
 	WeakRounds     int
 	WeakMinSamples int
 	WeakMissMs     float64
 	WeakPairs      int
-	WeakShare      float64
-	WeakMinWords   int
 
 	FreetypeLists []int
 	LongMin       int
@@ -107,11 +104,6 @@ func Standing(rounds []Round, p Params) Place {
 
 func clampLevel(level, top int) int { return max(1, min(top, level)) }
 
-func LevelFromOld(old float64) int {
-	shown := math.Round(math.Max(0, math.Min(1, old))*99) + 1
-	return int(math.Ceil(shown / 10))
-}
-
 type Picker struct {
 	words []string
 	rng   *rand.Rand
@@ -119,32 +111,6 @@ type Picker struct {
 
 func NewPicker(words []string, rng *rand.Rand) *Picker {
 	return &Picker{words: words, rng: rng}
-}
-
-func Longer(words []string, min int) []string {
-	out := make([]string, 0, len(words))
-	for _, w := range words {
-		if utf8.RuneCountInString(w) >= min {
-			out = append(out, w)
-		}
-	}
-	return out
-}
-
-func (pk *Picker) Portion(recent []string, n, level int, weak []string, p Params) []string {
-	size := pk.MaxRank(level, p)
-	var pool []int
-	if len(weak) > 0 && p.WeakShare > 0 {
-		for i, w := range pk.words[:size] {
-			if slices.ContainsFunc(weak, func(pair string) bool { return strings.Contains(w, pair) }) {
-				pool = append(pool, i)
-			}
-		}
-		if len(pool) < p.WeakMinWords {
-			pool = nil
-		}
-	}
-	return pk.drawFrom(recent, n, size, pool, p.WeakShare, p)
 }
 
 func (pk *Picker) Freetype(recent []string, n, size int, long bool, p Params) []string {
@@ -240,9 +206,3 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 	return found
 }
 
-func (pk *Picker) MaxRank(level int, p Params) int {
-	if len(p.Levels) == 0 {
-		return len(pk.words)
-	}
-	return min(len(pk.words), max(1, p.Levels[clampLevel(level, len(p.Levels))-1]))
-}

@@ -162,14 +162,11 @@ func Default() Config {
 			PassesUp:     3,
 			FailsDown:    2,
 			History:      50,
-			MinLetters:   2,
 
 			WeakRounds:     20,
 			WeakMinSamples: 15,
 			WeakMissMs:     1000,
 			WeakPairs:      3,
-			WeakShare:      0.5,
-			WeakMinWords:   10,
 
 			FreetypeLists: []int{200, 1000, 5000, 10000, 25000},
 			LongMin:       6,

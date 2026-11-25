@@ -20,7 +20,6 @@ import (
 type Language struct {
 	Info       language.Language
 	Gen        *engine.Generator
-	Free       *freeplay.Picker
 	Freetype   *freeplay.Picker
 	Sentences  *freeplay.Sentences
 	Levels     []*engine.Generator // Reinforce's word levels, the most frequent words first
@@ -72,9 +71,6 @@ func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/learn/history", s.withLang(s.handleLearnHistory))
 	mux.HandleFunc("POST /api/v1/learn/reset", s.withLang(s.handleLearnReset))
 	mux.HandleFunc("POST /api/v1/learn/step", s.withLang(s.handleLearnStep))
-	mux.HandleFunc("POST /api/v1/freeplay/portion", s.withLang(s.handleFreeplayPortion))
-	mux.HandleFunc("POST /api/v1/freeplay/results", s.withLang(s.handleFreeplayResults))
-	mux.HandleFunc("GET /api/v1/freeplay/stats", s.withLang(s.handleFreeplayStats))
 	mux.HandleFunc("POST /api/v1/freetype/portion", s.withLang(s.handleFreetypePortion))
 	mux.HandleFunc("POST /api/v1/freetype/results", s.withLang(s.handleFreetypeResults))
 	mux.HandleFunc("GET /api/v1/freetype/stats", s.withLang(s.handleFreetypeStats))

@@ -191,9 +191,9 @@ func TestApp_RareWordsAfterTheAlphabet(t *testing.T) {
 	}
 	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
 	start := meanRank()
-	call(t, h, "POST", "/api/v1/freeplay/results?lang=en", `{"wpm":40,"accuracy":98,"chars":20000,"level":1}`)
+	call(t, h, "POST", "/api/v1/freetype/results?lang=en", `{"wpm":40,"accuracy":98,"chars":20000,"list":1000}`)
 	if again := meanRank(); again > 1.5*start {
-		t.Fatalf("free practice moved the limit: mean rank %v, was %v", again, start)
+		t.Fatalf("Freetype moved the limit: mean rank %v, was %v", again, start)
 	}
 	body := fmt.Sprintf(`{"samples":[],"chars":%d,"wpm":40,"accuracy":98}`, int(cfg.Words.RampLetters))
 	if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
@@ -409,7 +409,7 @@ func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
 func TestApp_StartLearnOver(t *testing.T) {
 	h, _, _ := newApp()
 	call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100}`)
-	call(t, h, "POST", "/api/v1/freeplay/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100,"level":1}`)
+	call(t, h, "POST", "/api/v1/freetype/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":40,"accuracy":100,"list":1000}`)
 	if code, _ := call(t, h, "POST", "/api/v1/learn/reset?lang=en", ""); code != 200 {
 		t.Fatalf("reset: %d", code)
 	}
@@ -417,9 +417,9 @@ func TestApp_StartLearnOver(t *testing.T) {
 	if st["learnRounds"].(float64) != 0 {
 		t.Fatalf("Learn rounds after starting over: %v", st["learnRounds"])
 	}
-	_, fp := call(t, h, "GET", "/api/v1/freeplay/stats?lang=en", "")
+	_, fp := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000", "")
 	if fp["sessionCount"].(float64) != 1 {
-		t.Fatalf("Climb lost its round: %v", fp["sessionCount"])
+		t.Fatalf("Freetype lost its round: %v", fp["sessionCount"])
 	}
 }
 

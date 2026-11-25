@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
 	"typingtrainer/internal/storage"
 )
 
@@ -26,8 +25,6 @@ type langExport struct {
 	Keys        map[string]engine.KeyStat `json:"keys"`
 	Sessions    []storage.Session         `json:"sessions"`
 	Lap         int                       `json:"lap,omitempty"`
-	Freeplay    *freeplayExport           `json:"freeplay,omitempty"`
-	ClimbLevels int                       `json:"climbLevels,omitempty"`
 	Freetype    map[string]freeplayExport `json:"freetype,omitempty"`
 }
 
@@ -78,11 +75,6 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 		serverError(w, err)
 		return
 	}
-	free, err := s.allFreeplay(user, id, storage.ModeClimb)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
 	freetype := map[string]freeplayExport{}
 	for _, key := range s.freetypeKeys(l) {
 		n, v, _ := storage.ParseFreetypeKey(key)
@@ -97,7 +89,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 	}
 	writeJSON(w, http.StatusOK, langExport{
 		Unlocked: unlocked, Keys: keys, Sessions: oldestFirst(newestFirst), Lap: lap,
-		Freeplay: &freeplayExport{Sessions: free}, ClimbLevels: len(s.cfg.Freeplay.Levels), Freetype: freetype,
+		Freetype: freetype,
 	})
 }
 
@@ -130,14 +122,6 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	}
 	id := l.Info.ID
 	histories := map[string][]storage.Session{}
-	if in.Freeplay != nil {
-		if in.ClimbLevels == 0 {
-			for i := range in.Freeplay.Sessions {
-				in.Freeplay.Sessions[i].Level = float64(freeplay.LevelFromOld(in.Freeplay.Sessions[i].Level))
-			}
-		}
-		histories[storage.ModeClimb] = in.Freeplay.Sessions
-	}
 	for list, f := range in.Freetype {
 		n, v, _ := storage.ParseFreetypeKey(list)
 		histories[storage.FreetypeMode(n, v)] = f.Sessions

@@ -366,3 +366,8 @@ body.kb-nofit:not(.kb-hidden) .kb-away { display: block; }
 
 .r-unsaved { margin: 0; font-size: var(--fs-m); color: var(--error); display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
 .r-unsaved .btn { font-size: var(--fs-s); }
+
+/* Reinforce while Learn still has letters to open (modebar.js) */
+.mode-bar .re-note { flex-basis: 100%; margin: 8px 0 0; color: var(--label); font-size: var(--fs-min); }
+.mode-bar .re-note b { color: var(--text); font-weight: 500; }
+.mode-bar:has(.re-note) { flex-wrap: wrap; }

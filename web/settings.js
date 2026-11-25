@@ -12,7 +12,7 @@ const BY_ID = Object.fromEntries(SETTINGS.map((s) => [s.id, s]));
 const DEFAULT_LENGTH = "words-30";
 const LEARN_LENGTHS = ["words-30"];
 
-const lengthsOf = (mode) => (mode === "learn" ? LEARN_LENGTHS : LENGTHS);
+const lengthsOf = (mode) => (mode === "freetype" ? LENGTHS : LEARN_LENGTHS);
 export function lengthFor(mode) {
   const ok = lengthsOf(mode);
   for (const id of [store.get(`tt.length.${mode}`), store.get("tt.length")]) {

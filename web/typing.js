@@ -6,10 +6,10 @@ import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel 
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
-import { showResult } from "./result.js";
+import { showResult, showFinish } from "./result.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal, roundEnded } from "./learnpanel.js";
-import { learning, refreshFreeplay, renderNav } from "./modes.js";
+import { learning, refreshFreeplay, renderNav, setMode } from "./modes.js";
 import { renderModeBar } from "./modebar.js";
 import { lengthOf } from "./settings.js";
 import { customPortions, customRoundDone } from "./customtext.js";
@@ -208,7 +208,7 @@ function freePortionDone(k) {
   }).catch((err) => { console.error(err); el.hint.textContent = t("err.server"); });
 }
 
-const portionRoute = () => ({ learn: "/portion", freetype: "/freetype/portion" })[S.mode];
+const portionRoute = () => (S.mode === "freetype" ? "/freetype/portion" : "/portion");
 const ownText = () => S.mode === "freetype" && S.freetypeVariant === "custom";
 const getPortions = (body) => ownText() ? Promise.resolve(customPortions(body.start, body.words)) : postJSON(portionRoute(), body);
 
@@ -582,6 +582,7 @@ async function finishRound() {
     const r = compareStats(roundBefore, S.lastStats);
     roundMilestone({ ...r, wpm, newLetter: roundNewLetter, newLap: roundNewLap });
     refreshActivity();
+    if (res.newLetter && S.mode === "learn" && S.lastStats.keys.every((k) => k.unlocked)) await finishLearn();
     await loadExercise();
   } catch (err) {
     console.error(err);
@@ -590,6 +591,13 @@ async function finishRound() {
   } finally {
     S.busy = false;
   }
+}
+
+async function finishLearn() {
+  const rounds = S.lastStats.sessions ?? [];
+  const accuracy = rounds.length ? rounds.reduce((a, x) => a + x.accuracy, 0) / rounds.length : 0;
+  const choice = await showFinish({ letters: S.lastStats.keys.length, rounds: S.lastStats.learnRounds ?? rounds.length, accuracy });
+  if (choice === "reinforce") setMode("reinforce");
 }
 
 let learnRound = 0;

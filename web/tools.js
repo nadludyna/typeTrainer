@@ -47,7 +47,7 @@ export function labelTips() {
 // ---------- reset: everything, or only Learn ----------
 let working = false, onlyLearn = false;
 const resetDialog = $("reset-dialog");
-function askReset(learn) {
+export function askReset(learn) {
   onlyLearn = learn;
   $("reset-title").textContent = t(learn ? "data.relearnTitle" : "data.confirmTitle");
   resetDialog.querySelector(".win-p").textContent = t(learn ? "data.relearnText" : "data.confirmText");

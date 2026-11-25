@@ -10,7 +10,7 @@ export const el = {
   tooltip: $("tooltip"),
   hands: $("hands"),
   intro: $("view-welcome"),
-  nav: $("nav-switch"), tabWelcome: $("tab-welcome"), tabLearn: $("tab-learn"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
+  nav: $("nav-switch"), tabWelcome: $("tab-welcome"), tabLearn: $("tab-learn"), tabReinforce: $("tab-reinforce"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
   viewType: $("view-type"), viewStats: $("view-stats"),
   lengthFilter: $("length-filter"), tiles: $("tiles"), chart: $("chart"), chartNote: $("chart-note"),
   warn: $("layout-warn"), toasts: $("toasts"),
@@ -65,15 +65,14 @@ export function focusText() {
   el.textBox.classList.remove("blurred");
 }
 
-// Freetype is hidden for now: its code and saved rounds stay.
-// tt.allModes = "1" shows it (browser checks only).
-export const SHOWN_MODES = store.get("tt.allModes") === "1" ? ["learn", "freetype"] : ["learn"];
+export const SHOWN_MODES = ["learn", "reinforce", "freetype"];
 export const shownMode = (m) => SHOWN_MODES.includes(m);
 
 // Reinforce: Learn once every letter is open. The word level is this
 // browser's choice per language.
-export const reinforcing = () => S.mode === "learn" && !!S.lastStats?.keys?.length && S.lastStats.keys.every((k) => k.unlocked);
+export const reinforcing = () => S.mode === "reinforce";
+export const learnDone = () => !!S.lastStats?.keys?.length && S.lastStats.keys.every((k) => k.unlocked);
 // The stats screen opens with Reinforce: while letters are learned it would only distract.
-export const statsShown = () => SHOWN_MODES.length > 1 || S.mode !== "learn" || reinforcing();
+export const statsShown = () => true;
 export const wordLevel = () => Math.min(Math.max(Number(store.get(`tt.wordLevel.${S.lang}`)) || 1, 1), S.lastStats?.wordLevels?.length || 1);
 export const setWordLevel = (n) => store.set(`tt.wordLevel.${S.lang}`, String(n));

@@ -12,7 +12,7 @@ import { roundStarted } from "./typing.js";
 const box = $("peek");
 const ROUNDS = 50, WEAK_LETTERS = 4, TOP_ROOM = 1.08, HOVER_MS = 200, GAP = 20;
 
-const statsOfMode = () => (S.mode === "learn" ? S.lastStats : S.freetype);
+const statsOfMode = () => (S.mode === "freetype" ? S.freetype : S.lastStats);
 
 // ---------- what it shows ----------
 function title(length) {
@@ -51,7 +51,7 @@ const chips = (label, list) => list.length ?
   `<span>${label}</span>${list.map((x) => `<b class="peek-key">${x}</b>`).join("")}` : "";
 function facts(s) {
   let left = "", right = "";
-  if (S.mode === "learn") {
+  if (S.mode !== "freetype") {
     const weak = s.keys.filter((k) => k.unlocked && !k.mastered && k.count && k.char !== " ")
       .sort((a, b) => b.difficulty - a.difficulty).slice(0, WEAK_LETTERS).map((k) => k.char);
     const f = forecastText(s.forecast, (s.sessions[0]?.unlocked ?? 0) >= s.order.length);

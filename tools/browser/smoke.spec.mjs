@@ -893,27 +893,29 @@ test("under the text: where you stand, a thin strip over the keyboard, and typin
   expect((await page.locator("#tooltip").boundingBox()).height, "a tooltip under the header stays one line").toBeLessThan(50);
 });
 
-test("a new visitor sees only Learn: Freetype and the stats wait", async ({ page }) => {
-  await openApp(page, { "tt.allModes": "", "tt.mode.en": "freetype" });
-  await expect(page.locator("body"), "a saved hidden mode opens Learn").toHaveAttribute("data-mode", "learn");
-  await expect(page.locator("#tab-freetype")).toBeHidden();
-  await expect(page.locator("#tab-stats"), "no stats while the letters are learned").toBeHidden();
-  const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
-  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
+test("every mode has its tab: Learn, Reinforce and Freetype", async ({ page }) => {
+  await openApp(page);
+  for (const id of ["tab-welcome", "tab-learn", "tab-reinforce", "tab-freetype"]) await expect(page.locator("#" + id)).toBeVisible();
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "learn");
+  await expect(page.locator("#mode-bar"), "Learn has no round bar").toBeHidden();
+  await page.locator("#tab-reinforce").click();
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "reinforce");
+  await waitForText(page);
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await expect(page.locator("#mode-bar .re-note"), "Reinforce says Learn is not finished").toContainText("letters to open");
+  await page.locator("#tab-freetype").click();
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "freetype");
+  await waitForText(page);
   await page.reload();
   await waitForText(page);
-  await page.locator("#tab-stats").click();
-  await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Freetype");
-  await page.locator("#btn-settings").click();
-  await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
+  await expect(page.locator("body"), "the mode is remembered").toHaveAttribute("data-mode", "freetype");
 });
-
 test("Start Learn over in the settings: Learn's rounds go, the first lesson comes back", async ({ page }) => {
   await openApp(page);
   const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
   await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
   await page.reload();
-  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await waitForText(page);
   await page.keyboard.press("Escape");
   await page.locator("#settings-q").fill("start over");
   await page.locator("#btn-relearn").click();
@@ -921,18 +923,20 @@ test("Start Learn over in the settings: Learn's rounds go, the first lesson come
   await page.locator("#reset-ok").click();
   await page.waitForLoadState("load");
   await waitForText(page);
-  await expect(page.locator("#mode-bar"), "back to the first letters").toBeHidden();
   const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
   expect(s.keys.filter((k) => k.unlocked).length).toBe(6);
 });
 
-test("Reinforce: with every letter open, Learn offers word levels and speed goal steps", async ({ page }) => {
+test("Reinforce: word levels and speed goal steps on its own tab", async ({ page }) => {
   await openApp(page);
-  await expect(page.locator("#mode-bar"), "no Reinforce bar while letters are locked").toBeHidden();
   const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
   await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: 26, keys: k }) }), keys);
   await page.reload();
+  await waitForText(page);
+  await expect(page.locator("#mode-bar"), "Learn keeps no Reinforce bar, even with every letter open").toBeHidden();
+  await page.locator("#tab-reinforce").click();
   await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+  await expect(page.locator("#mode-bar .re-note"), "Learn is finished: no line about it").toHaveCount(0);
   await page.locator('#mode-bar button[data-wlevel="1"]').waitFor();
   const top = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()).then((s) => s.wordLevels));
   expect(top[0]).toBe(200);
@@ -949,6 +953,23 @@ test("Reinforce: with every letter open, Learn offers word levels and speed goal
   expect((await asked).postDataJSON().level, "the next words come from the chosen level").toBe(10);
 });
 
+test("Learn: the round that opens the last letter ends on the finish screen; Enter goes to Reinforce", async ({ page }) => {
+  await openApp(page);
+  const order = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()).then((s) => s.order));
+  const keys = Object.fromEntries(order.map((c) => [c, { count: 200, errEma: 0.01, timeEma: 200, timedCount: 200, hits: "1".repeat(100) }]));
+  await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: k.n, keys: k.keys }) }), { n: order.length - 1, keys });
+  await page.reload();
+  await waitForText(page);
+  await typeRound(page, { delay: 30 });
+  const fin = page.locator("#result .fin");
+  await expect(fin).toBeVisible();
+  await expect(fin.locator("h2")).toHaveText("Every letter is open!");
+  await expect(fin).toContainText("26 letters");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("body")).toHaveAttribute("data-mode", "reinforce");
+  await waitForText(page);
+  await expect(page.locator("#mode-bar")).toContainText("Reinforce");
+});
 test("Welcome: a first visit opens it; the home row, the finger tour, then Learn; the tab brings it back", async ({ page }) => {
   await openApp(page, { "tt.introDone": "" });
   const step = () => page.locator("#view-welcome .intro-step.active").getAttribute("data-step");

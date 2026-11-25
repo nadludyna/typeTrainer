@@ -78,15 +78,15 @@ test("Learn: the line over the text holds the last round, the daily goal and the
 test("Learn: a best round's speed is gold, the letters change state without motion", async ({ page }) => {
   await withHistory(page);
   await openApp(page, { "tt.mode.en": "learn" });
-  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === "running" && !a.effect.target.closest(".ambient")));
+  await page.waitForFunction(() => !document.getAnimations().some((a) => a.playState === "running"));
   await page.evaluate(async () => {
     const m = await import("/learnpanel.js");
     m.roundMilestone({ best: true, mastered: [] });
     m.renderPanel();
   });
   await expect(page.locator("#lp-cols .lp-last .lp-best"), "a best round's speed stands out").toHaveCount(1);
-  expect(await page.evaluate(() => document.getAnimations().filter((x) => !x.effect.target.closest(".ambient")).length),
-    "nothing runs on the screen but the falling keycaps").toBe(0);
+  expect(await page.evaluate(() => document.getAnimations().length),
+    "nothing runs on the screen").toBe(0);
 });
 
 test("Learn: while typing this round's numbers take the last round's place, nothing moves", async ({ page }) => {
@@ -107,7 +107,6 @@ test("Learn: while typing this round's numbers take the last round's place, noth
 });
 
 const MODES = [
-  { name: "Climb", storage: { "tt.mode.en": "climb", "tt.length.climb": "words-10" } },
   { name: "Freetype", storage: { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" } },
 ];
 
@@ -156,38 +155,36 @@ const expectedOnly = (info, path) => {
   info.problems.splice(0, info.problems.length, ...rest);
 };
 
-test("Climb: an unsaved round still shows its result and can be saved again", async ({ page }, info) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+test("Freetype: an unsaved round still shows its result and can be saved again", async ({ page }, info) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   let tries = 0;
-  await page.route("**/api/v1/freeplay/results*", (route) => { tries++; return route.abort(); });
+  await page.route("**/api/v1/freetype/results*", (route) => { tries++; return route.abort(); });
   await typeRound(page);
   await expectResult(page);
   const line = page.locator("#result .r-unsaved");
   await expect(line).toContainText("isn't saved yet");
   expect(tries, "the save and its two retries").toBe(3);
-  await page.unroute("**/api/v1/freeplay/results*");
+  await page.unroute("**/api/v1/freetype/results*");
   await line.getByRole("button", { name: "Save again" }).click();
   await expect(line).toHaveCount(0);
   await expect(page.locator("#result .r-saved")).toBeVisible();
-  await expect(page.locator("#mode-bar .pips > i.on"), "the saved round fills its dot").toHaveCount(1);
-  expectedOnly(info, "/freeplay/results");
+    expectedOnly(info, "/freetype/results");
 });
 
-test("Climb: a round whose answer was lost is sent again and kept once", async ({ page }, info) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+test("Freetype: a round whose answer was lost is sent again and kept once", async ({ page }, info) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   let tries = 0;
-  await page.route("**/api/v1/freeplay/results*", async (route) => {
+  await page.route("**/api/v1/freetype/results*", async (route) => {
     if (++tries === 1) { await route.fetch(); return route.abort(); }
     return route.continue();
   });
   await typeRound(page);
   await expectResult(page);
-  await expect(page.locator("#mode-bar .pips > i.on")).toHaveCount(1);
   expect(tries).toBe(2);
   const count = await page.evaluate(async () =>
-    (await (await fetch("/api/v1/freeplay/stats?lang=en&length=words-10")).json()).sessionCount);
-  expect(count, "rounds in the Climb history").toBe(1);
-  expectedOnly(info, "/freeplay/results");
+    (await (await fetch("/api/v1/freetype/stats?lang=en&length=words-10")).json()).sessionCount);
+  expect(count, "rounds in the Freetype history").toBe(1);
+  expectedOnly(info, "/freetype/results");
 });
 
 test("Freetype: a round the server turns down says so and is not tried again", async ({ page }, info) => {
@@ -217,7 +214,7 @@ test("Learn: an unsaved round offers to save it again", async ({ page }, info) =
 });
 
 test("Live stats is on for a new user and doesn't switch itself", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   await expect(page.locator("body")).toHaveAttribute("data-live", "on");
   await page.evaluate(() => localStorage.setItem("tt.live", "0"));
   await page.reload();
@@ -332,10 +329,10 @@ test("settings: one window with every setting, a search and categories", async (
   const win = page.locator("#settings-win"), q = win.locator("#settings-q");
   await expect(q, "the search waits for typing").toBeFocused();
   const names = () => win.locator(".sw-name > span:first-child").allTextContents();
-  expect(await names()).toEqual(["Space between words", "Live stats", "Streak", "Falling keycaps", "Caret style", "Caret movement",
-    "Stop on a mistake", "Round length", "Keys", "Mistakes", "Show keyboard", "Next key", "Hand",
+  expect(await names()).toEqual(["Space between words", "Live stats", "Caret style", "Caret movement",
+    "Stop on a mistake", "Round length", "Show keyboard", "Next key", "Hand",
     "Daily goal, minutes", "Speed goal, wpm", "Progress data", "Start Learn over", "Reset progress"]);
-  await expect(win.locator(".sw-row", { hasText: "Streak" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
+  await expect(win.locator(".sw-row", { hasText: "Round length" }).locator(".sw-tag"), "a mode's own setting says whose").toHaveText("Freetype");
 
   await page.keyboard.type("cursor");
   expect(await names(), "a search finds other words for a setting too").toEqual(["Caret style", "Caret movement"]);
@@ -362,58 +359,6 @@ test("settings: one window with every setting, a search and categories", async (
   await expect(page.locator("#round-count"), "a new round of the new length").toHaveText("0 / 10");
 });
 
-test("the falling keycaps are on by default, the settings switch turns them off for good", async ({ page }) => {
-  await page.setViewportSize({ width: 1920, height: 1080 });
-  await openApp(page);
-  const layer = page.locator(".ambient");
-  await expect(layer).toHaveAttribute("data-kind", "keys");
-  await expect(page.locator(".ambient > i").first()).toBeAttached();
-  const playing = () => page.evaluate(() => document.querySelector(".ambient").getAnimations({ subtree: true }).filter((a) => a.playState === "running").length);
-  expect(await playing(), "they fall at rest").toBeGreaterThan(0);
-  await page.keyboard.type((await nextChar(page)) ?? "");
-  await expect.poll(playing, { message: "they hold still while you type" }).toBe(0);
-  await page.keyboard.press("Escape");
-  const row = page.locator("#settings-win .sw-row", { hasText: "Falling keycaps" });
-  await row.getByRole("button", { name: "Off" }).click();
-  await expect(layer).toHaveAttribute("data-kind", "off");
-  await expect(page.locator(".ambient > *")).toHaveCount(0);
-  expect(await page.evaluate(() => localStorage.getItem("tt.bg"))).toBe("off");
-  await page.reload();
-  await waitForText(page);
-  await expect(layer).toHaveAttribute("data-kind", "off");
-  await expect(page.locator(".ambient > *")).toHaveCount(0);
-});
-
-test("key and mistake sounds are two settings, the old one splits", async ({ page }) => {
-  await openApp(page, { "tt.sound": "keys" });
-  await page.keyboard.press("Escape");
-  const win = page.locator("#settings-win");
-  await expect(win.locator('button[data-key="keySound"][aria-pressed="true"]')).toHaveText("Deep");
-  await expect(win.locator('button[data-key="missSound"][aria-pressed="true"]')).toHaveText("Thud");
-  await win.locator('button[data-key="missSound"]', { hasText: "Off" }).click();
-  await expect(win.getByText("Volume"), "volume stays while keys still sound").toBeVisible();
-  await win.locator('button[data-key="keySound"]', { hasText: "Off" }).click();
-  await expect(win.getByText("Volume"), "no volume with every sound off").toHaveCount(0);
-  expect(await page.evaluate(() => [localStorage.getItem("tt.keySound"), localStorage.getItem("tt.missSound")])).toEqual(["off", "off"]);
-});
-
-test("erasing sounds lower than typing, a whole word lower still", async ({ page }) => {
-  await page.addInitScript(() => {
-    window.__rates = [];
-    const start = AudioBufferSourceNode.prototype.start;
-    AudioBufferSourceNode.prototype.start = function (...a) { window.__rates.push(this.playbackRate.value); return start.apply(this, a); };
-  });
-  await openApp(page, { "tt.keySound": "deep", "tt.missSound": "off" });
-  for (let i = 0; i < 2; i++) await page.keyboard.type(await nextChar(page));
-  await page.keyboard.press("Backspace");
-  await page.keyboard.press("Control+Backspace");
-  await page.keyboard.press("Backspace");
-  const rates = await page.evaluate(() => window.__rates);
-  expect(rates, "two keys, one letter, one word, nothing left to erase").toHaveLength(4);
-  expect(rates[2]).toBeLessThan(Math.min(rates[0], rates[1]));
-  expect(rates[3]).toBeLessThan(rates[2]);
-});
-
 test("the settings of one screen live on that screen", async ({ page }) => {
   await withHistory(page);
   await openApp(page, { "tt.mode.en": "freetype" });
@@ -428,7 +373,6 @@ test("the settings of one screen live on that screen", async ({ page }) => {
   await expect(page.locator("#activity .act-goal")).toHaveText("no daily goal");
   expect(await page.evaluate(() => localStorage.getItem("tt.daily"))).toBe("0");
 
-  await page.locator('#stats-pick button[data-mode="climb"]').click();
   await page.locator('#goal-pick button[data-step="1"]').click();
   await page.locator('#goal-pick button[data-step="1"]').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem("tt.goal"))).toBe("45");
@@ -436,7 +380,7 @@ test("the settings of one screen live on that screen", async ({ page }) => {
 
 test("stats: the goal line is a number of your own, and Learn's is its target", async ({ page }) => {
   await withHistory(page);
-  await openApp(page, { "tt.mode.en": "climb", "tt.goal": "100" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.goal": "100" });
   await page.locator("#tab-stats").click();
   const chip = page.locator("#goal-pick .goal-chip");
   const up = page.locator('#goal-pick button[data-step="1"]'), down = page.locator('#goal-pick button[data-step="-1"]');
@@ -460,7 +404,7 @@ test("stats: the goal line is a number of your own, and Learn's is its target", 
   await expect(chip, "and the arrows").toHaveText(/^Goal 110 wpm/);
   await expect.poll(stored).toBe("110");
 
-  await openApp(page, { "tt.mode.en": "climb", "tt.goal": "22" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.goal": "22" });
   await page.locator("#tab-stats").click();
   await expect(chip, "a goal between steps shows as it is").toHaveText(/^Goal 22 wpm/);
   await down.click();
@@ -553,7 +497,7 @@ test("the keyboard shows only while Learn opens letters", async ({ page }) => {
   expect(await page.evaluate(() => localStorage.getItem("tt.nextKey"))).toBe("0");
   await page.keyboard.press("Escape");
   await expect(pop).toBeHidden();
-  await page.locator("#tab-climb").click();
+  await page.locator("#tab-freetype").click();
   await expect(kb).toBeHidden();
   await page.locator("#tab-learn").click();
   await expect(kb).toBeVisible();
@@ -584,7 +528,7 @@ test("the text stands at the same place for the same keyboard state", async ({ p
   const top = async () => Math.round((await page.locator("#text-box").boundingBox()).y);
   const learn = await top();
   let noKeyboard;
-  for (const m of ["climb", "freetype", "learn"]) {
+  for (const m of ["freetype", "learn"]) {
     await page.locator(`#tab-${m}`).click();
     await waitForText(page);
     await expect(page.locator("#keyboard")).toHaveClass(m === "learn" ? /^(?!.*\boff\b)/ : /\boff\b/);
@@ -594,8 +538,8 @@ test("the text stands at the same place for the same keyboard state", async ({ p
   }
 });
 
-test("Climb: the live numbers show from the first key, not as zeros at rest", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10", "tt.live": "1" });
+test("Freetype: the live numbers show from the first key, not as zeros at rest", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10", "tt.live": "1" });
   const wpm = page.locator(".live > .metric.num").first();
   await expect(wpm, "no zeros before the round").toHaveCSS("opacity", "0");
   await page.keyboard.type(await nextChar(page));
@@ -607,8 +551,8 @@ test("Climb: the live numbers show from the first key, not as zeros at rest", as
   await expect(wpm, "the last round's numbers don't stay over the new text").toHaveCSS("opacity", "0");
 });
 
-test("Climb: the result opens in place and the round switches do not move", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+test("Freetype: the result opens in place and the round switches do not move", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   const bar = page.locator("#mode-bar");
   const before = (await bar.boundingBox()).y;
   await typeRound(page);
@@ -623,7 +567,7 @@ test("one grid in all modes: the text stands at one place and the round's count 
   for (const [width, height] of [[1100, 900], [1600, 900]]) {
     await page.setViewportSize({ width, height });
     const tops = [];
-    for (const mode of ["learn", "climb", "freetype"]) {
+    for (const mode of ["learn", "freetype"]) {
       await openApp(page, { "tt.mode.en": mode });
       const m = await page.evaluate(() => {
         const text = document.getElementById("text").getBoundingClientRect();
@@ -658,11 +602,11 @@ const outsideColumn = async (page, parts, text) => page.evaluate(([parts, text])
 for (const width of [1280, 1600]) {
   test(`one column at ${width}: the letters, the line above the text, the keyboard and its gear, the result stand between the text edges`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    for (const mode of ["learn", "climb", "freetype"]) {
+    for (const mode of ["learn", "freetype"]) {
       await openApp(page, { "tt.mode.en": mode });
       expect(await outsideColumn(page, ["#view-type > .letters", "#keyboard"]), mode).toEqual([]);
     }
-    await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+    await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
     const text = await textEdges(page);
     await typeRound(page);
     await expectResult(page);
@@ -728,13 +672,13 @@ test("the round's count follows each word and goes back when a word is undone", 
 
 test("no text on the typing, result, settings and stats screens is smaller than 14px", async ({ page }) => {
   await page.setViewportSize({ width: 1366, height: 768 });
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   const small = () => page.evaluate(() => {
     const out = new Set();
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let n; (n = w.nextNode());) {
       const el = n.parentElement;
-      if (!n.textContent.trim() || !el.checkVisibility({ visibilityProperty: true }) || el.closest("#keyboard, .logo, .ambient")) continue;
+      if (!n.textContent.trim() || !el.checkVisibility({ visibilityProperty: true }) || el.closest("#keyboard, .logo")) continue;
       const fs = parseFloat(getComputedStyle(el).fontSize);
       if (fs < 13.95) out.add(`${el.tagName.toLowerCase()}.${el.className} ${fs}px "${n.textContent.trim().slice(0, 20)}"`);
     }
@@ -747,7 +691,7 @@ test("no text on the typing, result, settings and stats screens is smaller than 
   await page.locator("#tab-stats").click();
   await expect(page.locator("#tiles > *").first()).toBeVisible();
   expect(await small(), "stats").toEqual([]);
-  await openApp(page, { "tt.mode.en": "climb" });
+  await openApp(page, { "tt.mode.en": "freetype" });
   await page.keyboard.press("Escape");
   await expect(page.locator("dialog[open]").first()).toBeVisible();
   expect(await small(), "settings").toEqual([]);
@@ -839,7 +783,7 @@ test("stats on a desktop: every tile holds its own text", async ({ page }) => {
     if (body.place) body.place.level = 10;
     return route.fulfill({ response: res, json: body });
   });
-  for (const mode of ["climb", "learn"]) for (const [width, height] of [[1024, 768], [1366, 768], [1920, 1080]]) {
+  for (const mode of ["freetype", "learn"]) for (const [width, height] of [[1024, 768], [1366, 768], [1920, 1080]]) {
     await page.setViewportSize({ width, height });
     await openApp(page, { "tt.mode.en": mode, "tt.goal": "50" });
     await page.locator("#tab-stats").click();
@@ -856,7 +800,7 @@ test("stats on a desktop: every tile holds its own text", async ({ page }) => {
 });
 
 test("a click on the logo goes home: from the stats and from a result", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   await page.locator("#tab-stats").click();
   await expect(page.locator("#view-stats")).toBeVisible();
   await page.locator("#logo").click();
@@ -869,7 +813,7 @@ test("a click on the logo goes home: from the stats and from a result", async ({
 });
 
 test("the stats screen opens after a round and shows it", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
   await typeRound(page);
   await expectResult(page);
   await page.locator("#tab-stats").click();
@@ -878,30 +822,6 @@ test("the stats screen opens after a round and shows it", async ({ page }) => {
   await expect(page.locator("#tiles > *").first()).toBeVisible();
   const [bar, svg] = await Promise.all([page.locator("#chart .bar.last").boundingBox(), page.locator("#chart svg").boundingBox()]);
   expect(svg.x + svg.width - (bar.x + bar.width), "with one round the bar stands at the right edge").toBeLessThan(svg.width * 0.1);
-});
-
-test("Climb: the levels are one switch, and the rule shows once", async ({ page }) => {
-  await page.setViewportSize({ width: 1366, height: 768 });
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "words-10" });
-  const levels = page.locator("#mode-bar button[data-level]");
-  await expect(levels).toHaveCount(10);
-  await expect(levels.first()).toHaveText("200");
-  await expect(levels.last()).toHaveText("25k");
-  await expect(page.locator('#mode-bar button[data-level][aria-pressed="true"]')).toHaveText("200");
-  await levels.nth(2).click();
-  await expect(page.locator('#mode-bar button[data-level][aria-pressed="true"]')).toHaveText("1k");
-  await expect(page.locator("#mode-bar .climb-status b")).toHaveText("3");
-  await expect(page.locator("#climb-note")).toBeVisible();
-  await waitForText(page);
-  await typeRound(page);
-  await expectResult(page);
-  await expect(page.locator("#result .r-num")).toHaveCount(2);
-  await expect(page.locator("#mode-bar .pips > i.on"), "a clean round fills a dot").toHaveCount(1);
-  await expect(page.locator("#climb-note"), "the rule is spelled out only before the first round").toBeHidden();
-  await expect(page.locator("#mode-bar .climb-status")).toHaveAttribute("data-tip-text", /rounds at \d+% to level up\./);
-  await expect(page.locator("#result .r-fact.bad"), "zero counters stay out").toHaveCount(0);
-  await expect(page.locator("#result .r-wordlist .r-w").first()).toBeVisible();
-  await expect(page.locator("#result .r-dot").first()).toHaveAttribute("data-tip-text", /^\d+ wpm$/);
 });
 
 test("Learn: a keyboard that can't fit leaves one line in its place", async ({ page }) => {
@@ -915,12 +835,12 @@ test("Learn: a keyboard that can't fit leaves one line in its place", async ({ p
   await expect(page.locator("#kb-away")).toBeHidden();
 });
 
-test("Freetype and Climb show the whole round at once; Learn shows its next word when one is typed", async ({ page }) => {
+test("Freetype shows the whole round at once; Learn shows its next word when one is typed", async ({ page }) => {
   const words = () => page.evaluate(() => [...document.querySelectorAll("#text > span:not(.beyond):not(.extra)")].map((s) => s.textContent).join("").trim().split(" ").length);
   await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-50" });
   expect(await words(), "all 50 words are there before the first key").toBe(50);
   await expect(page.locator("#text > span.later")).toHaveCount(0);
-  await openApp(page, { "tt.mode.en": "climb", "tt.length.climb": "time-60" });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "time-60" });
   expect(await words(), "a time round keeps lines ahead").toBeGreaterThanOrEqual(36);
   await expect(page.locator("#text > span.later")).toHaveCount(0);
   await openApp(page, { "tt.mode.en": "learn" });
@@ -950,45 +870,14 @@ test("under the text: where you stand, a thin strip over the keyboard, and typin
   await expect(below).toBeVisible();
   await page.keyboard.type(await nextChar(page));
   await expect(below, "typing leaves only the text").toBeHidden();
-  await page.locator("#tab-climb").click();
-  await waitForText(page);
-  await expect(page.locator("#stand .step")).toHaveCount(10);
-  await expect(page.locator("#stand .step.on")).toHaveText("200");
   await page.locator("#tab-learn").hover();
   await expect(page.locator("#tooltip")).toHaveClass(/\bshow\b/);
   expect((await page.locator("#tooltip").boundingBox()).height, "a tooltip under the header stays one line").toBeLessThan(50);
 });
 
-test("Freetype: the streak is a number on the line above the text; a mistake drops it to 0", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-30", "tt.streak.free": "1" });
-  const streak = page.locator(".live > #streak");
-  await expect(streak, "hidden at rest like the other numbers").toHaveCSS("opacity", "0");
-  const word = async () => { for (;;) { const c = await nextChar(page); await page.keyboard.type(c); if (c === " ") return; } };
-  await word();
-  await word();
-  await expect(streak).toHaveCSS("opacity", "1");
-  await expect(page.locator("#streak-n")).toHaveText("2");
-  await expect(streak).toHaveAttribute("data-tier", "1");
-  await word();
-  await word();
-  await word();
-  await expect(streak, "the first milestone is 5 words").toHaveAttribute("data-tier", "2");
-  await page.keyboard.type((await nextChar(page)) === "q" ? "z" : "q");
-  await expect(page.locator("#streak-n")).toHaveText("0");
-  await expect(streak).toHaveAttribute("data-tier", "0");
-});
-
-test("the streak shows only in Freetype and only when it is on", async ({ page }) => {
-  await openApp(page, { "tt.mode.en": "climb", "tt.streak.free": "1" });
-  await expect(page.locator("#streak")).toBeHidden();
-  await openApp(page, { "tt.mode.en": "freetype", "tt.streak.free": "0" });
-  await expect(page.locator("#streak")).toBeHidden();
-});
-
-test("a new visitor sees only Learn: Climb, Freetype and the stats wait", async ({ page }) => {
-  await openApp(page, { "tt.allModes": "", "tt.mode.en": "climb" });
+test("a new visitor sees only Learn: Freetype and the stats wait", async ({ page }) => {
+  await openApp(page, { "tt.allModes": "", "tt.mode.en": "freetype" });
   await expect(page.locator("body"), "a saved hidden mode opens Learn").toHaveAttribute("data-mode", "learn");
-  await expect(page.locator("#tab-climb")).toBeHidden();
   await expect(page.locator("#tab-freetype")).toBeHidden();
   await expect(page.locator("#tab-stats"), "no stats while the letters are learned").toBeHidden();
   const keys = Object.fromEntries([..."abcdefghijklmnopqrstuvwxyz"].map((c) => [c, { count: 50, errEma: 0.05, timeEma: 250, timedCount: 50 }]));
@@ -996,7 +885,7 @@ test("a new visitor sees only Learn: Climb, Freetype and the stats wait", async 
   await page.reload();
   await waitForText(page);
   await page.locator("#tab-stats").click();
-  await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Climb");
+  await expect(page.locator("#stats-pick"), "no mode switch on the stats screen").not.toContainText("Freetype");
   await page.locator("#btn-settings").click();
   await expect(page.locator("#settings-win"), "no setting of a hidden mode").not.toContainText("Freetype");
 });

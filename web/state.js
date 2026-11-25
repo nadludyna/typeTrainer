@@ -47,7 +47,7 @@ export const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
-export const introOpen = () => !el.intro.classList.contains("hidden") && !el.intro.classList.contains("closing");
+export const introOpen = () => !el.intro.classList.contains("hidden");
 export const listless = (v) => v === "sentences" || v === "custom";
 export const roundList = () => listless(S.freetypeVariant) ? 0 : S.freetypeList;
 export const listLabel = (n) => n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : String(n);

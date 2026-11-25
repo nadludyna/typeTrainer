@@ -64,7 +64,6 @@ const I18N = {
     "peek.weak": "Weak letters",
     "focusHint": "Click here and start typing.",
     "phone.note": "Typing practice needs a real keyboard, so here you can just look at your stats.",
-    "pause.goalTitle": "Daily goal reached",
     "pause.title": "Paused", "pause.press": "Press", "pause.key": "any key", "pause.go": "to resume", "pause.away": "Take your time, the clock is stopped.",
     "kb.away": "Zoom out to see the keyboard.",
     "key.space": "Space", "key.tab": "Tab", "key.caps": "Caps", "key.shift": "Shift", "key.enter": "Enter",

@@ -160,7 +160,6 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
   color: var(--accent-text); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent-text) 60%, transparent);
 }
 .pause-ic svg { width: 22px; height: 22px; fill: currentColor; }
-.pause-ic .goal-ic { fill: none; }
 .pause-note b { font-size: var(--fs-m); font-weight: 500; letter-spacing: -.01em; color: var(--text); margin-bottom: 10px; }
 .pause-go { color: var(--sub); font-size: var(--fs-min); }
 .pause-go kbd {
@@ -169,10 +168,6 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
 }
 .pause-note small { color: var(--label); font-size: var(--fs-min); margin-top: 4px; }
 .text-box.paused .pause-note { opacity: 1; }
-.pause-note .goal-only, .pause-ic .goal-ic, .text-box.goal .pause-ic svg:not(.goal-ic),
-.text-box.goal .pause-note > :is([data-i18n="pause.title"], [data-i18n="pause.away"]) { display: none; }
-.text-box.goal .pause-note .goal-only, .text-box.goal .pause-ic .goal-ic { display: revert; }
-.text-box.goal .pause-ic { color: var(--ok); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--ok) 60%, transparent); }
 .text, .live, .focus-hint, .pause-note {
   transition: opacity var(--t-in) var(--ease), visibility var(--t-in) allow-discrete;
 }

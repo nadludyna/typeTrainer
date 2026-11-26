@@ -217,4 +217,25 @@ test.describe("on a phone", () => {
     expect(win[0], "settings: the page keeps the screen's width").toBe(360);
     expect(win[1] >= 0 && win[2] <= 360, `settings window ${win[1]}..${win[2]}`).toBe(true);
   });
+
+  test("a Freetype round typed with a tap: the result fits, its chart under the numbers", async ({ page }) => {
+    await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
+    await page.locator("#text-box").tap();
+    await typeRound(page);
+    await expectResult(page);
+    await page.waitForTimeout(500);
+    const out = await page.evaluate(() => {
+      const bad = [];
+      if (innerWidth !== 360) bad.push(`the page is ${innerWidth}px wide`);
+      for (const n of document.querySelectorAll("#result *")) {
+        const r = n.getBoundingClientRect();
+        if (r.width && (r.left < -0.5 || r.right > 360.5)) bad.push(`${n.tagName.toLowerCase()}.${n.getAttribute("class")} ${Math.round(r.left)}..${Math.round(r.right)}`);
+        if (n.parentElement?.classList.contains("r-legend") && n.scrollWidth > n.clientWidth + 1) bad.push(`legend cut: ${n.textContent}`);
+      }
+      const hero = document.querySelector("#result .r-hero")?.getBoundingClientRect(), graph = document.querySelector("#result .r-graph")?.getBoundingClientRect();
+      if (hero && graph && graph.top < hero.bottom) bad.push("the chart stands beside the numbers, not under them");
+      return bad.slice(0, 6);
+    });
+    expect(out).toEqual([]);
+  });
 });

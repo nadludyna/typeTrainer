@@ -44,6 +44,9 @@
   .mode-bar { flex-wrap: wrap; row-gap: 8px; }
   .bar-side { flex-wrap: wrap; gap: 8px; min-width: 0; }
   .mode-bar .ring { flex-wrap: wrap; }
+  /* the result: the numbers, then the chart under them at the full width */
+  .r-top { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .r-legend > span { min-width: 0; padding: 0 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

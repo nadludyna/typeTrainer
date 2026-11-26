@@ -67,17 +67,18 @@ test("a held or hammered shortcut fires once: tab, ~, esc", async ({ page }) => 
 test("the caret is still at rest, spaces have a dot unless you switch it off", async ({ page }) => {
   await openApp(page, { "tt.caret": "outline", "tt.blink": "pulse" });
   await expect(page.locator("body")).toHaveAttribute("data-caret", "line");
-  await page.waitForTimeout(1500);
-  const caretAnims = await page.evaluate(() => document.getElementById("caret").getAnimations().length);
-  expect(caretAnims, "animations on the caret at rest").toBe(0);
+  // A caret that has settled runs no animation: a short one (the round's
+  // text coming in) ends, a blink never does.
+  await expect.poll(() => page.evaluate(() => document.getElementById("caret").getAnimations().filter((a) => a.playState === "running").length),
+    { message: "animations on the caret at rest", timeout: 5000 }).toBe(0);
   const dot = () => page.evaluate(() => getComputedStyle(document.querySelector("#text span[data-sp]")).backgroundImage);
-  expect(await dot(), "a space has its dot").toContain("radial-gradient");
+  await expect.poll(dot, { message: "a space has its dot" }).toContain("radial-gradient");
   await page.keyboard.press("Escape");
   await expect(page.getByText("Caret at rest")).toHaveCount(0);
   const win = page.locator("#settings-win");
   await win.locator('button[data-key="ws"][data-value="none"]').click();
   expect(await page.evaluate(() => localStorage.getItem("tt.ws"))).toBe("none");
-  expect(await dot(), "no dot").toBe("none");
+  await expect.poll(dot, { message: "no dot" }).toBe("none");
   const preview = win.locator(".sw-preview");
   await win.locator('#settings-chips button[data-cat="caret"]').click();
   await expect(preview, "the preview next to Caret").toBeVisible();

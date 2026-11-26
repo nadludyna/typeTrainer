@@ -11,3 +11,5 @@ node_modules/
 test-results/
 playwright-report/
 AGENTS.local.md
+# a made-up history to import (go run ./tools/demo > demo.json)
+/demo.json

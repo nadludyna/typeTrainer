@@ -18,7 +18,24 @@ Open <http://localhost:3000>. Always use this address: opening
 port is taken, change `Addr` in `internal/config/config.go`.
 
 The web files are built into the program, so restart the server after you
-change them. `go build .` makes one file you can run on its own.
+change them (or work on them as below). `go build .` makes one file you can
+run on its own.
+
+### Working on the page
+
+```
+TT_DEV=1 go run .
+go run ./tools/demo > demo.json
+```
+
+- `TT_DEV=1` (PowerShell: `$env:TT_DEV = "1"; go run .`) reads `web/` from
+  the disk at every request: save a file, reload the page, see it. Go code
+  still needs a restart.
+- `tools/demo` prints a made-up history of every mode (Learn's rounds as its
+  letters open, Reinforce at a word level, Freetype on the 1000 list, two
+  months of days, keys mixed up). Load it with Settings, Data, Import, to see
+  the stats and the line over the text with data in them. A restart of the
+  memory store forgets it; import it again.
 
 Without a database, progress lives in the server's memory and is gone when
 it stops. Export it first (Settings, Data) if you want to keep it.

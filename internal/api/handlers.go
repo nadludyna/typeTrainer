@@ -12,7 +12,7 @@ import (
 	"typingtrainer/internal/auth"
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
+	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/language"
 	"typingtrainer/internal/storage"
 )
@@ -20,8 +20,8 @@ import (
 type Language struct {
 	Info       language.Language
 	Gen        *engine.Generator
-	Freetype   *freeplay.Picker
-	Sentences  *freeplay.Sentences
+	Freetype   *freetype.Picker
+	Sentences  *freetype.Sentences
 	Levels     []*engine.Generator // Reinforce's word levels, the most frequent words first
 	LayoutJSON []byte
 }

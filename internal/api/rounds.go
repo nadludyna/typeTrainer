@@ -7,31 +7,31 @@ package api
 import (
 	"slices"
 
-	"typingtrainer/internal/freeplay"
 	"typingtrainer/internal/history"
+	"typingtrainer/internal/levels"
 	"typingtrainer/internal/storage"
 )
 
-func (s *Server) validStartWords(n int) bool { return n >= 0 && n <= s.cfg.Freeplay.MaxStartWords }
+func (s *Server) validStartWords(n int) bool { return n >= 0 && n <= s.cfg.Freetype.MaxStartWords }
 
 func (s *Server) startPortions(start bool, words int) int {
 	if !start || words <= 0 {
 		return 1
 	}
-	p := s.cfg.Freeplay
+	p := s.cfg.Freetype
 	return (words + p.PortionWords - 1) / p.PortionWords
 }
 
 // pairsOf is the letter pairs that slow these rounds down the most.
-func (s *Server) pairsOf(rounds []storage.Session) []freeplay.Pair {
-	keys := make([][]freeplay.Key, len(rounds))
+func (s *Server) pairsOf(rounds []storage.Session) []levels.Pair {
+	keys := make([][]levels.Key, len(rounds))
 	for i, r := range rounds {
-		keys[i] = make([]freeplay.Key, len(r.Keys))
+		keys[i] = make([]levels.Key, len(r.Keys))
 		for j, k := range r.Keys {
-			keys[i][j] = freeplay.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
+			keys[i][j] = levels.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
 		}
 	}
-	return freeplay.WeakPairs(keys, s.cfg.Freeplay)
+	return levels.WeakPairs(keys, s.cfg.Levels)
 }
 
 func inRange(v, lo, hi float64) bool { return v >= lo && v <= hi }

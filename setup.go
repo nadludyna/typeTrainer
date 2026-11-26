@@ -12,7 +12,7 @@ import (
 	"typingtrainer/internal/api"
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
+	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/language"
 	"typingtrainer/internal/layout"
 	"typingtrainer/internal/static"
@@ -88,14 +88,14 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	gen := engine.NewGenerator(long, rand.New(rand.NewSource(seed)), cfg.Engine)
 	gen.SetHome(lay.RestingKeys(), cfg.Engine)
 	gen.SetWordParams(cfg.Words)
-	freetype := freeplay.NewPicker(long, rand.New(rand.NewSource(seed+2)))
-	var sentences *freeplay.Sentences
+	picker := freetype.NewPicker(long, rand.New(rand.NewSource(seed+2)))
+	var sentences *freetype.Sentences
 	if data, err := files.ReadFile("data/langs/" + info.ID + "/sentences.txt"); err == nil {
-		sentences = freeplay.NewSentences(freeplay.ParseSentences(string(data)), rand.New(rand.NewSource(seed+3)))
+		sentences = freetype.NewSentences(freetype.ParseSentences(string(data)), rand.New(rand.NewSource(seed+3)))
 	}
 	var levels []*engine.Generator
-	for _, n := range cfg.Freeplay.Levels {
+	for _, n := range cfg.Levels.Words {
 		levels = append(levels, gen.WithWords(long[:min(n, len(long))], cfg.Engine))
 	}
-	return &api.Language{Info: info, Gen: gen, Freetype: freetype, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON}, nil
+	return &api.Language{Info: info, Gen: gen, Freetype: picker, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON}, nil
 }

@@ -15,7 +15,8 @@ flowchart LR
     static["internal/static<br/>the page's files, gzip, ETag"]
     api["internal/api<br/>/api/v1/*, a guest or an account"]
     engine["internal/engine<br/>letter model, word choice"]
-    freeplay["internal/freeplay<br/>Freetype's words, weak pairs,<br/>Reinforce's level rule"]
+    freetype["internal/freetype<br/>Freetype's words, sentences,<br/>the rhythm"]
+    levels["internal/levels<br/>how a level moves,<br/>Reinforce's weak pairs"]
     history["internal/history<br/>rounds replayed for the stats"]
     auth["internal/auth<br/>passwords, sign-in limit"]
     store["internal/storage<br/>Store"]
@@ -25,7 +26,8 @@ flowchart LR
   page -- "GET the page" --> static
   apijs -- "POST /portion, /results, /checkin<br/>GET /stats, /activity" --> api
   api --> engine
-  api --> freeplay
+  api --> freetype
+  api --> levels
   api --> history
   api --> auth
   api --> store
@@ -37,7 +39,7 @@ On GitHub Pages the same Go code runs inside the page as WebAssembly: there is
 no server, `pages/wasm-shim.js` answers the `/api/v1/` calls with it, and the
 memory store is copied to the browser's IndexedDB ("Two ways to run" below).
 
-**Dependency rule:** `api` uses `engine`, `freeplay` and `storage`. `storage` imports
+**Dependency rule:** `api` uses `engine`, `freetype`, `levels` and `storage`. `storage` imports
 `engine` only for the `KeyStat` type. `engine` imports nothing from the project.
 The engine therefore never knows about HTTP or the database and can be tested on
 its own. Every number they use is in `internal/config`.
@@ -68,7 +70,8 @@ its own. Every number they use is in `internal/config`.
 
 - `internal/engine/consistency.go`: Consistency of a round's speed (a measurement shown to the user; the model does not use it).
 
-- `internal/freeplay`: The words outside Learn's letter model. Freetype: words drawn evenly from the n most common (`Picker.Freetype`) and real sentences (`sentences.go`). The typist's weak letter pairs from the raw keys (`weak.go`, `WeakPairs`; Reinforce brings them more often). The pass / hold / fail rule that moves Reinforce's word level (`Judge`: accuracy and speed against the round's own goal; `Standing`: the last run at one level; docs/HOW-THE-MODES-WORK.md, section 0.2). Imports nothing from the project; never touches the letter model.
+- `internal/freetype`: Freetype's words. Draws from the n most common words or long words (`Picker.Freetype`), weighted to the stumble pairs; real sentences (`sentences.go`); the rhythm read from the raw keys (`rhythm.go`, `ReadRhythm`: the stumbles and the stumble pairs; docs/HOW-THE-MODES-WORK.md, section 0.3). Imports nothing from the project; never touches the letter model.
+- `internal/levels`: How a mode's level moves by its rounds: `Judge` (Reinforce's word level, accuracy and speed against the round's own goal), `JudgeRhythm` (Freetype's word list, accuracy and consistency), `Standing` (the last run at one level; docs/HOW-THE-MODES-WORK.md, sections 0.2 and 0.3). The typist's weak letter pairs from the raw keys (`weak.go`, `WeakPairs`; Reinforce brings them more often). Imports nothing from the project.
 
 - `internal/history`: Readings of a typist's finished rounds for the stats screen: the accuracy streaks (`AccuracyStreaks`), every letter after every Learn round (`LetterTimeline`: the letter model replayed with `engine.Apply` over the rounds' raw keys), the keys mixed up (`Confusions`, from `Sample.Typed`). Pure functions; `internal/api` loads the rounds.
 
@@ -339,12 +342,12 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters, rounds and test go, the other modes stay |
 | GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freetype` is missing in older files; an older file's `freeplay`, `climbLevels` and `group` are ignored on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |
-| GET | `/api/v1/stats?length=&part=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, level, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freeplay/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryLevel (the mastery rule: level masteryLevel after masteryMin presses, for the texts), wordLevels (Reinforce's levels, in words), pairs (only for `part=reinforce`: the letter pairs that slow its last rounds down, `[{pair, cost (ms per press of the second letter), count}]`), standing (not for `part=learn`: where Reinforce's rounds leave its word level, `{level, passes, fails, moved (what the last round did: 1, 0, -1), passesUp, failsDown}`)}`; no `length` = every length. `part`: none = every round of Learn's stream (what the typing screen needs); `learn` = Learn's own rounds, `reinforce` = Reinforce's (those with a word level): `sessions`, `sessionCount`, `streaks`, `lengths` and `bests` count only those |
+| GET | `/api/v1/stats?length=&part=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, level, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freetype/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryLevel (the mastery rule: level masteryLevel after masteryMin presses, for the texts), wordLevels (Reinforce's levels, in words), pairs (only for `part=reinforce`: the letter pairs that slow its last rounds down, `[{pair, cost (ms per press of the second letter), count}]`), standing (not for `part=learn`: where Reinforce's rounds leave its word level, `{level, passes, fails, moved (what the last round did: 1, 0, -1), passesUp, failsDown}`)}`; no `length` = every length. `part`: none = every round of Learn's stream (what the typing screen needs); `learn` = Learn's own rounds, `reinforce` = Reinforce's (those with a word level): `sessions`, `sessionCount`, `streaks`, `lengths` and `bests` count only those |
 | GET | `/api/v1/learn/history` | | `{order: [the letters in unlock order], rounds: [{wpm, accuracy, unlocked, lap, letters: [{count, errorRate, avgMs, mastered} or null while locked, in order]}], confusions: [{want, typed, n}]}`: every Learn round oldest first, every length, with the letter model replayed over the rounds' raw keys (`history.LetterTimeline`); the pairs mixed up at least `ConfusionMin` times, at most `ConfusionShown` (`history.Confusions`) |
 | GET | `/api/v1/activity?tz=&part=` | | `{days: [{date, rounds, seconds, chars}]}`: every day with a finished round, every mode together (no `part`) or one mode's (`learn`, `reinforce`, `freetype`), oldest first; `tz` = the browser's minutes from UTC (east positive), so days end at the user's midnight. `seconds` = the rounds' `seconds` as the browser measured them, from the first key to the last with pauses left out, Tab-dropped Learn rounds included (`Session.TypedSeconds`; kept in 0..`MaxTypedSeconds`; a round saved before it was sent counts right letters / 5 / WPM, `storage.RoundSeconds`). The same clock as the live daily goal, so the number never jumps back. The daily goal counts every mode; each mode's stats build their time typing, days in a row and calendar from their own part |
-| POST | `/api/v1/freetype/portion` | `{recent: [words], start: bool, words, list, variant}` (variant: "" or "long" with a list; "sentences" with none) | `{portions: [{words}]}`; with `start`, enough portions for `words` (0..`MaxStartWords`), otherwise one; Freetype: words drawn evenly from the `list` most common ones (`freeplay.Picker.Freetype`); a list not offered is a 400 |
+| POST | `/api/v1/freetype/portion` | `{recent: [words], start: bool, words, list, variant}` (variant: "" or "long" with a list; "sentences" with none) | `{portions: [{words}]}`; with `start`, enough portions for `words` (0..`MaxStartWords`), otherwise one; Freetype: words drawn evenly from the `list` most common ones (`freetype.Picker.Freetype`); a list not offered is a 400 |
 | POST | `/api/v1/freetype/results` | `{chars, wpm, accuracy, perSecond, keys, length, list, variant, seconds}` (your own text: list 0, variant "custom") | `{consistency}`; one entry in the history of that list (`storage.FreetypeMode`) |
-| GET | `/api/v1/freetype/stats?list=&variant=&length=` | | `{lists (offered: those of `FreetypeLists` the long list has words for), list (no `list` = the first), sessions, sessionCount, lengths, bests, streaks}` of that list, as in `/freeplay/stats` without the level |
+| GET | `/api/v1/freetype/stats?list=&variant=&length=` | | `{lists (offered: those of `Freetype.Lists` the long list has words for), list (no `list` = the first), sessions, sessionCount, lengths, bests, streaks}` of that list, as in `/freetype/stats` without the level |
 
 Validation on `/portion` and `/results`: at most 5000 samples (zero is fine:
 nothing new to learn), each with exactly one character that is a letter of the
@@ -352,7 +355,7 @@ language or a space, `errors >= 0`, `ms >= 0`; `keys` follows the same rules. `/
 `chars >= 1` (something was typed; 0 means "the number of samples"), WPM 0–400,
 accuracy 0–100, and `perSecond` with at most 5000 entries, each between 0 and 5000. `recent` and `retry` hold at most 5000 words; a word that
 is not in the list or has a locked letter is simply ignored. Body limit 1 MB.
-The page sends the end of a round (`/results`, `/freeplay/results`,
+The page sends the end of a round (`/results`, `/freetype/results`,
 `/freetype/results`) again twice when the server was not reached or
 answered 5xx, never after a 4xx (`web/api.js` `saveRound`, issue #149).
 Each try carries the same `round` id (up to 64 letters, digits and `-`),
@@ -361,7 +364,7 @@ samples are learned once (`Store.HasRound`, migration 011). A try that
 failed with a 5xx stored nothing (`Store.SaveLearned`), so the next try
 learns it once. A request without `round` is always stored.
 
-**Round length** (`length` on `/results`, `/freeplay/results` and
+**Round length** (`length` on `/results`, `/freetype/results` and
 `/freetype/results`, and
 `?length=` on the stats routes): `words-N` or `time-N`, the length chosen in
 the round bar of its mode (`web/modebar.js`, `web/settings.js`). Missing = `words-30`, the only length
@@ -490,7 +493,7 @@ a mode: `FreetypeMode(n, variant)` for each list and kind of text).
   opens a letter (`learn(…, reinforce)` in `internal/api/learning.go`); the
   speed goal steps over every letter. Its rounds stay in Learn's history,
   marked by their word level, and its stats are Learn's for now.
-- **Freetype**, for just typing (`internal/freeplay`, docs/HOW-THE-MODES-WORK.md
+- **Freetype**, for just typing (`internal/freetype`, docs/HOW-THE-MODES-WORK.md
   section 13): words drawn evenly from the n most common of the long list
   (`free.txt`), n picked in the row above the text (200 to 25 000;
   remembered in `tt.list.<lang>`), plain or of a kind
@@ -687,7 +690,8 @@ whole-app tests, `go test -coverpkg=./internal/api .`):
 
 | Package | Coverage | Package | Coverage |
 |---|---|---|---|
-| `engine` | 94.3 % | `freeplay` | 98.6 % |
+| `engine` | 94.3 % | `freetype` | 98.6 % |
+| `levels` | 100 % | | |
 | `history` | 94.5 % | `sim` | 94.5 % |
 | `auth` | 93.3 % | `layout` | 93.3 % |
 | `language` | 100 % | `static` | 100 % |

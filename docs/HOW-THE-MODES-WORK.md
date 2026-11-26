@@ -54,7 +54,7 @@ at `/results`.
 | Model | For each letter: the error rate (EMA, `ErrAlpha = 0.05`) and the time of a press (EMA, `Alpha = 0.1`). Both are compared with the target speed: `TargetMs = 12000 / TargetWPM`. Together they give a difficulty and a level from 0 to 100 (section 5). The weak pairs are the pairs of letters with the highest cost over the last 20 rounds; a miss costs 1000 ms. |
 | Output 1: the words | At the chosen word level (the 200 ... 25 000 most common words). Each portion has a focus letter, drawn with softmax over difficulty. Slow letters and weak pairs come more often. |
 | Output 2: the speed goal | It goes up by one step of 10 wpm once every letter is mastered at the current goal. It starts at 30 and stops at 200. |
-| Output 3: the word level | Moves by itself. Each round is judged at the speed goal of its own step (`freeplay.Judge`): it **passes** at the goal or faster with `PassAccuracy = 96 %` or more, **fails** under `FailAccuracy = 92 %` or under `FailSpeed = 90 %` of the goal, and **holds** in between. Three passes with no fail between them (`PassesUp = 3`) move one level up, two fails in a row (`FailsDown = 2`) one level down; a hold keeps the passes and breaks a row of fails (`freeplay.Standing`, over the last run of rounds at one level). The zone between keeps the level from jumping on one uneven round. A level picked by hand starts a run of its own: the browser follows a move only right after a round at the level it uses (`followLevel` in `web/typing.js`), with a short message; the stats say how close the next move is. |
+| Output 3: the word level | Moves by itself. Each round is judged at the speed goal of its own step (`levels.Judge`): it **passes** at the goal or faster with `PassAccuracy = 96 %` or more, **fails** under `FailAccuracy = 92 %` or under `FailSpeed = 90 %` of the goal, and **holds** in between. Three passes with no fail between them (`PassesUp = 3`) move one level up, two fails in a row (`FailsDown = 2`) one level down; a hold keeps the passes and breaks a row of fails (`levels.Standing`, over the last run of rounds at one level). The zone between keeps the level from jumping on one uneven round. A level picked by hand starts a run of its own: the browser follows a move only right after a round at the level it uses (`followLevel` in `web/typing.js`), with a short message; the stats say how close the next move is. |
 | Status | Built: the words, the speed goal (section 6.1) and the word level. |
 
 ### 0.3 Freetype: rhythm
@@ -64,8 +64,8 @@ at `/results`.
 | Input | The presses inside words of the last `WeakRounds = 20` Freetype rounds typed on a keyboard: a letter after a letter, right on the first try, timed, no slower than `RhythmMaxMs = 2000` (a longer gap is a rest). Time between words enters only the round's consistency (0.5): it holds the reading of the next word. |
 | Model | `m` = the median of those times, `s = 1.4826 · median(|t − m|)` (a robust spread: one long pause does not move it). A press is a **stumble** when `t > max(m + 3s, 1.5m)` (`StumbleSpreads`, `StumbleLeast`; the second part keeps a very even typist from stumbling on noise). `R` = the share of stumbles. For each pair of letters `r = (stumbles + 3R) / (presses + 3)` (`StumblePrior`: three presses imagined at your own rate). A **stumble pair** has at least `StumbleMinPresses = 8` presses, `StumbleMinCount = 2` stumbles and `r ≥ 2R` (`StumbleRatio`); the three worst count (`StumblePairs`). Under `RhythmMinPresses = 50` presses nothing is read. |
 | Output 1: the words | A word with a stumble pair weighs `1 + StumbleBoost = 3` times as much (lists and long words; sentences and your own text stay as written). |
-| Output 2: the word list | Moves by itself as Reinforce's word level does (`freeplay.Standing`), each round judged by its consistency (`freeplay.JudgeRhythm`): it **passes** at `ConsPass = 80 %` or more with 96 % accuracy, **fails** under `ConsFail = 70 %` or under 92 % accuracy, and **holds** in between or with no consistency (a round under 5 s). Three passes up, two fails down, over the last run at one list of the same kind (words or long words). The page follows a move right after a round at its list (`followList` in `web/typing.js`). |
-| Status | Built (`internal/freeplay/rhythm.go`). `ConsPass` and `ConsFail` are a first guess, to be measured on real rounds. In a simulated typist who stumbles on `ou` half the time, the loop brings `ou` 2.7 times as often as words drawn evenly (`TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften`). |
+| Output 2: the word list | Moves by itself as Reinforce's word level does (`levels.Standing`), each round judged by its consistency (`levels.JudgeRhythm`): it **passes** at `ConsPass = 80 %` or more with 96 % accuracy, **fails** under `ConsFail = 70 %` or under 92 % accuracy, and **holds** in between or with no consistency (a round under 5 s). Three passes up, two fails down, over the last run at one list of the same kind (words or long words). The page follows a move right after a round at its list (`followList` in `web/typing.js`). |
+| Status | Built (`internal/freetype/rhythm.go`). `ConsPass` and `ConsFail` are a first guess, to be measured on real rounds. In a simulated typist who stumbles on `ou` half the time, the loop brings `ou` 2.7 times as often as words drawn evenly (`TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften`). |
 
 ### 0.4 Advice, on top of the three
 
@@ -466,7 +466,7 @@ difficulty); two things are its own.
 
 **Word level.** The learner picks one of ten levels, the most common
 200, 500, 1k, 2k, 3k, 5k, 7.5k, 10k, 15k or 25k words of the long list
-(`free.txt`, `Freeplay.Levels`). The words come
+(`free.txt`, `Levels.Words`). The words come
 only from that level (`Generator.WithWords`), the whole level at once:
 no rank penalty inside it. The browser keeps the choice per language
 (`tt.wordLevel.<lang>`) and sends it with every portion; a round keeps its
@@ -478,7 +478,7 @@ level (`sessions.level`).
 
 The steps roughly double because word frequencies fall steeply (Zipf's law).
 The level moves only by hand for now. The rule planned for moving it by
-itself (section 0.2) is already in `internal/freeplay` (`Judge`,
+itself (section 0.2) is already in `internal/levels` (`Judge`,
 `Standing`): a round at 96 % accuracy or more passes, under 92 % fails,
 between them counts for nothing; three passes with no fail between them
 move one level up, two fails in a row one down.
@@ -486,7 +486,7 @@ move one level up, two fails in a row one down.
 **Weak pairs** (in Learn too, from its first rounds). A typist who can
 already type is slow on a movement between two keys, not on a letter. From
 the raw keys of the last `WeakRounds = 20` Learn rounds
-(`internal/freeplay/weak.go`):
+(`internal/levels/weak.go`):
 
 ```
 cost(pair) = (sum of clean timed ms + mistakes * 1000) / (clean timed presses + mistakes)
@@ -927,7 +927,7 @@ not common are what those lessons need most.
 ## 13. Freetype
 
 Hidden from the menu for now and not developed. Words drawn evenly from the n most
-common of the long list (`FreetypeLists`: 200 to 25 000), or a kind of text
+common of the long list (`Freetype.Lists`: 200 to 25 000), or a kind of text
 with its own history: long words (6+ letters), real sentences, or your own
 pasted text (kept in the browser only). Nothing adapts.
 

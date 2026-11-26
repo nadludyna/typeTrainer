@@ -173,7 +173,7 @@ function reinforce(s, rounds) {
   return { tiles, panels, chart: { value: (x) => x.wpm, unit: "wpm", line: goal } };
 }
 
-// How close the next move of the word level is (freeplay.Standing on the server).
+// How close the next move of the word level is (levels.Standing on the server).
 function levelNote(st, levels) {
   const words = levels[wordLevel() - 1];
   if (!st || st.level !== wordLevel()) return t("st.common", { n: words });

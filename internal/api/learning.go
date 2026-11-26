@@ -490,7 +490,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	}
 	if part == storage.PartReinforce {
 		typed := roundsOf(keyboard, part)
-		out["pairs"] = s.pairsOf(typed[max(0, len(typed)-s.cfg.Freeplay.WeakRounds):])
+		out["pairs"] = s.pairsOf(typed[max(0, len(typed)-s.cfg.Levels.WeakRounds):])
 	}
 	writeJSON(w, http.StatusOK, out)
 }

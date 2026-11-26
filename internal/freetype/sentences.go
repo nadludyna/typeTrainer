@@ -1,6 +1,6 @@
 // Freetype's real sentences.
 
-package freeplay
+package freetype
 
 import (
 	"math/rand"

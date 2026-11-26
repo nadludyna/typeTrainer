@@ -1,4 +1,4 @@
-package freeplay
+package levels
 
 import (
 	"strings"

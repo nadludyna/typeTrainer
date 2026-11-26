@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
+	"typingtrainer/internal/levels"
 	"typingtrainer/internal/storage"
 )
 
@@ -20,7 +20,7 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 // withWeakPairs is gen weighted to the letter pairs that slow this learner's
 // last rounds on a keyboard down.
 func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) (*engine.Generator, error) {
-	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Freeplay.WeakRounds)
+	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Levels.WeakRounds)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) 
 // wordLevels is the levels' names: how many of the most common words each
 // one takes (a few of them, too short or with a foreign letter, are left out).
 func (s *Server) wordLevels(l *Language) []int {
-	return s.cfg.Freeplay.Levels[:len(l.Levels)]
+	return s.cfg.Levels.Words[:len(l.Levels)]
 }
 
 // POST {step}: picks Reinforce's speed goal step by hand, up or down. Mastery starts over at the new goal, as after a step
@@ -81,24 +81,24 @@ func (s *Server) setStep(user, id string, step int) error {
 }
 
 // standing is where Reinforce's rounds (oldest first) leave its word level:
-// each judged at the speed goal of its own step (freeplay.Judge), the last run
-// at one level counted (freeplay.Standing). Moved is what the last round did,
+// each judged at the speed goal of its own step (levels.Judge), the last run
+// at one level counted (levels.Standing). Moved is what the last round did,
 // so the browser follows it only right after a round at its current level,
 // and a level picked by hand starts its own run.
 type standing struct {
-	freeplay.Place
+	levels.Place
 	PassesUp  int `json:"passesUp"`
 	FailsDown int `json:"failsDown"`
 }
 
-func (s *Server) standing(rounds []storage.Session, base engine.Params, levels int) standing {
-	var rs []freeplay.Round
+func (s *Server) standing(rounds []storage.Session, base engine.Params, count int) standing {
+	var rs []levels.Round
 	for _, r := range rounds {
 		if r.Level > 0 {
-			rs = append(rs, freeplay.Round{Level: int(r.Level), Accuracy: r.Accuracy, WPM: r.WPM, Goal: base.ForLap(r.Lap, s.cfg.Laps).TargetWPM})
+			rs = append(rs, levels.Round{Level: int(r.Level), Accuracy: r.Accuracy, WPM: r.WPM, Goal: base.ForLap(r.Lap, s.cfg.Laps).TargetWPM})
 		}
 	}
-	p := s.cfg.Freeplay
-	p.Levels = p.Levels[:min(levels, len(p.Levels))]
-	return standing{Place: freeplay.Standing(rs, freeplay.Judge, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
+	p := s.cfg.Levels
+	p.Words = p.Words[:min(count, len(p.Words))]
+	return standing{Place: levels.Standing(rs, levels.Judge, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
 }

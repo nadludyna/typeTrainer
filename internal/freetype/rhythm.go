@@ -3,13 +3,21 @@
 // stumble on far more often than on the rest. Freetype brings words with
 // those pairs more often (docs/HOW-THE-MODES-WORK.md, 0.3).
 
-package freeplay
+package freetype
 
 import (
 	"cmp"
 	"math"
 	"slices"
+	"unicode"
 )
+
+// Key is one press as the rhythm reads it.
+type Key struct {
+	Char   string
+	Errors int
+	Ms     float64
+}
 
 type Rhythm struct {
 	Median    float64   `json:"median"`    // the usual time between two letters of a word, ms
@@ -106,19 +114,4 @@ func median(v []float64) float64 {
 	return (v[n/2-1] + v[n/2]) / 2
 }
 
-// JudgeRhythm judges a Freetype round for its word list, as Judge does a
-// Reinforce round for its word level, by consistency instead of speed: it
-// passes at ConsPass or more with PassAccuracy or more, fails under ConsFail
-// or under FailAccuracy, and holds in between. A round too short to have a
-// consistency holds.
-func JudgeRhythm(r Round, p Params) Verdict {
-	switch {
-	case r.Consistency == nil:
-		return Hold
-	case *r.Consistency >= p.ConsPass && r.Accuracy >= p.PassAccuracy:
-		return Pass
-	case *r.Consistency < p.ConsFail || r.Accuracy < p.FailAccuracy:
-		return Fail
-	}
-	return Hold
-}
+func isLower(r rune) bool { return unicode.IsLetter(r) && unicode.IsLower(r) }

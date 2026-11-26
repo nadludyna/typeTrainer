@@ -6,7 +6,8 @@ import (
 
 	"typingtrainer/internal/auth"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
+	"typingtrainer/internal/freetype"
+	"typingtrainer/internal/levels"
 	"typingtrainer/internal/sim"
 )
 
@@ -43,7 +44,8 @@ type Config struct {
 	Laps                  engine.LapParams
 	Forecast              engine.ForecastParams
 	Words                 engine.WordParams
-	Freeplay              freeplay.Params
+	Freetype              freetype.Params
+	Levels                levels.Params
 	Checkin               Checkin
 	Sim                   sim.Params
 }
@@ -170,26 +172,18 @@ func Default() Config {
 			FloorWords:  10,
 			RampLetters: 10000,
 		},
-		Freeplay: freeplay.Params{
+		Freetype: freetype.Params{
 			PortionWords:  6,
 			MaxStartWords: 60,
 			RecentWords:   20,
 			RepeatPenalty: 0.3,
 
-			Levels:       []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
-			LevelStart:   1,
-			PassAccuracy: 96,
-			FailAccuracy: 92,
-			FailSpeed:    0.9,
-			PassesUp:     3,
-			FailsDown:    2,
-			History:      50,
+			Lists:         []int{200, 1000, 5000, 10000, 25000},
+			LongMin:       6,
+			TextMarks:     ".,?!;:'-",
+			SentenceTries: 20,
 
-			WeakRounds:     20,
-			WeakMinSamples: 15,
-			WeakMissMs:     1000,
-			WeakPairs:      3,
-
+			RhythmRounds:      20,
 			RhythmMaxMs:       2000,
 			RhythmMinPresses:  50,
 			StumbleSpreads:    3,
@@ -200,13 +194,23 @@ func Default() Config {
 			StumbleRatio:      2,
 			StumblePairs:      3,
 			StumbleBoost:      2,
-			ConsPass:          80,
-			ConsFail:          70,
+		},
+		Levels: levels.Params{
+			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
+			LevelStart:   1,
+			PassAccuracy: 96,
+			FailAccuracy: 92,
+			FailSpeed:    0.9,
+			ConsPass:     80,
+			ConsFail:     70,
+			PassesUp:     3,
+			FailsDown:    2,
+			History:      50,
 
-			FreetypeLists: []int{200, 1000, 5000, 10000, 25000},
-			LongMin:       6,
-			TextMarks:     ".,?!;:'-",
-			SentenceTries: 20,
+			WeakRounds:     20,
+			WeakMinSamples: 15,
+			WeakMissMs:     1000,
+			WeakPairs:      3,
 		},
 		Sim: sim.Params{
 			ErrMin: 0.03, ErrMax: 0.30,

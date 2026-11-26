@@ -172,3 +172,30 @@ func TestHeld_NeedsTheGoalFirst(t *testing.T) {
 		t.Errorf("a letter at %.0f ms (level %.1f) counts as mastered", s.TimeEMA, Level(s, testParams))
 	}
 }
+
+// The first press of a batch and a press right after a space begin a word:
+// they count for accuracy, not for speed (the time includes reading the word).
+func TestApply_WordStartsAreNotTimed(t *testing.T) {
+	p := Params{Alpha: 0.1, ErrAlpha: 0.05, MaxIntervalMs: 2000, TargetWPM: 40, SlowMs: 1000, ErrorWeight: 0.6, SpeedWeight: 0.4}
+	got := Apply(nil, []Sample{
+		{Char: "t", Ms: 900}, // the batch begins a word
+		{Char: "o", Ms: 200},
+		{Char: " ", Ms: 150},
+		{Char: "s", Ms: 1500}, // after a space: reading the next word
+		{Char: "o", Ms: 220},
+		{Char: "s", Ms: 250}, // inside a word: timed
+	}, p)
+	for _, c := range []struct {
+		ch           string
+		count, timed int
+		ms           float64
+	}{{"t", 1, 0, 0}, {"o", 2, 2, 0}, {" ", 1, 1, 150}, {"s", 2, 1, 250}} {
+		s := got[c.ch]
+		if s.Count != c.count || s.TimedCount != c.timed || (c.ms > 0 && s.TimeEMA != c.ms) {
+			t.Errorf("%q: count %d timed %d time %v, want count %d timed %d time %v", c.ch, s.Count, s.TimedCount, s.TimeEMA, c.count, c.timed, c.ms)
+		}
+	}
+	if got := Apply(nil, nil, p); len(got) != 0 {
+		t.Errorf("no presses: %v", got)
+	}
+}

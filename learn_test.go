@@ -3,6 +3,7 @@ package main
 // Learn through the whole app.
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -10,7 +11,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"typingtrainer/internal/demo"
+	"typingtrainer/internal/language"
 	"typingtrainer/internal/storage"
 )
 
@@ -593,5 +597,36 @@ func TestApp_StatsPerMode(t *testing.T) {
 		if code, _ := call(t, h, "GET", path, ""); code != 400 {
 			t.Fatalf("%s: %d, want 400", path, code)
 		}
+	}
+}
+
+// The demo history (go run ./tools/demo) is a file the server takes, with
+// rounds in every mode, Reinforce's at a word level.
+func TestDemo_Imports(t *testing.T) {
+	h, cfg, _ := newApp()
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	var order []string
+	for _, c := range st["order"].([]any) {
+		order = append(order, c.(string))
+	}
+	list, err := os.ReadFile("data/langs/en/free.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	info, _ := language.Parse([]byte(`[{"id":"en","name":"English","label":"EN","layout":"qwerty-en","alphabet":"abcdefghijklmnopqrstuvwxyz"}]`))
+	body, _ := json.Marshal(demo.Build(order, info[0].Words(string(list)), cfg.Engine, time.Now(), 1))
+	if code, out := call(t, h, "POST", "/api/v1/import?lang=en", string(body)); code != 200 {
+		t.Fatalf("import: %d %v", code, out)
+	}
+	for part, want := range map[string]float64{"learn": 37, "reinforce": 21} {
+		if _, s := call(t, h, "GET", "/api/v1/stats?lang=en&part="+part, ""); s["sessionCount"].(float64) != want {
+			t.Errorf("%s: %v rounds, want %v", part, s["sessionCount"], want)
+		}
+	}
+	if _, s := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000&length=words-30", ""); s["sessionCount"].(float64) != 12 {
+		t.Errorf("freetype: %v rounds, want 12", s["sessionCount"])
+	}
+	if _, s := call(t, h, "GET", "/api/v1/learn/history?lang=en", ""); len(s["confusions"].([]any)) == 0 {
+		t.Errorf("no keys mixed up: the learn grid and its mix-ups would be empty")
 	}
 }

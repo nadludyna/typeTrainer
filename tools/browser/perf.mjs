@@ -70,7 +70,8 @@ async function oneRun(browser, cpu) {
   };
 }
 
-const browser = await chromium.launch();
+// TT_BROWSER=msedge measures in the installed Edge, as the browser checks do.
+const browser = await chromium.launch({ channel: process.env.TT_BROWSER || undefined });
 const fast = [], slow = [];
 for (let i = 0; i < opt.runs; i++) fast.push(await oneRun(browser, 1));
 for (let i = 0; i < opt.runs; i++) slow.push(await oneRun(browser, opt.slow));

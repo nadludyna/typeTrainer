@@ -332,3 +332,32 @@ func TestPortion_FewFocusWordsDoNotRepeat(t *testing.T) {
 		}
 	}
 }
+
+// The word pool's fixed part is built once per number of open letters and
+// shared by the copies with the same words; other words or another letter
+// order build their own.
+func TestGenerator_PoolBaseIsKeptAndRenewed(t *testing.T) {
+	g := newTestGen(1)
+	b := g.base(8)
+	if g.base(8) != b {
+		t.Fatal("the same open letters build the pool's base again")
+	}
+	if g.base(9) == b {
+		t.Fatal("more open letters share the base of fewer")
+	}
+	if g.WithPairs([]string{"th"}).base(8) != b {
+		t.Fatal("a copy with pairs (the same words) builds its own base")
+	}
+	if g.WithWords(testWords[:40], testParams).base(8) == b {
+		t.Fatal("other words share the base of these")
+	}
+	g.SetHome([]string{"a", "s", "d", "f", "j", "k", "l"}, testParams)
+	if g.base(8) == b {
+		t.Fatal("a new letter order keeps the old base")
+	}
+	for i, w := range b.words {
+		if b.index[w] != i || b.rank[i] != g.Rank(w) {
+			t.Fatalf("%q: index %d rank %d", w, b.index[w], b.rank[i])
+		}
+	}
+}

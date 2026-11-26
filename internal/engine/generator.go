@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"sort"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
 
@@ -19,6 +20,7 @@ type Generator struct {
 	floor map[string]int
 	rng   *rand.Rand
 	pairs []string
+	bases *bases
 }
 
 type WordParams struct {
@@ -58,7 +60,7 @@ func NewGenerator(words []string, rng *rand.Rand, p Params) *Generator {
 		}
 		words = long
 	}
-	g := &Generator{words: words, rng: rng, rank: map[string]int{}}
+	g := &Generator{words: words, rng: rng, rank: map[string]int{}, bases: newBases()}
 	for i, w := range words {
 		if _, ok := g.rank[w]; !ok {
 			g.rank[w] = i
@@ -80,6 +82,7 @@ func (g *Generator) SetHome(home []string, p Params) {
 		set[c] = true
 	}
 	g.order = letterOrder(g.words, set)
+	g.bases = newBases()
 	homes := 0
 	for homes < len(g.order) && set[g.order[homes]] {
 		homes++
@@ -145,7 +148,7 @@ func (g *Generator) WithWords(words []string, p Params) *Generator {
 		}
 	}
 	out := *g
-	out.words, out.rank = keep, map[string]int{}
+	out.words, out.rank, out.bases = keep, map[string]int{}, newBases()
 	for i, w := range keep {
 		if _, ok := out.rank[w]; !ok {
 			out.rank[w] = i
@@ -284,13 +287,62 @@ type pool struct {
 	weakest  string
 }
 
+// bases keeps the part of a word pool that depends only on how many letters
+// are open: the words, their places, which words have each letter and each
+// word's letters. It is built the first time a number of open letters is
+// asked for and kept; copies with the same words (WithPairs) share it.
+type bases struct {
+	mu sync.Mutex
+	by map[int]*poolBase
+}
+
+type poolBase struct {
+	words    []string
+	index    map[string]int
+	byLetter map[string][]int
+	letters  [][]uint8 // each word's letters, as places in the open letters
+	rank     []int
+}
+
+func newBases() *bases { return &bases{by: map[int]*poolBase{}} }
+
+func (g *Generator) base(unlocked int) *poolBase {
+	g.bases.mu.Lock()
+	defer g.bases.mu.Unlock()
+	if b := g.bases.by[unlocked]; b != nil {
+		return b
+	}
+	place := map[rune]uint8{}
+	for i, c := range g.order[:unlocked] {
+		place[letterRune(c)] = uint8(i)
+	}
+	b := &poolBase{words: g.eligible(unlocked), index: map[string]int{}, byLetter: map[string][]int{}}
+	b.letters = make([][]uint8, len(b.words))
+	b.rank = make([]int, len(b.words))
+	for i, w := range b.words {
+		b.index[w] = i
+		b.rank[i] = g.rank[w]
+		seen := map[rune]bool{}
+		for _, r := range w {
+			b.letters[i] = append(b.letters[i], place[r])
+			if !seen[r] {
+				seen[r] = true
+				b.byLetter[string(r)] = append(b.byLetter[string(r)], i)
+			}
+		}
+	}
+	g.bases.by[unlocked] = b
+	return b
+}
+
 func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Params) *pool {
-	pl := &pool{open: g.order[:unlocked], words: g.eligible(unlocked), index: map[string]int{}, byLetter: map[string][]int{},
+	b := g.base(unlocked)
+	pl := &pool{open: g.order[:unlocked], words: b.words, index: b.index, byLetter: b.byLetter, rank: b.rank,
 		maxRank: g.MaxRank(unlocked, typed, p), floor: g.floor}
 	if n := p.MinWords; n > 0 && len(pl.words) > 0 {
 		pl.maxRank = max(pl.maxRank, float64(g.rank[pl.words[min(n, len(pl.words))-1]]))
 	}
-	diff := map[rune]float64{}
+	diff := make([]float64, len(pl.open))
 	pl.letterW = make([]float64, len(pl.open))
 	best := -1.0
 	for i, c := range pl.open {
@@ -298,24 +350,17 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 		if !Mastered(stats[c], p) {
 			d += p.UnmasteredBonus
 		}
-		diff[letterRune(c)] = d
+		diff[i] = d
 		pl.letterW[i] = SoftmaxWeight(d, p)
 		if d > best {
 			best, pl.weakest = d, c
 		}
 	}
 	pl.diffW = make([]float64, len(pl.words))
-	pl.rank = make([]int, len(pl.words))
 	for i, w := range pl.words {
-		pl.index[w] = i
 		sum := 0.0
-		seen := map[rune]bool{}
-		for _, r := range w {
-			sum += diff[r]
-			if !seen[r] {
-				seen[r] = true
-				pl.byLetter[string(r)] = append(pl.byLetter[string(r)], i)
-			}
+		for _, l := range b.letters[i] {
+			sum += diff[l]
 		}
 		pl.diffW[i] = SoftmaxWeight(sum/float64(len(w)), p)
 		for _, pair := range g.pairs {
@@ -323,7 +368,6 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 				pl.diffW[i] *= 1 + p.PairBoost
 			}
 		}
-		pl.rank[i] = g.rank[w]
 	}
 	return pl
 }

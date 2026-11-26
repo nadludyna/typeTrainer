@@ -68,12 +68,17 @@ On Windows, step by step:
 ## Test it
 
 ```
-gofmt -w .
-go vet ./...
-go test ./...
+go run ./tools/check
 ```
 
-Every pull request runs these and the WebAssembly build. The storage tests
+runs every check a pull request needs, in order, and says which failed:
+`gofmt`, `go vet ./...`, `go test ./...`, the WebAssembly build of the Pages
+version and the browser checks below (`-quick` leaves those out; set
+`TT_BROWSER` for them as below). `gofmt -w .` fixes the formatting.
+
+Every pull request that changes more than the docs runs these on GitHub too,
+and `main` runs them every night, each browser check three times, to catch a
+race that shows only now and then. The storage tests
 also run against a real PostgreSQL when `TT_TEST_DATABASE_URL` points to an
 empty database (its tables are emptied on every run).
 
@@ -115,11 +120,13 @@ Every pull request runs them too. A failed run on GitHub keeps a trace and a
 screenshot under the job's artifacts.
 
 `node perf.mjs` in the same folder measures typing latency: style recalc
-per key, key to caret start and slow frames. It needs a running server, and
-takes `TT_BROWSER` too.
-Run it before and after a change to the typing screen, on the same machine,
-and put both results in the pull request. `node perf.mjs --bare` measures the
-screen without the keyboard.
+per key, key to caret start and slow frames, on the server running on :3000.
+For a change to the typing screen, `node perf.mjs --against main` builds
+`main` and this code, starts each on :3000 in turn (stop your own server
+first), alternates them and prints both side by side: put that table in the
+pull request. The share of slow frames moves a lot from one run to the next,
+so only numbers measured side by side compare. `--bare` measures the screen
+without the keyboard; it takes `TT_BROWSER` too.
 
 The website on GitHub Pages is the same Go code compiled to WebAssembly
 (`main_wasm.go`). Every merge to `main` rebuilds it.

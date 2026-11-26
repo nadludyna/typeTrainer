@@ -51,7 +51,7 @@ The plan is issue #305: tasks go one at a time, top down, each its own issue.
    (c) how it was checked: what was run, on what, with which numbers.
 4. **A change to the typing screen is measured** before the PR, against
    `main`, with the numbers in the PR, and must not be worse. The canonical
-   measurement: `node tools/browser/perf.mjs` (docs/DEVELOPMENT.md): style recalc
+   measurement: `node tools/browser/perf.mjs --against main` (docs/DEVELOPMENT.md): style recalc
    per key at full speed, key → caret start and the share of slow frames with
    the CPU slowed 6×. The goal: under 2 ms of style recalc per key for the
    screen itself (`perf.mjs --bare`), caret start ≤ 40 ms and slow frames
@@ -74,7 +74,7 @@ is always the maintainer's decision.
 
 ## Before you say a task is done
 
-1. The checks in `docs/DEVELOPMENT.md` ("Test it", "Browser checks") all pass.
+1. `go run ./tools/check` passes: every check in `docs/DEVELOPMENT.md` ("Test it", "Browser checks").
 2. New engine logic has unit tests, including edge cases (no data yet, zero values).
 3. Docs updated if behaviour or the API changed.
 4. An interface change is checked in a browser at desktop width, and the

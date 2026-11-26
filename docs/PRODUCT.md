@@ -82,9 +82,10 @@ speed and builds the next words around your weak letters.
 
 ## Planned
 
-A light theme with the redesign, more languages, typing with digits and
-symbols, other layouts (QWERTZ, Dvorak and more); the order is the plan's
-(issue #305). Not planned: leaderboards and public profiles (this is for
-practice, not a contest), sounds, a mascot. Accounts exist (sign up / log
+A light theme and designed motion with the redesign, more languages,
+typing with digits and symbols, the mascot as a quiet companion, other
+layouts (QWERTZ, Dvorak and more); the order is the plan's (issue #305).
+Not planned: leaderboards and public profiles (this is for practice, not a
+contest), sounds. Accounts exist (sign up / log
 in / log out on the normal server, kept in PostgreSQL when it is
 configured).

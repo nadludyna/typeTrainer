@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/freeplay"
+	"typingtrainer/internal/freetype"
+	"typingtrainer/internal/levels"
 	"typingtrainer/internal/storage"
 )
 
@@ -19,45 +20,44 @@ import (
 
 // typedRounds is the last Freetype rounds typed on a keyboard, newest first.
 func (s *Server) typedRounds(user, lang string) ([]storage.Session, error) {
-	p := s.cfg.Freeplay
-	rounds, err := s.store.RecentFreetypeSessions(user, lang, max(p.WeakRounds, p.History))
+	rounds, err := s.store.LastFreetypeRounds(user, lang, max(s.cfg.Freetype.RhythmRounds, s.cfg.Levels.History))
 	return storage.OnKeyboard(rounds), err
 }
 
 // rhythmOf is the rhythm of the last WeakRounds of these rounds.
-func (s *Server) rhythmOf(rounds []storage.Session) freeplay.Rhythm {
-	rounds = rounds[:min(len(rounds), s.cfg.Freeplay.WeakRounds)]
-	keys := make([][]freeplay.Key, len(rounds))
+func (s *Server) rhythmOf(rounds []storage.Session) freetype.Rhythm {
+	rounds = rounds[:min(len(rounds), s.cfg.Freetype.RhythmRounds)]
+	keys := make([][]freetype.Key, len(rounds))
 	for i, r := range rounds {
-		keys[i] = make([]freeplay.Key, len(r.Keys))
+		keys[i] = make([]freetype.Key, len(r.Keys))
 		for j, k := range r.Keys {
-			keys[i][j] = freeplay.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
+			keys[i][j] = freetype.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
 		}
 	}
-	return freeplay.ReadRhythm(keys, s.cfg.Freeplay)
+	return freetype.ReadRhythm(keys, s.cfg.Freetype)
 }
 
 // listStanding is where the rounds of one variant (newest first) leave its
-// word list: each judged by its consistency (freeplay.JudgeRhythm), the last
+// word list: each judged by its consistency (levels.JudgeRhythm), the last
 // run at one list counted, as Reinforce's word level is.
 func (s *Server) listStanding(rounds []storage.Session, lists []int, variant string) standing {
-	p := s.cfg.Freeplay
-	p.Levels = lists
-	var rs []freeplay.Round
+	p := s.cfg.Levels
+	p.Words = lists
+	var rs []levels.Round
 	for i := len(rounds) - 1; i >= 0; i-- {
 		n, v, ok := storage.ParseFreetypeMode(rounds[i].Mode)
 		at := slices.Index(lists, n)
 		if !ok || v != variant || at < 0 {
 			continue
 		}
-		rs = append(rs, freeplay.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency})
+		rs = append(rs, levels.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency})
 	}
-	return standing{Place: freeplay.Standing(rs, freeplay.JudgeRhythm, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
+	return standing{Place: levels.Standing(rs, levels.JudgeRhythm, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
 }
 
 func (s *Server) freetypeLists(l *Language) []int {
 	out := []int{}
-	for _, n := range s.cfg.Freeplay.FreetypeLists {
+	for _, n := range s.cfg.Freetype.Lists {
 		if n <= l.Freetype.Size() {
 			out = append(out, n)
 		}
@@ -100,7 +100,7 @@ func (s *Server) validVariant(l *Language, n int, v string) bool {
 }
 
 func (s *Server) freetypeAlphabet(alphabet string) string {
-	return alphabet + strings.ToUpper(alphabet) + s.cfg.Freeplay.TextMarks
+	return alphabet + strings.ToUpper(alphabet) + s.cfg.Freetype.TextMarks
 }
 
 func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -127,7 +127,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		badRequest(w, "list or variant: not offered")
 		return
 	}
-	p := s.cfg.Freeplay
+	p := s.cfg.Freetype
 	var stumbles []string
 	if !storage.Listless(req.Variant) {
 		rounds, err := s.typedRounds(user, l.Info.ID)
@@ -183,7 +183,7 @@ func (s *Server) handleFreetypeResults(w http.ResponseWriter, r *http.Request, u
 	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	err := s.store.AddFreeplaySession(user, l.Info.ID, storage.FreetypeMode(req.List, req.Variant), storage.Session{
+	err := s.store.AddFreetypeSession(user, l.Info.ID, storage.FreetypeMode(req.List, req.Variant), storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys:    req.Keys,
 		Length:  req.Length,

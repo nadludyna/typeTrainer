@@ -25,10 +25,10 @@ type langExport struct {
 	Keys     map[string]engine.KeyStat `json:"keys"`
 	Sessions []storage.Session         `json:"sessions"`
 	Lap      int                       `json:"lap,omitempty"`
-	Freetype map[string]freeplayExport `json:"freetype,omitempty"`
+	Freetype map[string]freetypeExport `json:"freetype,omitempty"`
 }
 
-type freeplayExport struct {
+type freetypeExport struct {
 	Sessions []storage.Session `json:"sessions"`
 }
 
@@ -75,16 +75,16 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 		serverError(w, err)
 		return
 	}
-	freetype := map[string]freeplayExport{}
+	freetype := map[string]freetypeExport{}
 	for _, key := range s.freetypeKeys(l) {
 		n, v, _ := storage.ParseFreetypeKey(key)
-		h, err := s.allFreeplay(user, id, storage.FreetypeMode(n, v))
+		h, err := s.allFreetype(user, id, storage.FreetypeMode(n, v))
 		if err != nil {
 			serverError(w, err)
 			return
 		}
 		if len(h) > 0 {
-			freetype[key] = freeplayExport{Sessions: h}
+			freetype[key] = freetypeExport{Sessions: h}
 		}
 	}
 	writeJSON(w, http.StatusOK, langExport{
@@ -93,12 +93,12 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 	})
 }
 
-func (s *Server) allFreeplay(user, lang, mode string) ([]storage.Session, error) {
-	count, err := s.store.FreeplaySessionCount(user, lang, mode, "")
+func (s *Server) allFreetype(user, lang, mode string) ([]storage.Session, error) {
+	count, err := s.store.FreetypeSessionCount(user, lang, mode, "")
 	if err != nil {
 		return nil, err
 	}
-	newestFirst, err := s.store.RecentFreeplaySessions(user, lang, mode, "", count)
+	newestFirst, err := s.store.RecentFreetypeSessions(user, lang, mode, "", count)
 	return oldestFirst(newestFirst), err
 }
 
@@ -113,7 +113,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		n, v, ok := storage.ParseFreetypeKey(key)
 		return ok && s.validVariant(l, n, v)
 	}
-	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Freeplay.Levels), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
+	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Levels.Words), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
 		badRequest(w, msg)
 		return
 	}
@@ -131,7 +131,7 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	defer s.writeMu.Unlock()
 	if err := s.store.Import(user, id, storage.ImportData{
 		Keys: in.Keys, Unlocked: in.Unlocked, Lap: in.Lap,
-		Sessions: in.Sessions, Freeplay: histories,
+		Sessions: in.Sessions, Freetype: histories,
 	}); err != nil {
 		serverError(w, err)
 		return

@@ -119,8 +119,8 @@ through HTTP; the step-by-step path of a round is in
 | F1 | opens letters one at a time from the home row, by accuracy: the newest at 90 %, none under 85 %, over its last 100 presses | `internal/engine` (`NextUnlocked`, `Accuracy`) | `TestNextUnlocked_AccuracyRules`, `TestAccuracy_*` |
 | F2 | picks real words, weighted to the weak letters (Learn) and the slow letters and pairs (Reinforce) | `engine.Generator.Portion`, `WithPairs` | `TestNext_WeakLetterGetsFocus`, `TestWithPairs_WeakPairsComeMoreOften` |
 | F3 | measures every press: right or wrong and its time, a word's first letter not timed | `web/typing.js`, `engine.Apply` | `TestApply_WordStartsAreNotTimed` |
-| F4 | moves Reinforce's word level by itself and its speed goal by steps | `freeplay.Judge`, `Standing`; `engine.LapDone` | `TestJudge`, `TestStanding`, `TestApp_ReinforceLevelMovesByItself` |
-| F5 | gives Freetype a list, long words, sentences or the person's text, by words or seconds, with a consistency per round | `internal/freeplay`, `engine.Consistency` | `TestApp_Freetype`, `TestConsistency*` |
+| F4 | moves Reinforce's word level by itself and its speed goal by steps | `levels.Judge`, `Standing`; `engine.LapDone` | `TestJudge`, `TestStanding`, `TestApp_ReinforceLevelMovesByItself` |
+| F5 | gives Freetype a list, long words, sentences or the person's text, by words or seconds, with a consistency per round | `internal/freetype`, `engine.Consistency` | `TestApp_Freetype`, `TestConsistency*` |
 | F6 | starts each mode from a check-in | `internal/api/checkin.go`, `web/checkin.js` | `TestApp_Checkin*`, the check-in browser checks |
 | F7 | shows each mode's stats on one key | `web/stats.js`, `/stats?part=`, `/activity?part=` | `TestApp_StatsPerMode`, the stats browser checks |
 | F8 | shows the next key and its finger on a keyboard that can be hidden | `web/keyboard.js`, `data/layouts/` | the keyboard browser checks |

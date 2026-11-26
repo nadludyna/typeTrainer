@@ -381,14 +381,14 @@ func (p *PostgresStore) PracticeDays(user, lang, part string, tz time.Duration) 
 	return out, rows.Err()
 }
 
-func (p *PostgresStore) AddFreeplaySession(user, lang, mode string, s Session) error {
+func (p *PostgresStore) AddFreetypeSession(user, lang, mode string, s Session) error {
 	s.Epoch = currentEpoch(p.db, user, lang)
 	return p.addSession(user, lang, mode, s)
 }
-func (p *PostgresStore) RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error) {
+func (p *PostgresStore) RecentFreetypeSessions(user, lang, mode, length string, limit int) ([]Session, error) {
 	return p.recentSessions(user, lang, mode, length, limit)
 }
-func (p *PostgresStore) RecentFreetypeSessions(user, lang string, limit int) ([]Session, error) {
+func (p *PostgresStore) LastFreetypeRounds(user, lang string, limit int) ([]Session, error) {
 	rows, err := p.db.Query(`SELECT mode, wpm, accuracy, chars, consistency, keys, finished_at, length, device, epoch
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode LIKE 'freetype-%' AND NOT aborted
 		ORDER BY finished_at DESC, id DESC LIMIT $3`, user, lang, limit)
@@ -416,13 +416,13 @@ func (p *PostgresStore) RecentFreetypeSessions(user, lang string, limit int) ([]
 	}
 	return out, rows.Err()
 }
-func (p *PostgresStore) BestFreeplayRounds(user, lang, mode string) (map[string]Session, error) {
+func (p *PostgresStore) BestFreetypeRounds(user, lang, mode string) (map[string]Session, error) {
 	return p.bestRounds(user, lang, mode)
 }
-func (p *PostgresStore) FreeplaySessionCount(user, lang, mode, length string) (int, error) {
+func (p *PostgresStore) FreetypeSessionCount(user, lang, mode, length string) (int, error) {
 	return p.sessionCount(user, lang, mode, length)
 }
-func (p *PostgresStore) FreeplaySessionLengths(user, lang, mode string) ([]string, error) {
+func (p *PostgresStore) FreetypeSessionLengths(user, lang, mode string) ([]string, error) {
 	return p.sessionLengths(user, lang, mode)
 }
 
@@ -465,9 +465,9 @@ func (p *PostgresStore) Import(user, lang string, data ImportData) error {
 				return err
 			}
 		}
-		for mode, sessions := range data.Freeplay {
+		for mode, sessions := range data.Freetype {
 			if mode == "" {
-				return errors.New("storage: freeplay mode is empty")
+				return errors.New("storage: freetype mode is empty")
 			}
 			for _, s := range sessions {
 				if err := addSession(tx, user, lang, mode, s); err != nil {

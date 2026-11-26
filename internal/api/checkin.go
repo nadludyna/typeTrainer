@@ -105,7 +105,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request, user stri
 			"wordLevel": min(pickBy(req.Accuracy, c.LevelAccuracy, c.LevelFor, 1), len(l.Levels)),
 		})
 	case "freetype":
-		writeJSON(w, http.StatusOK, map[string]any{"list": pickBy(req.WPM, c.ListSpeed, c.ListFor, s.cfg.Freeplay.FreetypeLists[0])})
+		writeJSON(w, http.StatusOK, map[string]any{"list": pickBy(req.WPM, c.ListSpeed, c.ListFor, s.cfg.Freetype.Lists[0])})
 	default:
 		badRequest(w, "mode: learn, reinforce or freetype")
 	}

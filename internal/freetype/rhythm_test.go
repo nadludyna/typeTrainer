@@ -1,4 +1,4 @@
-package freeplay
+package freetype
 
 import (
 	"math/rand"
@@ -116,32 +116,6 @@ func TestReadRhythm_WordStartsAndMistakesAreNotRead(t *testing.T) {
 	}
 }
 
-func TestJudgeRhythm(t *testing.T) {
-	c := func(v float64) *float64 { return &v }
-	for _, x := range []struct {
-		r    Round
-		want Verdict
-	}{
-		{Round{Accuracy: 98, Consistency: c(85)}, Pass},
-		{Round{Accuracy: 96, Consistency: c(80)}, Pass},
-		{Round{Accuracy: 95, Consistency: c(90)}, Hold},
-		{Round{Accuracy: 98, Consistency: c(75)}, Hold},
-		{Round{Accuracy: 98, Consistency: c(69)}, Fail},
-		{Round{Accuracy: 90, Consistency: c(95)}, Fail},
-		{Round{Accuracy: 100}, Hold},
-		{Round{Accuracy: 100, WPM: 10, Goal: 100, Consistency: c(85)}, Pass},
-	} {
-		if got := JudgeRhythm(x.r, testParams); got != x.want {
-			t.Errorf("%+v: %s, want %s", x.r, got, x.want)
-		}
-	}
-	c80 := c(85)
-	run := []Round{{Level: 2, Accuracy: 98, Consistency: c80}, {Level: 2, Accuracy: 98, Consistency: c80}, {Level: 2, Accuracy: 98, Consistency: c80}}
-	if got := Standing(run, JudgeRhythm, testParams); got.Level != 3 || got.Moved != 1 {
-		t.Fatalf("three even rounds move the list up: %+v", got)
-	}
-}
-
 // A word with a stumble pair comes 1 + StumbleBoost times as often as it
 // would; with no pairs the draw is as before.
 func TestFreetype_StumblePairsComeMoreOften(t *testing.T) {
@@ -203,7 +177,7 @@ func TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften(t *testing.T) 
 				}
 			}
 			rounds = append(rounds, keys)
-			rh := ReadRhythm(rounds[max(0, len(rounds)-testParams.WeakRounds):], testParams)
+			rh := ReadRhythm(rounds[max(0, len(rounds)-testParams.RhythmRounds):], testParams)
 			pairs = nil
 			for _, s := range rh.Pairs {
 				if adaptive {

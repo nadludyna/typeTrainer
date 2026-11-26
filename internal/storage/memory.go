@@ -39,7 +39,7 @@ type langData struct {
 	lap      int
 	sessions []Session
 
-	freeplay map[string][]Session
+	freetype map[string][]Session
 }
 
 func NewMemoryStore() *MemoryStore {
@@ -161,7 +161,7 @@ func (d *langData) hasRound(round string) bool {
 			return true
 		}
 	}
-	for _, list := range d.freeplay {
+	for _, list := range d.freetype {
 		for _, s := range list {
 			if s.Round == round {
 				return true
@@ -266,7 +266,7 @@ func (m *MemoryStore) PracticeDays(user, lang, part string, tz time.Duration) ([
 			all = append(all, s)
 		}
 	}
-	for mode, h := range d.freeplay {
+	for mode, h := range d.freetype {
 		if part == "" || part == PartFreetype && strings.HasPrefix(mode, freetypePrefix) {
 			all = append(all, h...)
 		}
@@ -293,7 +293,7 @@ func (m *MemoryStore) PracticeDays(user, lang, part string, tz time.Duration) ([
 	return out, nil
 }
 
-func (m *MemoryStore) AddFreeplaySession(user, lang, mode string, s Session) error {
+func (m *MemoryStore) AddFreetypeSession(user, lang, mode string, s Session) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	s.Epoch = m.epochs[key{user, lang}]
@@ -301,26 +301,26 @@ func (m *MemoryStore) AddFreeplaySession(user, lang, mode string, s Session) err
 	if d.hasRound(s.Round) {
 		return nil
 	}
-	if d.freeplay == nil {
-		d.freeplay = map[string][]Session{}
+	if d.freetype == nil {
+		d.freetype = map[string][]Session{}
 	}
 	m.seq++
 	s.seq = m.seq
-	d.freeplay[mode] = append(d.freeplay[mode], s.WithLength())
+	d.freetype[mode] = append(d.freetype[mode], s.WithLength())
 	return nil
 }
 
-func (m *MemoryStore) RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error) {
+func (m *MemoryStore) RecentFreetypeSessions(user, lang, mode, length string, limit int) ([]Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return newestFirst(m.data(user, lang).freeplay[mode], length, limit), nil
+	return newestFirst(m.data(user, lang).freetype[mode], length, limit), nil
 }
 
-func (m *MemoryStore) RecentFreetypeSessions(user, lang string, limit int) ([]Session, error) {
+func (m *MemoryStore) LastFreetypeRounds(user, lang string, limit int) ([]Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	var all []Session
-	for mode, h := range m.data(user, lang).freeplay {
+	for mode, h := range m.data(user, lang).freetype {
 		if !strings.HasPrefix(mode, freetypePrefix) {
 			continue
 		}
@@ -335,22 +335,22 @@ func (m *MemoryStore) RecentFreetypeSessions(user, lang string, limit int) ([]Se
 	return all[:min(len(all), max(limit, 0))], nil
 }
 
-func (m *MemoryStore) BestFreeplayRounds(user, lang, mode string) (map[string]Session, error) {
+func (m *MemoryStore) BestFreetypeRounds(user, lang, mode string) (map[string]Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return BestOf(m.data(user, lang).freeplay[mode]), nil
+	return BestOf(m.data(user, lang).freetype[mode]), nil
 }
 
-func (m *MemoryStore) FreeplaySessionCount(user, lang, mode, length string) (int, error) {
+func (m *MemoryStore) FreetypeSessionCount(user, lang, mode, length string) (int, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return countLength(m.data(user, lang).freeplay[mode], length), nil
+	return countLength(m.data(user, lang).freetype[mode], length), nil
 }
 
-func (m *MemoryStore) FreeplaySessionLengths(user, lang, mode string) ([]string, error) {
+func (m *MemoryStore) FreetypeSessionLengths(user, lang, mode string) ([]string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return Lengths(m.data(user, lang).freeplay[mode]), nil
+	return Lengths(m.data(user, lang).freetype[mode]), nil
 }
 
 func (m *MemoryStore) Reset(user, lang string) error {
@@ -370,7 +370,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 		stats:    make(map[string]engine.KeyStat, len(data.Keys)),
 		unlocked: data.Unlocked, lap: data.Lap,
 		sessions: make([]Session, 0, len(data.Sessions)),
-		freeplay: make(map[string][]Session, len(data.Freeplay)),
+		freetype: make(map[string][]Session, len(data.Freetype)),
 	}
 	for ch, k := range data.Keys {
 		next.stats[ch] = k
@@ -378,7 +378,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	seen := map[string]bool{}
 	put := func(mode string, list []Session) error {
 		if mode == "" {
-			return errors.New("storage: freeplay mode is empty")
+			return errors.New("storage: freetype mode is empty")
 		}
 		for _, s := range list {
 			s = s.WithLength()
@@ -393,7 +393,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 			} else {
 				m.seq++
 				s.seq = m.seq
-				next.freeplay[mode] = append(next.freeplay[mode], s)
+				next.freetype[mode] = append(next.freetype[mode], s)
 			}
 		}
 		return nil
@@ -401,7 +401,7 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 	if err := put("learning", data.Sessions); err != nil {
 		return err
 	}
-	for mode, list := range data.Freeplay {
+	for mode, list := range data.Freetype {
 		if err := put(mode, list); err != nil {
 			return err
 		}

@@ -106,11 +106,21 @@ test("Reinforce: word levels and speed goal steps on its own tab", async ({ page
   expect(top[0]).toBe(200);
   await page.locator('#mode-bar button[data-wlevel="10"]').click();
   await expect(page.locator('#mode-bar button[data-wlevel="10"]')).toHaveAttribute("aria-pressed", "true");
+  // The goal shows at once, the round's new text comes after the step is
+  // saved: typing before it arrives would be thrown away with the old text.
+  let stepped = false;
+  const fresh = page.waitForResponse((r) => {
+    if (r.url().includes("/api/v1/learn/step")) stepped = true;
+    return stepped && r.url().includes("/api/v1/portion") && r.request().postDataJSON()?.portionIndex === 0;
+  });
   await page.locator('#mode-bar button[data-step="1"]').click();
   await expect(page.locator("#mode-bar output")).toHaveText("40 wpm");
-  const asked = page.waitForRequest((r) => r.url().includes("/api/v1/portion") && r.postDataJSON()?.portionIndex === 1);
+  await fresh;
+  // The next words are asked for once the first portion is typed, however long its words are.
+  let sent = null;
+  const asked = page.waitForRequest((r) => r.url().includes("/api/v1/portion") && r.postDataJSON()?.portionIndex === 1).then((r) => (sent = r));
   await page.locator("#text-box").click();
-  for (let i = 0; i < 80 && !(await page.evaluate(() => document.querySelectorAll("#text > span.ok").length > 60)); i++) {
+  for (let i = 0; i < 400 && !sent; i++) {
     const ch = await nextChar(page);
     if (ch) await page.keyboard.type(ch);
   }

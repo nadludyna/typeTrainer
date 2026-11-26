@@ -182,6 +182,15 @@ function levelNote(st, levels) {
   return t("st.common", { n: words });
 }
 
+// How close the next move of Freetype's word list is (as levelNote).
+function listNote(st, lists) {
+  const n = S.freetypeList, at = (lists ?? []).indexOf(n) + 1;
+  if (!st || st.level !== at) return t("st.common", { n });
+  if (st.passes && lists[at]) return t("st.toUp", { n: st.passes, of: st.passesUp, next: listLabel(lists[at]) });
+  if (st.fails && at > 1) return t("st.toDown", { n: st.fails, of: st.failsDown, prev: listLabel(lists[at - 2]) });
+  return t("st.common", { n });
+}
+
 // ---------- Freetype: rhythm ----------
 function freetype(s, rounds) {
   const cons = last10(rounds, (x) => x.consistency), wpm = last10(rounds, (x) => x.wpm), acc = last10(rounds, (x) => x.accuracy);
@@ -190,10 +199,14 @@ function freetype(s, rounds) {
     tile(t("st.cons10"), num(cons, "%"), trendTag(rounds, (x) => x.consistency) + t("st.consMeans"), { hero: true, part: cons === null ? 0 : cons / 100 }),
     tile(t("tile.wpm"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + (goal ? t("st.goalIs", { w: goal }) : t("tile.last10")), goal ? { part: wpm === null ? 0 : wpm / goal } : {}),
     tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
-    tile(t("re.words"), listless(v) ? t(`ft.${v}`) : listLabel(S.freetypeList), listless(v) ? "" : t("st.common", { n: S.freetypeList })),
+    tile(t("re.words"), listless(v) ? t(`ft.${v}`) : listLabel(S.freetypeList), listless(v) ? "" : listNote(s.standing, s.lists)),
     roundsTile(s.sessionCount),
   ];
-  const panels = chartPanel(t("st.consChart"), t("st.consNote"));
+  const rh = s.rhythm, pairs = rh?.pairs ?? [];
+  const body = !rh?.threshold ? `<p class="st-none">${t("st.noSlow")}</p>` : !pairs.length ? `<p class="st-none">${t("st.noStumbles")}</p>` :
+    `<div class="st-chips">${pairs.map((p) => `<span class="st-chip"><b>${p.pair}</b><small>${Math.round(p.rate * 100)}%</small></span>`).join("")}</div>`;
+  const stumbles = panel(t("st.stumbles"), rh?.threshold ? t("st.stumbleNote", { ms: Math.round(rh.threshold) }) : "", body);
+  const panels = `<div class="st-two">${chartPanel(t("st.consChart"), t("st.consNote"))}${stumbles}</div>`;
   return { tiles, panels, chart: { value: (x) => x.consistency, unit: "%", percent: true } };
 }
 

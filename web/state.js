@@ -12,7 +12,6 @@ export const el = {
   intro: $("view-welcome"),
   nav: $("nav-switch"), tabWelcome: $("tab-welcome"), tabLearn: $("tab-learn"), tabReinforce: $("tab-reinforce"), tabFreetype: $("tab-freetype"), tabStats: $("tab-stats"),
   viewType: $("view-type"), viewStats: $("view-stats"),
-  lengthFilter: $("length-filter"), tiles: $("tiles"), chart: $("chart"), chartNote: $("chart-note"),
   warn: $("layout-warn"), toasts: $("toasts"),
 };
 

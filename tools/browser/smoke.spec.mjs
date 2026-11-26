@@ -40,7 +40,19 @@ async function withHistory(page) {
     const res = await route.fetch(), body = await res.json();
     body.sessions = wpms.map((wpm, i) => ({ ...(body.sessions?.[0] ?? {}), wpm, accuracy: i < 4 ? 97 : 90 }));
     body.forecast = { known: true, rounds: 4, letter: "e" };
+    if (!body.lengths?.length) body.lengths = ["words-30"];
     body.streaks = [{ min: 95, current: 4, longest: 6 }, { min: 97, current: 4, longest: 4 }, { min: 100, current: 0, longest: 1 }];
+    return route.fulfill({ response: res, json: body });
+  });
+}
+
+// Freetype's /freetype/stats as if 12 rounds were typed, the newest first.
+async function withFreetypeHistory(page) {
+  await page.route("**/api/v1/freetype/stats?*", async (route) => {
+    const res = await route.fetch(), body = await res.json();
+    body.sessions = Array.from({ length: 12 }, (_, i) => ({ wpm: 50 - i, accuracy: 96, consistency: 80 - i, length: "words-30" }));
+    body.sessionCount = 12;
+    if (!body.lengths?.length) body.lengths = ["words-30"];
     return route.fulfill({ response: res, json: body });
   });
 }
@@ -245,7 +257,7 @@ test("Live stats is on for a new user and doesn't switch itself", async ({ page 
   await expect(page.locator("body")).toHaveAttribute("data-live", "off");
 });
 
-test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ page }) => {
+test("a held or hammered shortcut fires once: tab, ~, esc", async ({ page }) => {
   await openApp(page, {});
   const text = () => page.evaluate(() => document.getElementById("text").textContent);
   const held = (key, extra = {}) => page.evaluate(([key, extra]) => {
@@ -265,13 +277,14 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   await page.keyboard.press("Tab");
   await expect.poll(text, "a press after the cooldown works").not.toBe(once);
 
-  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Backquote");
   await expect(page.locator("#view-stats")).toBeVisible();
-  await held("Tab", { shiftKey: true });
+  await held("Backquote");
   await page.waitForTimeout(100);
   await expect(page.locator("#view-stats"), "still on the stats").toBeVisible();
   await page.waitForTimeout(300);
-  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Backquote");
+  await expect(page.locator("#view-type")).toBeVisible();
 
   await page.waitForTimeout(350);
   await page.keyboard.press("Escape");
@@ -281,42 +294,47 @@ test("a held or hammered shortcut fires once: tab, shift+tab, esc", async ({ pag
   await expect(page.locator("#settings-win"), "a held esc doesn't close what it opened").toBeVisible();
 });
 
-test("the quick look at the stats: held or hovered before a round, gone on release, never while typing", async ({ page }) => {
+test("the stats of the mode you're in: ~ or the Stats button opens them, ~, Esc or Tab closes them", async ({ page }) => {
   await withHistory(page);
-  await openApp(page, {});
-  await page.waitForTimeout(300);
-  const peek = page.locator("#peek"), text = page.locator("#text");
-  const before = await text.boundingBox();
+  await withFreetypeHistory(page);
+  await openApp(page, { "tt.mode.en": "learn" });
+  const view = page.locator("#view-stats"), sheet = page.locator("#sheet");
+  await page.keyboard.press("Backquote");
+  await expect(view).toBeVisible();
+  await expect(sheet.locator("h1")).toHaveText("Learn stats");
+  await expect(sheet.locator(".tile.hero"), "Learn leads with accuracy").toContainText("Accuracy, last 10 rounds");
+  await expect(sheet.locator(".st-chart svg")).toBeVisible();
+  await expect(page.locator("#tab-stats")).toHaveAttribute("aria-selected", "true");
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#view-type"), "Esc goes back to typing").toBeVisible();
+  await expect(page.locator("#settings-win"), "and opens no settings").toBeHidden();
 
-  await page.keyboard.down("Backquote");
-  await expect(peek).toBeVisible();
-  await expect(peek).toContainText("Learn");
-  await expect(peek).toContainText("WPM");
-  await expect(page.locator("#keyboard"), "the keyboard gives way").toBeHidden();
-  expect(await text.boundingBox(), "the text stays put").toEqual(before);
-  const panel = await peek.boundingBox(), hints = await page.locator(".hints").boundingBox();
-  expect(panel.y).toBeGreaterThanOrEqual(before.y + before.height);
-  expect(panel.y + panel.height).toBeLessThanOrEqual(hints.y);
-  await page.keyboard.up("Backquote");
-  await expect(peek).toBeHidden();
-  await expect(page.locator("#keyboard")).toBeVisible();
+  await page.locator("#tab-reinforce").click();
+  await page.locator("#tab-stats").click();
+  await expect(sheet.locator("h1")).toHaveText("Reinforce stats");
+  await expect(sheet.locator(".tile.hero"), "Reinforce leads with speed").toContainText("Speed, last 10 rounds");
+  await expect(sheet.locator(".chart .target"), "and its goal").toHaveCount(1);
+  await page.locator("#tab-stats").click();
+  await expect(page.locator("#view-type"), "the button closes them too").toBeVisible();
 
-  await page.hover("#tab-stats");
-  await expect(peek).toBeVisible();
-  await page.mouse.move(800, 300);
-  await expect(peek).toBeHidden();
+  await page.locator("#tab-freetype").click();
+  await page.keyboard.press("Backquote");
+  await expect(sheet.locator("h1")).toHaveText("Freetype stats");
+  await expect(sheet.locator(".tile.hero"), "Freetype leads with consistency").toContainText("Consistency, last 10 rounds");
+  await expect(sheet.locator(".ring"), "no mode switch inside the stats").toHaveCount(0);
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Tab");
+  await expect(page.locator("#view-type"), "Tab: back to a new round").toBeVisible();
+  await expect(page.locator("#text"), "the key types nothing").not.toContainText("`");
+});
 
-  await page.keyboard.down("Backquote");
-  await expect(peek).toBeVisible();
-  const ch = await nextChar(page);
-  await page.keyboard.type(ch);
-  await expect(peek, "the first key of a round closes it").toBeHidden();
-  await page.keyboard.up("Backquote");
-  await page.keyboard.down("Backquote");
-  await page.waitForTimeout(100);
-  await expect(peek, "not during a round").toBeHidden();
-  await page.keyboard.up("Backquote");
-  await expect(page.locator("#text > span.bad"), "the key is no mistake").toHaveCount(0);
+test("stats with no rounds say so, and Freetype's say each word list counts apart", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype" });
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-empty h2")).toHaveText("No Freetype rounds yet");
+  await expect(page.locator(".st-empty p")).toContainText("Each word list keeps its own stats");
+  await expect(page.locator(".st-tiles")).toHaveCount(0);
 });
 
 test("the caret is still at rest, spaces have a dot unless you switch it off", async ({ page }) => {
@@ -378,76 +396,19 @@ test("settings: one window with every setting, a search and categories", async (
   await expect(page.locator("#round-count"), "a new round of the new length").toHaveText("0 / 10");
 });
 
-test("the settings of one screen live on that screen", async ({ page }) => {
+test("stats: Freetype shows your own speed goal, Reinforce its goal step", async ({ page }) => {
   await withHistory(page);
-  await openApp(page, { "tt.mode.en": "freetype" });
-  await page.keyboard.press("Shift+Tab");
-  const goal = page.locator("#activity .act-goal");
-  await expect(goal, "the daily goal lives with the days it counts").toContainText("15 min");
-  await goal.click();
-  const pop = page.locator("#mini-pop");
-  await expect(pop.locator('button[data-key="daily"][aria-pressed="true"]')).toHaveText("15");
-  await pop.locator('button[data-key="daily"][data-value="0"]').click();
-  await page.keyboard.press("Escape");
-  await expect(page.locator("#activity .act-goal")).toHaveText("no daily goal");
-  expect(await page.evaluate(() => localStorage.getItem("tt.daily"))).toBe("0");
-
-  await page.locator('#goal-pick button[data-step="1"]').click();
-  await page.locator('#goal-pick button[data-step="1"]').click();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem("tt.goal"))).toBe("45");
-});
-
-test("stats: the goal line is a number of your own, and Learn's is its target", async ({ page }) => {
-  await withHistory(page);
+  await withFreetypeHistory(page);
   await openApp(page, { "tt.mode.en": "freetype", "tt.goal": "100" });
-  await page.locator("#tab-stats").click();
-  const chip = page.locator("#goal-pick .goal-chip");
-  const up = page.locator('#goal-pick button[data-step="1"]'), down = page.locator('#goal-pick button[data-step="-1"]');
-  const stored = () => page.evaluate(() => localStorage.getItem("tt.goal"));
-  await expect(chip).toHaveText(/^Goal 100 wpm/);
-  const at = await chip.boundingBox();
-
-  await up.click();
-  await up.click();
-  await expect(chip, "+ adds 5 at once").toHaveText(/^Goal 110 wpm/);
-  expect(await stored(), "saved only when the clicks stop").toBe("100");
-  await expect.poll(stored).toBe("110");
-  await expect(page.locator("#tiles .tile.goal b")).toHaveText("110");
-  expect((await chip.boundingBox()).x, "the number stays in place").toBeCloseTo(at.x, 0);
-
-  await chip.hover();
-  await page.mouse.wheel(0, 100);
-  await expect(chip, "the wheel down lowers it").toHaveText(/^Goal 105 wpm/);
-  await down.focus();
-  await page.keyboard.press("ArrowUp");
-  await expect(chip, "and the arrows").toHaveText(/^Goal 110 wpm/);
-  await expect.poll(stored).toBe("110");
-
-  await openApp(page, { "tt.mode.en": "freetype", "tt.goal": "22" });
-  await page.locator("#tab-stats").click();
-  await expect(chip, "a goal between steps shows as it is").toHaveText(/^Goal 22 wpm/);
-  await down.click();
-  await expect(chip).toHaveText(/^Goal 20 wpm/);
-  await down.click();
-  await expect(chip, "below 20 it turns off").toHaveText(/^Goal: off/);
-  await expect.poll(stored).toBe("0");
-  await expect(page.locator("#tiles .tile.goal")).toHaveCount(0);
-  await up.click();
-  await expect(chip, "+ from off starts at 40").toHaveText(/^Goal 40 wpm/);
-  await chip.click();
-  await expect(chip, "a click on the goal switches it off at once").toHaveText(/^Goal: off/);
-  await expect.poll(stored).toBe("0");
-  await chip.click();
-  await expect(chip, "and back to the same number").toHaveText(/^Goal 40 wpm/);
-  await up.click();
-  await chip.click();
-  await chip.click();
-  await expect(chip).toHaveText(/^Goal 45 wpm/);
-
-  await page.locator('#stats-pick button[data-mode="learn"]').click();
-  const target = await page.evaluate(() => fetch("/api/v1/stats?length=words-30").then((r) => r.json()).then((s) => s.targetWpm));
-  await expect(page.locator("#goal-pick span.goal-chip"), "Learn shows its own target, not a button").toHaveText(`Goal ${target} wpm`);
-  await expect(page.locator("#goal-pick button")).toHaveCount(0);
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-tiles .tile").nth(1)).toContainText("goal 100 wpm");
+  await openApp(page, { "tt.mode.en": "freetype", "tt.goal": "0" });
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-tiles .tile").nth(1), "no goal, no goal text").not.toContainText("goal");
+  await openApp(page, { "tt.mode.en": "reinforce" });
+  await page.keyboard.press("Backquote");
+  const target = await page.evaluate(() => fetch("/api/v1/stats?length=words-30&part=reinforce").then((r) => r.json()).then((s) => s.targetWpm));
+  await expect(page.locator(".st-tiles .tile.hero")).toContainText(`goal ${target} wpm`);
 });
 
 test("Learn at 200% zoom with round history: the line stays inside the letter row", async ({ page }) => {
@@ -634,14 +595,14 @@ for (const width of [1280, 1600]) {
   });
 }
 
-test("stats: the switches start at the edge of the tiles under them", async ({ page }) => {
+test("stats: the title, the tiles and the panels share one left edge", async ({ page }) => {
+  await withHistory(page);
   await openApp(page, { "tt.mode.en": "learn" });
-  await page.keyboard.press("Shift+Tab");
-  const m = await page.evaluate(() => ({
-    pick: document.querySelector("#stats-pick .ring").getBoundingClientRect().left,
-    view: document.getElementById("view-stats").getBoundingClientRect().left,
-  }));
-  expect(m.pick).toBeCloseTo(m.view, 0);
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-chart svg")).toBeVisible();
+  const lefts = await page.evaluate(() => [".st-head h1", ".st-tiles", ".st-two", ".activity"]
+    .map((q) => Math.round(document.querySelector(q).getBoundingClientRect().left)));
+  expect(new Set(lefts).size, `left edges ${lefts}`).toBe(1);
 });
 
 for (const [w, h] of [[1920, 1080], [1366, 768]]) {
@@ -708,7 +669,7 @@ test("no text on the typing, result, settings and stats screens is smaller than 
   await expectResult(page);
   expect(await small(), "result").toEqual([]);
   await page.locator("#tab-stats").click();
-  await expect(page.locator("#tiles > *").first()).toBeVisible();
+  await expect(page.locator(".st-tiles > *").first()).toBeVisible();
   expect(await small(), "stats").toEqual([]);
   await openApp(page, { "tt.mode.en": "freetype" });
   await page.keyboard.press("Escape");
@@ -784,7 +745,7 @@ test("stats on a phone: nothing is wider than the screen", async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
     await openApp(page, { "tt.mode.en": "learn" });
     await page.locator("#tab-stats").click();
-    await expect(page.locator("#chart svg")).toBeVisible();
+    await expect(page.locator(".st-chart svg")).toBeVisible();
     const wide = await page.evaluate(() => [...document.querySelectorAll("#view-stats *")]
       .filter((n) => n.getBoundingClientRect().right > innerWidth + 0.5)
       .map((n) => `${n.tagName.toLowerCase()}#${n.id}.${n.getAttribute("class")}`));
@@ -798,16 +759,15 @@ test("stats on a desktop: every tile holds its own text", async ({ page }) => {
     const res = await route.fetch(), body = await res.json();
     body.sessions = Array.from({ length: 20 }, (_, i) => ({ ...(body.sessions?.[0] ?? {}), wpm: 52 - i, accuracy: 96, consistency: 80 }));
     body.sessionCount = 128;
-    body.streaks = [{ min: 95, longest: 14, current: 3 }, { min: 97, longest: 10, current: 3 }, { min: 100, longest: 10, current: 0 }];
+    if (!body.lengths?.length) body.lengths = ["words-30"];
     return route.fulfill({ response: res, json: body });
   });
-  for (const mode of ["freetype", "learn"]) for (const [width, height] of [[1024, 768], [1366, 768], [1920, 1080]]) {
+  for (const mode of ["freetype", "learn", "reinforce"]) for (const [width, height] of [[1024, 768], [1366, 768], [1920, 1080]]) {
     await page.setViewportSize({ width, height });
     await openApp(page, { "tt.mode.en": mode, "tt.goal": "50" });
     await page.locator("#tab-stats").click();
-    await expect(page.locator("#tiles .tile.goal")).toBeVisible();
-    await expect(page.locator("#tiles")).toContainText("best 14");
-    const past = () => page.evaluate(() => [...document.querySelectorAll("#tiles .tile")].flatMap((tile) => {
+    await expect(page.locator(".st-tiles .tile.hero")).toBeVisible();
+    const past = () => page.evaluate(() => [...document.querySelectorAll(".st-tiles .tile")].flatMap((tile) => {
       const edge = tile.getBoundingClientRect().right - parseFloat(getComputedStyle(tile).paddingRight);
       return [...tile.querySelectorAll("small, b, .meta, .meta *")]
         .filter((n) => n.getBoundingClientRect().right > edge + 0.5 || n.scrollWidth > n.clientWidth + 1)
@@ -837,8 +797,9 @@ test("the stats screen opens after a round and shows it", async ({ page }) => {
   await page.locator("#tab-stats").click();
   await expect(page.locator("#view-stats")).toBeVisible();
   await expect(page.locator("#view-type")).toBeHidden();
-  await expect(page.locator("#tiles > *").first()).toBeVisible();
-  const [bar, svg] = await Promise.all([page.locator("#chart .bar.last").boundingBox(), page.locator("#chart svg").boundingBox()]);
+  await expect(page.locator(".st-tiles .tile").last(), "the round counts").toContainText("1");
+  await expect(page.locator(".st-chart .hit")).toHaveCount(1);
+  const [bar, svg] = await Promise.all([page.locator(".st-chart .hit").boundingBox(), page.locator(".st-chart svg").boundingBox()]);
   expect(svg.x + svg.width - (bar.x + bar.width), "with one round the bar stands at the right edge").toBeLessThan(svg.width * 0.1);
 });
 

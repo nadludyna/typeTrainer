@@ -510,7 +510,7 @@ goal of step n = min(TargetWPM + n * StepWPM, MaxWPM)
 
 ### 6.2 The forecast: rounds to the next letter
 
-The next letter's tooltip and the Learn stats screen say about how many
+The next letter's tooltip and the Learn stats say about how many
 rounds the next letter is away ("≈ 6 rounds"; with every letter
 open, on the stats screen, "Next step in ≈ 6 rounds"). It only reads the numbers; nothing in the
 model or the word choice sees it (`engine.RoundsToMastery`,

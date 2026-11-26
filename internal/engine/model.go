@@ -148,13 +148,21 @@ func (p Params) errAlpha() float64 {
 	return p.Alpha
 }
 
+// Apply learns from a batch of presses. A batch is whole words (the browser
+// sends a portion with its space, or the rest of a round), so the first press
+// of a batch and every press right after a space begin a word: their time
+// includes reading the word, not only the finger, so they count for accuracy
+// but not for speed (docs/HOW-THE-MODES-WORK.md, section 5).
 func Apply(stats map[string]KeyStat, samples []Sample, p Params) map[string]KeyStat {
 	out := make(map[string]KeyStat, len(stats))
 	for k, v := range stats {
 		out[k] = v
 	}
 	touched := map[string]bool{}
-	for _, smp := range samples {
+	for i, smp := range samples {
+		if i == 0 || samples[i-1].Char == " " {
+			smp.Ms = 0
+		}
 		out[smp.Char] = Update(out[smp.Char], smp, p)
 		touched[smp.Char] = true
 	}

@@ -156,7 +156,7 @@ function reinforce(s, rounds) {
   const tiles = [
     tile(t("st.wpm10"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + t("st.goalIs", { w: goal }), { hero: true, part: wpm === null ? 0 : wpm / goal }),
     tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
-    words ? tile(t("re.words"), listLabel(words), t("st.common", { n: words })) : null,
+    words ? tile(t("re.words"), listLabel(words), levelNote(s.standing, s.wordLevels)) : null,
     tile(t("tile.best"), best ? num(best.wpm, "wpm") : "—", best ? t("st.bestAcc", { p: Math.round(best.accuracy) }) : ""),
     roundsTile(s.sessionCount),
   ];
@@ -169,6 +169,15 @@ function reinforce(s, rounds) {
     `<div class="panel-head st-sub"><h2>${t("st.slowPairs")}</h2></div>` + chips(slowPairs));
   const panels = `<div class="st-two">${chartPanel(t("stats.speed"), t("st.goalLine"))}${slow}</div>`;
   return { tiles, panels, chart: { value: (x) => x.wpm, unit: "wpm", line: goal } };
+}
+
+// How close the next move of the word level is (freeplay.Standing on the server).
+function levelNote(st, levels) {
+  const words = levels[wordLevel() - 1];
+  if (!st || st.level !== wordLevel()) return t("st.common", { n: words });
+  if (st.passes && levels[st.level]) return t("st.toUp", { n: st.passes, of: st.passesUp, next: listLabel(levels[st.level]) });
+  if (st.fails && st.level > 1) return t("st.toDown", { n: st.fails, of: st.failsDown, prev: listLabel(levels[st.level - 2]) });
+  return t("st.common", { n: words });
 }
 
 // ---------- Freetype: rhythm ----------

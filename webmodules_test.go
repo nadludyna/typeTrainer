@@ -107,3 +107,22 @@ func TestWebModules_NoCycles(t *testing.T) {
 		}
 	}
 }
+
+// A text key written twice in web/i18n.js: the later one wins without a
+// word, and the first text never shows.
+func TestWebTexts_NoKeyTwice(t *testing.T) {
+	src, err := fs.ReadFile(files, "web/i18n.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, m := range regexp.MustCompile(`(?m)(?:^\s*|,\s*)"([A-Za-z0-9_.]+)":`).FindAllStringSubmatch(string(src), -1) {
+		if seen[m[1]] {
+			t.Errorf("%q is written twice", m[1])
+		}
+		seen[m[1]] = true
+	}
+	if len(seen) < 100 {
+		t.Fatalf("found only %d keys: the pattern no longer matches web/i18n.js", len(seen))
+	}
+}

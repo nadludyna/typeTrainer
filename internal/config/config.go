@@ -180,6 +180,7 @@ func Default() Config {
 			LevelStart:   1,
 			PassAccuracy: 96,
 			FailAccuracy: 92,
+			FailSpeed:    0.9,
 			PassesUp:     3,
 			FailsDown:    2,
 			History:      50,

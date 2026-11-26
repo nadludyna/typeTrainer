@@ -2,7 +2,7 @@
 
 import { t } from "./i18n.js";
 import { FX, fade } from "./fx.js";
-import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel } from "./state.js";
+import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel, setWordLevel, listLabel } from "./state.js";
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
@@ -621,6 +621,7 @@ async function finishRound() {
     await refreshStats();
     if (res.newLetter) newLetter(res.newLetter);
     if (res.newLap) roundNewLap = res.newLap;
+    if (body.level) followLevel(body.level);
 
     const r = compareStats(roundBefore, S.lastStats);
     roundMilestone({ ...r, wpm, newLetter: roundNewLetter, newLap: roundNewLap });
@@ -634,6 +635,15 @@ async function finishRound() {
   } finally {
     S.busy = false;
   }
+}
+
+// Reinforce's word level follows its rounds (the server's standing): only
+// right after a round at the level in use, so a level picked by hand stays.
+function followLevel(level) {
+  const st = S.lastStats?.standing, levels = S.lastStats?.wordLevels ?? [];
+  if (!st?.moved || level !== wordLevel() || st.level === level || !levels[st.level - 1]) return;
+  setWordLevel(st.level);
+  FX.toast(t(st.moved > 0 ? "re.levelUp" : "re.levelDown", { n: listLabel(levels[st.level - 1]) }));
 }
 
 async function finishLearn() {

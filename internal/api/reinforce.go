@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/engine"
+	"typingtrainer/internal/freeplay"
 	"typingtrainer/internal/storage"
 )
 
@@ -77,4 +78,27 @@ func (s *Server) setStep(user, id string, step int) error {
 		return err
 	}
 	return s.store.SaveLearned(user, id, storage.Learned{Stats: engine.StartLap(stats), Unlocked: unlocked, Lap: step})
+}
+
+// standing is where Reinforce's rounds (oldest first) leave its word level:
+// each judged at the speed goal of its own step (freeplay.Judge), the last run
+// at one level counted (freeplay.Standing). Moved is what the last round did,
+// so the browser follows it only right after a round at its current level,
+// and a level picked by hand starts its own run.
+type standing struct {
+	freeplay.Place
+	PassesUp  int `json:"passesUp"`
+	FailsDown int `json:"failsDown"`
+}
+
+func (s *Server) standing(rounds []storage.Session, base engine.Params, levels int) standing {
+	var rs []freeplay.Round
+	for _, r := range rounds {
+		if r.Level > 0 {
+			rs = append(rs, freeplay.Round{Level: int(r.Level), Accuracy: r.Accuracy, WPM: r.WPM, Goal: base.ForLap(r.Lap, s.cfg.Laps).TargetWPM})
+		}
+	}
+	p := s.cfg.Freeplay
+	p.Levels = p.Levels[:min(levels, len(p.Levels))]
+	return standing{Place: freeplay.Standing(rs, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
 }

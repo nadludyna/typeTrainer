@@ -61,8 +61,8 @@ func TestLetterTimeline(t *testing.T) {
 	p := config.Default().Engine
 	order := []string{"a", "b", "c"}
 	s := []storage.Session{
-		{WPM: 20, Accuracy: 90, Unlocked: 2, Keys: keys(
-			engine.Sample{Char: "a", Ms: 400}, engine.Sample{Char: "b", Errors: 1, Ms: 500, Typed: "n"})},
+		{WPM: 20, Accuracy: 90, Unlocked: 2, Keys: keys( // the first press begins a word: never timed
+			engine.Sample{Char: "b", Errors: 1, Ms: 500, Typed: "n"}, engine.Sample{Char: "a", Ms: 400})},
 		{WPM: 25, Accuracy: 100, Unlocked: 0, Keys: nil},
 		{WPM: 30, Accuracy: 95, Unlocked: 3, Keys: keys(engine.Sample{Char: "c", Ms: 300})},
 	}

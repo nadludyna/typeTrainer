@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -202,7 +203,8 @@ func countLength(all []Session, length string) int {
 	return n
 }
 
-func lengths(all []Session) []string {
+// Lengths is the round lengths these rounds have, sorted.
+func Lengths(all []Session) []string {
 	seen := map[string]bool{}
 	out := []string{}
 	for _, s := range all {
@@ -224,19 +226,8 @@ func (m *MemoryStore) SessionCount(user, lang, length string) (int, error) {
 	return countLength(m.data(user, lang).sessions, length), nil
 }
 
-func (m *MemoryStore) SessionLengths(user, lang string) ([]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return lengths(m.data(user, lang).sessions), nil
-}
-
-func (m *MemoryStore) BestRounds(user, lang string) (map[string]Session, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return bestOf(m.data(user, lang).sessions), nil
-}
-
-func bestOf(all []Session) map[string]Session {
+// BestOf is the fastest round of each length, without its keys.
+func BestOf(all []Session) map[string]Session {
 	out := map[string]Session{}
 	for _, s := range all {
 		if s.Aborted {
@@ -261,14 +252,21 @@ func (m *MemoryStore) LettersTyped(user, lang string, unlocked int) (int, error)
 	return n, nil
 }
 
-func (m *MemoryStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, error) {
+func (m *MemoryStore) PracticeDays(user, lang, part string, tz time.Duration) ([]Day, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	d := m.data(user, lang)
 	byDate := map[string]*Day{}
-	all := append([]Session{}, d.sessions...)
-	for _, h := range d.freeplay {
-		all = append(all, h...)
+	all := []Session{}
+	for _, s := range d.sessions {
+		if InPart(s.Level, part) {
+			all = append(all, s)
+		}
+	}
+	for mode, h := range d.freeplay {
+		if part == "" || part == PartFreetype && strings.HasPrefix(mode, "freetype-") {
+			all = append(all, h...)
+		}
 	}
 	for _, s := range all {
 		date := s.FinishedAt.UTC().Add(tz).Format("2006-01-02")
@@ -316,7 +314,7 @@ func (m *MemoryStore) RecentFreeplaySessions(user, lang, mode, length string, li
 func (m *MemoryStore) BestFreeplayRounds(user, lang, mode string) (map[string]Session, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return bestOf(m.data(user, lang).freeplay[mode]), nil
+	return BestOf(m.data(user, lang).freeplay[mode]), nil
 }
 
 func (m *MemoryStore) FreeplaySessionCount(user, lang, mode, length string) (int, error) {
@@ -328,7 +326,7 @@ func (m *MemoryStore) FreeplaySessionCount(user, lang, mode, length string) (int
 func (m *MemoryStore) FreeplaySessionLengths(user, lang, mode string) ([]string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return lengths(m.data(user, lang).freeplay[mode]), nil
+	return Lengths(m.data(user, lang).freeplay[mode]), nil
 }
 
 func (m *MemoryStore) Reset(user, lang string) error {

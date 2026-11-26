@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"testing"
 	"time"
 
@@ -34,6 +35,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"PracticeDays":              testPracticeDays,
 	"ResetLearn":                testResetLearn,
 	"BestRounds":                testBestRounds,
+	"DaysPerMode":               testDaysPerMode,
 	"RoundSentTwice":            testRoundSentTwice,
 	"SaveLearned":               testSaveLearned,
 	"ImportAtomic":              testImportAtomic,
@@ -246,7 +248,7 @@ func testFreetypeModes(t *testing.T, m Store) {
 	if b, _ := m.BestFreeplayRounds(u, "en", big); b["words-30"].WPM != 50 {
 		t.Errorf("bests of %s = %+v, want its own 50", big, b)
 	}
-	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 1 || days[0].Rounds != 6 {
+	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 1 || days[0].Rounds != 6 {
 		t.Errorf("practice days = %+v, want one day with all 6 rounds", days)
 	}
 	m.Reset(u, "en")
@@ -446,7 +448,8 @@ func testLengths(t *testing.T, m Store) {
 	if old, _ := m.RecentSessions(u, "en", DefaultLength, 5); len(old) != 1 || old[0].WPM != 30 || old[0].Length != DefaultLength {
 		t.Fatalf("a round without a length must be %s: %+v", DefaultLength, old)
 	}
-	lengths, _ := m.SessionLengths(u, "en")
+	every, _ := m.RecentSessions(u, "en", "", 10)
+	lengths := Lengths(every)
 	if want := []string{"time-60", "words-10", "words-30"}; fmt.Sprint(lengths) != fmt.Sprint(want) {
 		t.Fatalf("lengths = %v, want %v", lengths, want)
 	}
@@ -457,7 +460,8 @@ func testLengths(t *testing.T, m Store) {
 	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, "words-60"); c != 1 {
 		t.Fatalf("free words-60: %d", c)
 	}
-	if none, _ := m.SessionLengths(u, "pl"); none == nil || len(none) != 0 {
+	none, _ := m.RecentSessions(u, "pl", "", 10)
+	if none := Lengths(none); none == nil || len(none) != 0 {
 		t.Fatalf("no history: lengths must be an empty list, got %#v", none)
 	}
 }
@@ -526,7 +530,7 @@ func testDevice(t *testing.T, m Store) {
 }
 
 func testPracticeDays(t *testing.T, m Store) {
-	if days, err := m.PracticeDays(u, "en", 0); err != nil || len(days) != 0 {
+	if days, err := m.PracticeDays(u, "en", "", 0); err != nil || len(days) != 0 {
 		t.Fatalf("no history: %v, %v; want none", days, err)
 	}
 	at := func(s string) time.Time { v, _ := time.Parse(time.RFC3339, s); return v }
@@ -536,7 +540,7 @@ func testPracticeDays(t *testing.T, m Store) {
 	m.AddSession(u, "pl", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
 	m.AddSession("someone-else", "en", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
 
-	days, err := m.PracticeDays(u, "en", 0)
+	days, err := m.PracticeDays(u, "en", "", 0)
 	if err != nil || len(days) != 2 {
 		t.Fatalf("UTC: %v, %v; want 2 days", days, err)
 	}
@@ -546,26 +550,26 @@ func testPracticeDays(t *testing.T, m Store) {
 	if d := days[1]; d.Date != "2026-10-18" || d.Rounds != 1 || d.Seconds != 0 {
 		t.Fatalf("second day %+v, want 2026-10-18, 1 round, 0 s", d)
 	}
-	days, _ = m.PracticeDays(u, "en", 2*time.Hour)
+	days, _ = m.PracticeDays(u, "en", "", 2*time.Hour)
 	if len(days) != 2 || days[0].Rounds != 1 || days[1].Date != "2026-10-18" || days[1].Rounds != 2 {
 		t.Fatalf("UTC+2: %+v, want 1 round on the 17th and 2 on the 18th", days)
 	}
 	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 50, Chars: 300, Seconds: 95.5, FinishedAt: at("2026-10-18T10:00:00Z")})
 	m.AddSession(u, "en", Session{Chars: 40, Seconds: 19, Aborted: true, Round: "tab", FinishedAt: at("2026-10-18T10:05:00Z")})
 	m.AddSession(u, "en", Session{Chars: 40, Aborted: true, Round: "old-tab", FinishedAt: at("2026-10-18T10:06:00Z")})
-	days, _ = m.PracticeDays(u, "en", 0)
+	days, _ = m.PracticeDays(u, "en", "", 0)
 	if d := days[1]; d.Rounds != 2 || d.Chars != 300 || math.Abs(d.Seconds-114.5) > 0.01 {
 		t.Fatalf("measured seconds: %+v, want 2 rounds, 300 letters, 95.5 + 19 s (a Tab-dropped round counts its time only)", d)
 	}
 	m.Reset(u, "en")
-	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 0 {
+	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 0 {
 		t.Fatalf("after reset: %v, want none", days)
 	}
 }
 
 func testBestRounds(t *testing.T, m Store) {
-	if b, err := m.BestRounds(u, "en"); err != nil || len(b) != 0 {
-		t.Fatalf("no history: %v, %v; want none", b, err)
+	if b := BestOf(nil); len(b) != 0 {
+		t.Fatalf("no history: %v; want none", b)
 	}
 	keys := []engine.Sample{{Char: "e", Ms: 100}}
 	m.AddSession(u, "en", Session{WPM: 40, Accuracy: 90, Length: "words-10"})
@@ -575,7 +579,9 @@ func testBestRounds(t *testing.T, m Store) {
 	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 99, Accuracy: 100, Length: "words-10"})
 	m.AddSession("someone-else", "en", Session{WPM: 99, Length: "words-10"})
 
-	b, _ := m.BestRounds(u, "en")
+	mine, _ := m.RecentSessions(u, "en", "", 10)
+	slices.Reverse(mine) // oldest first, as /stats passes them
+	b := BestOf(mine)
 	if len(b) != 2 || b["words-10"].WPM != 55 || b["words-10"].Accuracy != 97 || b["time-30"].WPM != 30 {
 		t.Fatalf("bests %+v, want words-10 55 wpm 97%% and time-30 30 wpm", b)
 	}
@@ -585,10 +591,6 @@ func testBestRounds(t *testing.T, m Store) {
 	f, _ := m.BestFreeplayRounds(u, "en", otherMode)
 	if len(f) != 1 || f["words-10"].WPM != 99 {
 		t.Fatalf("free practice bests %+v, want words-10 99 wpm", f)
-	}
-	m.Reset(u, "en")
-	if b, _ := m.BestRounds(u, "en"); len(b) != 0 {
-		t.Fatalf("after reset: %v, want none", b)
 	}
 }
 
@@ -692,16 +694,14 @@ func testAbortedNotShown(t *testing.T, m Store) {
 	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
 		t.Fatalf("count: %d, want 1", c)
 	}
-	if l, _ := m.SessionLengths(u, "en"); len(l) != 1 || l[0] != "words-10" {
+	live, _ := m.RecentSessions(u, "en", "", 10)
+	if l := Lengths(live); len(l) != 1 || l[0] != "words-10" {
 		t.Fatalf("lengths: %v, want only the live round's", l)
-	}
-	if b, _ := m.BestRounds(u, "en"); b["words-10"].WPM != 20 || b["words-99"].WPM != 0 {
-		t.Fatalf("bests: %+v, want no aborted round", b)
 	}
 	if n, _ := m.LettersTyped(u, "en", 1); n != 10 {
 		t.Fatalf("letters typed: %d, want 10 (no aborted chars)", n)
 	}
-	if days, _ := m.PracticeDays(u, "en", 0); len(days) != 1 || days[0].Rounds != 2 || days[0].Chars != 40 {
+	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 1 || days[0].Rounds != 2 || days[0].Chars != 40 {
 		t.Fatalf("days: %+v, want 2 rounds and 40 chars (no aborted)", days)
 	}
 	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
@@ -724,5 +724,20 @@ func testResetLearn(t *testing.T, m Store) {
 	climb, _ := m.FreeplaySessionCount(u, "en", otherMode, "")
 	if n != 0 || len(stats) != 0 || learn != 0 || climb != 1 {
 		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Climb rounds %d (want Climb kept)", n, len(stats), learn, climb)
+	}
+}
+
+func testDaysPerMode(t *testing.T, m Store) {
+	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
+	m.AddSession(u, "en", Session{WPM: 30, Chars: 10, FinishedAt: when})
+	m.AddSession(u, "en", Session{WPM: 40, Chars: 20, Level: 2, FinishedAt: when})
+	m.AddSession(u, "en", Session{WPM: 45, Chars: 20, Level: 3, FinishedAt: when})
+	m.AddFreeplaySession(u, "en", FreetypeMode(200, ""), Session{WPM: 50, Chars: 40, FinishedAt: when})
+	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 60, Chars: 80, FinishedAt: when})
+	for part, want := range map[string]int{"": 5, PartLearn: 1, PartReinforce: 2, PartFreetype: 2} {
+		days, err := m.PracticeDays(u, "en", part, 0)
+		if err != nil || len(days) != 1 || days[0].Rounds != want {
+			t.Fatalf("part %q: %+v %v, want one day of %d rounds", part, days, err, want)
+		}
 	}
 }

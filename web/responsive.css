@@ -22,10 +22,10 @@
   .logo-key { display: none; }
   .logo-name { font-size: var(--fs-m); }
   .rail { justify-content: space-between; gap: 0; padding-inline: 2px; }
-  .rail-group { flex: 2; }
-  .rail .nav-switch { flex: 3; }
+  .rail-group { flex: 1; min-width: 0; }
+  .rail .nav-switch { flex: var(--n); min-width: 0; grid-auto-columns: minmax(0, 1fr); }
   .rail .switch button, .rail-btn { width: auto; flex: 1; min-width: 0; }
-  .rail .pop { flex: 1; display: flex; }
+  .rail .pop { flex: 1; display: flex; min-width: 0; }
   .rail .switch button small, .rail-btn small { font-size: var(--fs-min); }
   .rail .switch button, .rail-btn { height: 54px; }
   .tiles { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 100%; }
@@ -33,6 +33,15 @@
   .tile { padding: 10px 10px 9px; }
   .tile b { font-size: var(--fs-m); }
   .note { font-size: var(--fs-min); border-radius: var(--r-md); }
+  /* Nothing may be wider than the screen: a phone's browser widens the whole
+     page to the widest element, and the bottom navigation slides off it. */
+  :root { --text-l: 16px; --text-r: 16px; }
+  .live, .live-right { column-gap: 12px; }
+  .goal-count { display: none; }
+  #view-type > .letters { height: auto; min-height: var(--band); }
+  .mode-bar { flex-wrap: wrap; row-gap: 8px; }
+  .bar-side { flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .mode-bar .ring { flex-wrap: wrap; }
 }
 
 @media (prefers-reduced-motion: reduce) {

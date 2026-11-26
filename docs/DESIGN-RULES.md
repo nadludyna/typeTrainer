@@ -75,6 +75,12 @@ there is a reason not to).
 - Check the typing screen at desktop widths (drag the window between about
   1280 px and 1920 px) and the stats screen also at about 390 px. Nothing
   may be clipped, overlap, scroll sideways or wrap into one word per line.
+- On a phone nothing may be wider than the screen: its browser widens the
+  whole page to the widest element and the bottom bar slides off the
+  screen. A narrow window does not show this; a phone emulation does
+  (`isMobile` in the browser check "on a phone", `tools/browser/layout.spec.mjs`).
+  On a phone the line above the text has no daily goal, and the switches
+  over it wrap.
 - When a row does not fit, decide what wraps and how (see the length
   filter in `stats.css`), instead of letting the browser decide.
 

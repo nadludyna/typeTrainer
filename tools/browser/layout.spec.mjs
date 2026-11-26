@@ -174,3 +174,47 @@ test("Learn: a keyboard that can't fit leaves one line in its place", async ({ p
   await expect(page.locator("#keyboard")).toBeVisible();
   await expect(page.locator("#kb-away")).toBeHidden();
 });
+
+// A phone's browser widens the whole page to its widest element, and the
+// bottom navigation then slides off the screen: only a real phone emulation
+// (isMobile) shows it, a narrow window does not.
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 360, height: 760 }, hasTouch: true, isMobile: true });
+  test("every screen fits: the page keeps the screen's width, the navigation stays at the bottom, the switches stay above the text", async ({ page }) => {
+    await withHistory(page);
+    await withFreetypeHistory(page);
+    const fits = (where) => page.evaluate((where) => {
+      const out = [];
+      if (innerWidth !== 360) out.push(`${where}: the page is ${innerWidth}px wide`);
+      const rail = document.getElementById("rail").getBoundingClientRect();
+      if (rail.bottom > innerHeight + 0.5 || rail.right > 360.5) out.push(`${where}: the navigation is off the screen`);
+      for (const n of document.querySelectorAll(".top *, #rail *, .view.active *")) {
+        const r = n.getBoundingClientRect();
+        if (r.width && r.right > 360.5) out.push(`${where}: ${n.tagName.toLowerCase()}.${n.getAttribute("class")} ends at ${Math.round(r.right)}`);
+      }
+      const band = document.querySelector("#view-type > .letters")?.getBoundingClientRect(), box = document.getElementById("text-box").getBoundingClientRect();
+      if (where !== "stats" && where !== "welcome" && band.bottom > box.top + 0.5) out.push(`${where}: the switches run into the text`);
+      return out.slice(0, 6);
+    }, where);
+    for (const mode of ["learn", "reinforce", "freetype"]) {
+      await openApp(page, { "tt.mode.en": mode });
+      expect(await fits(mode)).toEqual([]);
+    }
+    await page.locator("#tab-stats").click();
+    await expect(page.locator(".st-tiles .tile.hero")).toBeVisible();
+    expect(await fits("stats")).toEqual([]);
+    await page.locator("#tab-welcome").click();
+    await expect(page.locator("#view-welcome")).toBeVisible();
+    const steps = page.locator("#view-welcome .wl-chip");
+    for (let i = 0; i < await steps.count(); i++) {
+      await steps.nth(i).click();
+      await page.waitForTimeout(350);
+      expect(await fits("welcome"), `Welcome, step ${i + 1}`).toEqual([]);
+    }
+    await page.locator("#btn-settings").click();
+    await expect(page.locator("#settings-win")).toBeVisible();
+    const win = await page.evaluate(() => { const r = document.getElementById("settings-win").getBoundingClientRect(); return [innerWidth, Math.round(r.left), Math.round(r.right)]; });
+    expect(win[0], "settings: the page keeps the screen's width").toBe(360);
+    expect(win[1] >= 0 && win[2] <= 360, `settings window ${win[1]}..${win[2]}`).toBe(true);
+  });
+});

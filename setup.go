@@ -60,7 +60,11 @@ func newAppWith(open func() (storage.Store, error)) (http.Handler, config.Config
 	if err != nil {
 		return nil, cfg, err
 	}
-	mux.Handle("/", static.New(webFS))
+	if dir := liveWeb(); dir != nil {
+		mux.Handle("/", static.Live(dir))
+	} else {
+		mux.Handle("/", static.New(webFS))
+	}
 	return server.WithGuest(mux), cfg, nil
 }
 

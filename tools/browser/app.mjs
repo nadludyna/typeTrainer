@@ -24,15 +24,29 @@ export function nextChar(page) {
   });
 }
 
-export async function typeRound(page, { delay = 70, afterKey, done } = {}) {
+// The untyped text up to the next space, with it: a word and its space.
+export function nextWord(page) {
+  return page.evaluate(() => {
+    if (document.body.classList.contains("tb-resulting")) return null;
+    let word = "";
+    for (const s of document.querySelectorAll("#text > span:not(.ok):not(.bad):not(.miss):not(.beyond):not(.extra)")) {
+      word += s.textContent;
+      if (s.textContent === " ") break;
+    }
+    return word;
+  });
+}
+
+// typeRound types until the round ends (or `done`), a word at a time with
+// `delay` ms between keys.
+export async function typeRound(page, { delay = 35, done } = {}) {
   for (let i = 0; i < 600; i++) {
     if (done && await done()) return;
-    const ch = await nextChar(page);
-    if (ch === null) return;
-    if (ch === "") { await page.waitForTimeout(50); continue; }
-    await page.keyboard.type(ch);
-    if (afterKey) await afterKey();
+    const word = await nextWord(page);
+    if (word === null) return;
+    if (word === "") { await page.waitForTimeout(50); continue; }
+    await page.keyboard.type(word, { delay });
     await page.waitForTimeout(delay);
   }
-  throw new Error("the round did not end after 600 steps");
+  throw new Error("the round did not end after 600 words");
 }

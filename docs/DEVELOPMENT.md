@@ -18,7 +18,24 @@ Open <http://localhost:3000>. Always use this address: opening
 port is taken, change `Addr` in `internal/config/config.go`.
 
 The web files are built into the program, so restart the server after you
-change them. `go build .` makes one file you can run on its own.
+change them (or work on them as below). `go build .` makes one file you can
+run on its own.
+
+### Working on the page
+
+```
+TT_DEV=1 go run .
+go run ./tools/demo > demo.json
+```
+
+- `TT_DEV=1` (PowerShell: `$env:TT_DEV = "1"; go run .`) reads `web/` from
+  the disk at every request: save a file, reload the page, see it. Go code
+  still needs a restart.
+- `tools/demo` prints a made-up history of every mode (Learn's rounds as its
+  letters open, Reinforce at a word level, Freetype on the 1000 list, two
+  months of days, keys mixed up). Load it with Settings, Data, Import, to see
+  the stats and the line over the text with data in them. A restart of the
+  memory store forgets it; import it again.
 
 Without a database, progress lives in the server's memory and is gone when
 it stops. Export it first (Settings, Data) if you want to keep it.
@@ -51,12 +68,17 @@ On Windows, step by step:
 ## Test it
 
 ```
-gofmt -w .
-go vet ./...
-go test ./...
+go run ./tools/check
 ```
 
-Every pull request runs these and the WebAssembly build. The storage tests
+runs every check a pull request needs, in order, and says which failed:
+`gofmt`, `go vet ./...`, `go test ./...`, the WebAssembly build of the Pages
+version and the browser checks below (`-quick` leaves those out; set
+`TT_BROWSER` for them as below). `gofmt -w .` fixes the formatting.
+
+Every pull request that changes more than the docs runs these on GitHub too,
+and `main` runs them every night, each browser check three times, to catch a
+race that shows only now and then. The storage tests
 also run against a real PostgreSQL when `TT_TEST_DATABASE_URL` points to an
 empty database (its tables are emptied on every run).
 
@@ -75,14 +97,36 @@ npx playwright install chromium
 npx playwright test
 ```
 
+- **How long:** about 2–3 minutes. Each check opens the site as a guest of
+  its own, so they run side by side, on half the processor's cores
+  (`TT_WORKERS=4` sets the number).
+- **Another browser:** where Playwright's Chromium can't be installed,
+  `TT_BROWSER=msedge` (PowerShell: `$env:TT_BROWSER = "msedge"`) runs the
+  checks in the installed Edge, and `chrome` in Chrome.
+- **One area:** the checks are in files by area: `rounds` (a round in each
+  mode, its result, saving it), `keys` (the caret, the shortcuts, the
+  keyboard), `layout` (the grid, widths, zoom, text sizes, contrast),
+  `stats`, `modes` (the tabs, Welcome, the check-ins, the settings);
+  what they share is in `checks.mjs` and `app.mjs`. `npx playwright test
+  stats` runs one file, `npx playwright test -g "check-in"` the checks whose
+  names contain the words. On GitHub they run in two halves at once.
+- **No retries.** A check that fails now and then has found a race: in the
+  app (the check-in's sample once ended twice, the stats loaded twice) or in
+  the check. A check waits for a state the page reaches (`waitForText`, an
+  event, `expect.poll`), not for a guessed number of milliseconds; a fixed
+  wait only proves that nothing happens, or lets a shortcut's cooldown pass.
+
 Every pull request runs them too. A failed run on GitHub keeps a trace and a
 screenshot under the job's artifacts.
 
 `node perf.mjs` in the same folder measures typing latency: style recalc
-per key, key to caret start and slow frames. It needs a running server.
-Run it before and after a change to the typing screen, on the same machine,
-and put both results in the pull request. `node perf.mjs --bare` measures the
-screen without the keyboard.
+per key, key to caret start and slow frames, on the server running on :3000.
+For a change to the typing screen, `node perf.mjs --against main` builds
+`main` and this code, starts each on :3000 in turn (stop your own server
+first), alternates them and prints both side by side: put that table in the
+pull request. The share of slow frames moves a lot from one run to the next,
+so only numbers measured side by side compare. `--bare` measures the screen
+without the keyboard; it takes `TT_BROWSER` too.
 
 The website on GitHub Pages is the same Go code compiled to WebAssembly
 (`main_wasm.go`). Every merge to `main` rebuilds it.

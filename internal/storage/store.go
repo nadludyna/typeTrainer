@@ -27,6 +27,8 @@ type Session struct {
 	Aborted  bool            `json:"aborted,omitempty"`
 	Seconds  float64         `json:"seconds,omitempty"`
 	Round    string          `json:"-"`
+	Mode     string          `json:"-"` // set by RecentFreetypeSessions only
+	seq      int64           // the memory store's order of saving, as PostgreSQL's id
 }
 
 const (
@@ -49,7 +51,19 @@ func FreetypeKey(n int, variant string) string {
 	return strconv.Itoa(n) + "-" + variant
 }
 
-func FreetypeMode(n int, variant string) string { return "freetype-" + FreetypeKey(n, variant) }
+// freetypePrefix starts the mode of every Freetype round.
+const freetypePrefix = "freetype-"
+
+func FreetypeMode(n int, variant string) string { return freetypePrefix + FreetypeKey(n, variant) }
+
+// ParseFreetypeMode is ParseFreetypeKey of a round's mode.
+func ParseFreetypeMode(mode string) (n int, variant string, ok bool) {
+	key, found := strings.CutPrefix(mode, freetypePrefix)
+	if !found {
+		return 0, "", false
+	}
+	return ParseFreetypeKey(key)
+}
 
 func ParseFreetypeKey(key string) (n int, variant string, ok bool) {
 	if Listless(key) {
@@ -201,6 +215,9 @@ type Store interface {
 
 	AddFreeplaySession(user, lang, mode string, s Session) error
 	RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error)
+	// RecentFreetypeSessions is the last Freetype rounds of every list and
+	// text, newest first, each with its Mode.
+	RecentFreetypeSessions(user, lang string, limit int) ([]Session, error)
 	FreeplaySessionCount(user, lang, mode, length string) (int, error)
 	FreeplaySessionLengths(user, lang, mode string) ([]string, error)
 	BestFreeplayRounds(user, lang, mode string) (map[string]Session, error)

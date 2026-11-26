@@ -388,6 +388,34 @@ func (p *PostgresStore) AddFreeplaySession(user, lang, mode string, s Session) e
 func (p *PostgresStore) RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error) {
 	return p.recentSessions(user, lang, mode, length, limit)
 }
+func (p *PostgresStore) RecentFreetypeSessions(user, lang string, limit int) ([]Session, error) {
+	rows, err := p.db.Query(`SELECT mode, wpm, accuracy, chars, consistency, keys, finished_at, length, device, epoch
+		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode LIKE 'freetype-%' AND NOT aborted
+		ORDER BY finished_at DESC, id DESC LIMIT $3`, user, lang, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Session{}
+	for rows.Next() {
+		var s Session
+		var consistency sql.NullFloat64
+		var keys []byte
+		if err := rows.Scan(&s.Mode, &s.WPM, &s.Accuracy, &s.Chars, &consistency, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Epoch); err != nil {
+			return nil, err
+		}
+		if consistency.Valid {
+			s.Consistency = &consistency.Float64
+		}
+		if keys != nil {
+			if err := json.Unmarshal(keys, &s.Keys); err != nil {
+				return nil, err
+			}
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
 func (p *PostgresStore) BestFreeplayRounds(user, lang, mode string) (map[string]Session, error) {
 	return p.bestRounds(user, lang, mode)
 }

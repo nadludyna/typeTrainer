@@ -30,6 +30,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"KeyStatsFields":            testKeyStatsFields,
 	"Lengths":                   testLengths,
 	"LettersTyped":              testLettersTyped,
+	"RecentFreetype":            testRecentFreetype,
 	"Lap":                       testLap,
 	"Device":                    testDevice,
 	"PracticeDays":              testPracticeDays,
@@ -477,6 +478,46 @@ func testLengths(t *testing.T, m Store) {
 	none, _ := m.RecentSessions(u, "pl", "", 10)
 	if none := Lengths(none); none == nil || len(none) != 0 {
 		t.Fatalf("no history: lengths must be an empty list, got %#v", none)
+	}
+}
+
+// Every Freetype round of any list or text, newest first, with its mode;
+// other rounds, other users and dropped rounds are not in it.
+func testRecentFreetype(t *testing.T, m Store) {
+	if got, err := m.RecentFreetypeSessions(u, "en", 10); err != nil || len(got) != 0 {
+		t.Fatalf("no rounds: %v, %v", got, err)
+	}
+	at := time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)
+	add := func(mode string, wpm float64, sec int) {
+		t.Helper()
+		if err := m.AddFreeplaySession(u, "en", mode, Session{WPM: wpm, Chars: 10, FinishedAt: at.Add(time.Duration(sec) * time.Second), Keys: []engine.Sample{{Char: "a", Ms: 100}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	add(FreetypeMode(200, ""), 1, 1)
+	add(FreetypeMode(1000, VariantLong), 2, 2)
+	add(FreetypeMode(0, VariantSentences), 3, 3)
+	add(FreetypeMode(200, ""), 4, 4)
+	m.AddFreeplaySession(u, "en", FreetypeMode(200, ""), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
+	m.AddFreeplaySession(u, "pl", FreetypeMode(200, ""), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
+	m.AddFreeplaySession("someone-else", "en", FreetypeMode(200, ""), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
+	m.AddSession(u, "en", Session{WPM: 96, FinishedAt: at.Add(8 * time.Second)})
+	got, err := m.RecentFreetypeSessions(u, "en", 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen []string
+	for _, s := range got {
+		seen = append(seen, fmt.Sprintf("%v %s %d", s.WPM, s.Mode, len(s.Keys)))
+	}
+	want := []string{"4 freetype-200 1", "3 freetype-sentences 1", "2 freetype-1000-long 1"}
+	if !slices.Equal(seen, want) {
+		t.Fatalf("got %v, want %v", seen, want)
+	}
+	add(FreetypeMode(5000, ""), 5, 9)
+	add(FreetypeMode(1000, ""), 6, 9)
+	if got, _ := m.RecentFreetypeSessions(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
+		t.Fatalf("two rounds ending at once: the one saved last comes first, got %v", got)
 	}
 }
 

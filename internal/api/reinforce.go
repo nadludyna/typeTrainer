@@ -100,5 +100,5 @@ func (s *Server) standing(rounds []storage.Session, base engine.Params, levels i
 	}
 	p := s.cfg.Freeplay
 	p.Levels = p.Levels[:min(levels, len(p.Levels))]
-	return standing{Place: freeplay.Standing(rs, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
+	return standing{Place: freeplay.Standing(rs, freeplay.Judge, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
 }

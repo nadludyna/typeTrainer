@@ -7,6 +7,7 @@ package freeplay
 import (
 	"math"
 	"math/rand"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -29,6 +30,20 @@ type Params struct {
 	WeakMinSamples int
 	WeakMissMs     float64
 	WeakPairs      int
+
+	// Freetype's rhythm (rhythm.go) and its word list's move.
+	RhythmMaxMs       float64 // a longer gap between two letters is a rest, not a stumble
+	RhythmMinPresses  int     // with fewer presses inside words no rhythm is read
+	StumbleSpreads    float64 // a stumble is slower than the median plus this many spreads
+	StumbleLeast      float64 // and slower than this many medians
+	StumblePrior      float64 // presses imagined at the typist's own stumble rate in each pair
+	StumbleMinPresses int     // a pair typed fewer times is noise
+	StumbleMinCount   int     // stumbles a pair needs to count
+	StumbleRatio      float64 // a stumble pair stumbles this many times the typist's own rate
+	StumblePairs      int     // at most this many stumble pairs
+	StumbleBoost      float64 // a word with a stumble pair weighs 1 + this
+	ConsPass          float64 // consistency, %, a Freetype round passes at
+	ConsFail          float64 // consistency, %, a Freetype round fails under
 
 	FreetypeLists []int
 	LongMin       int
@@ -60,10 +75,11 @@ func Judge(r Round, p Params) Verdict {
 }
 
 type Round struct {
-	Level    int
-	Accuracy float64
-	WPM      float64
-	Goal     float64 // the speed goal the round was typed at, wpm
+	Level       int
+	Accuracy    float64
+	WPM         float64
+	Goal        float64  // the speed goal the round was typed at, wpm
+	Consistency *float64 // Freetype's; none in a round under ConsistencyMinSeconds
 }
 
 type Place struct {
@@ -73,7 +89,9 @@ type Place struct {
 	Moved  int `json:"moved"`
 }
 
-func Standing(rounds []Round, p Params) Place {
+// Standing is where the last run of rounds at one level leaves it, each
+// round judged by judge (Judge for Reinforce, JudgeRhythm for Freetype).
+func Standing(rounds []Round, judge func(Round, Params) Verdict, p Params) Place {
 	top := max(len(p.Levels), 1)
 	if len(rounds) == 0 {
 		return Place{Level: clampLevel(p.LevelStart, top)}
@@ -86,7 +104,7 @@ func Standing(rounds []Round, p Params) Place {
 	var at Place
 	for _, r := range rounds[first:] {
 		at.Moved = 0
-		switch Judge(r, p) {
+		switch judge(r, p) {
 		case Pass:
 			at.Passes, at.Fails = at.Passes+1, 0
 			if at.Passes >= p.PassesUp {
@@ -122,7 +140,10 @@ func NewPicker(words []string, rng *rand.Rand) *Picker {
 	return &Picker{words: words, rng: rng}
 }
 
-func (pk *Picker) Freetype(recent []string, n, size int, long bool, p Params) []string {
+// Freetype draws n words from the size most common (long: of LongMin
+// letters or more), a word with one of the stumble pairs 1 + StumbleBoost
+// times as likely as one without.
+func (pk *Picker) Freetype(recent []string, n, size int, long bool, pairs []string, p Params) []string {
 	size = min(max(size, 1), len(pk.words))
 	var pool []int
 	if long {
@@ -135,14 +156,14 @@ func (pk *Picker) Freetype(recent []string, n, size int, long bool, p Params) []
 	if len(pool) == 0 {
 		pool = nil
 	}
-	return pk.drawFrom(recent, n, size, pool, 1, p)
+	return pk.drawFrom(recent, n, size, pool, 1, pairs, p)
 }
 
 func (pk *Picker) Size() int { return len(pk.words) }
 
 const tries = 32
 
-func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float64, p Params) []string {
+func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float64, pairs []string, p Params) []string {
 	if len(pk.words) == 0 || n <= 0 {
 		return nil
 	}
@@ -159,7 +180,7 @@ func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float
 		if pool != nil && pk.rng.Float64() < share {
 			from = pool
 		}
-		word := pk.words[pk.drawWord(window, last, size, from, p)]
+		word := pk.words[pk.drawWord(window, last, size, from, pairs, p)]
 		out = append(out, word)
 		window = append(window, word)
 		if len(window) > keep {
@@ -170,7 +191,7 @@ func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float
 	return out
 }
 
-func (pk *Picker) drawWord(window []string, last string, size int, from []int, p Params) int {
+func (pk *Picker) drawWord(window []string, last string, size int, from []int, pairs []string, p Params) int {
 	count := size
 	at := func(k int) int { return k }
 	if from != nil {
@@ -181,11 +202,21 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 	for _, w := range window {
 		uses[w]++
 	}
+	// Weights stay at most 1 for the draw by rejection: a word without a
+	// stumble pair is scaled down instead of one with it up.
+	plain := 1.0
+	if len(pairs) > 0 {
+		plain = 1 / (1 + p.StumbleBoost)
+	}
 	weight := func(w string) float64 {
 		if w == last && size > 1 {
 			return 0
 		}
-		return math.Pow(p.RepeatPenalty, float64(uses[w]))
+		x := math.Pow(p.RepeatPenalty, float64(uses[w]))
+		if !hasPair(w, pairs) {
+			x *= plain
+		}
+		return x
 	}
 	for range tries {
 		i := at(pk.rng.Intn(count))
@@ -213,4 +244,13 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 		point -= x
 	}
 	return found
+}
+
+func hasPair(word string, pairs []string) bool {
+	for _, pair := range pairs {
+		if strings.Contains(word, pair) {
+			return true
+		}
+	}
+	return false
 }

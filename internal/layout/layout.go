@@ -78,14 +78,3 @@ func (l *Layout) RestingKeys() []string {
 	}
 	return nil
 }
-
-func (l *Layout) FingerFor(char string) string {
-	for _, row := range l.Rows {
-		for _, k := range row {
-			if k.Char == char {
-				return k.Finger
-			}
-		}
-	}
-	return ""
-}

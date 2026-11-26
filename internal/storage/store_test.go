@@ -62,7 +62,7 @@ func testRoundSentTwice(t *testing.T, m Store) {
 	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
 	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
 	if n, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); n != 1 {
-		t.Fatalf("Climb: %d rounds, want 1 (r1 is taken, r2 once)", n)
+		t.Fatalf("Freetype: %d rounds, want 1 (r1 is taken, r2 once)", n)
 	}
 	if has, _ := m.HasRound(u, "en", "r2"); !has {
 		t.Fatal("HasRound(r2) = false after it was saved")
@@ -341,11 +341,11 @@ func testSignUpTakesGuest(t *testing.T, m Store) {
 	unlocked, _ := m.Unlocked(a.ID, "en")
 	lap, _ := m.Lap(a.ID, "en")
 	learn, _ := m.SessionCount(a.ID, "en", "")
-	climb, _ := m.FreeplaySessionCount(a.ID, "en", otherMode, "")
+	ft5000, _ := m.FreeplaySessionCount(a.ID, "en", otherMode, "")
 	free, _ := m.FreeplaySessionCount(a.ID, "en", FreetypeMode(200, ""), "")
 	uk, _ := m.SessionCount(a.ID, "uk", "")
-	if stats["e"].Count != 5 || unlocked != 9 || lap != 2 || learn != 1 || climb != 1 || free != 1 || uk != 1 {
-		t.Fatalf("account: stats=%v unlocked=%d lap=%d learn=%d climb=%d freetype=%d uk=%d", stats, unlocked, lap, learn, climb, free, uk)
+	if stats["e"].Count != 5 || unlocked != 9 || lap != 2 || learn != 1 || ft5000 != 1 || free != 1 || uk != 1 {
+		t.Fatalf("account: stats=%v unlocked=%d lap=%d learn=%d freetype 5000=%d freetype 200=%d uk=%d", stats, unlocked, lap, learn, ft5000, free, uk)
 	}
 	left, _ := m.SessionCount(guest, "en", "")
 	leftStats, _ := m.KeyStats(guest, "en")
@@ -721,9 +721,9 @@ func testResetLearn(t *testing.T, m Store) {
 	n, _ := m.Unlocked(u, "en")
 	stats, _ := m.KeyStats(u, "en")
 	learn, _ := m.SessionCount(u, "en", "")
-	climb, _ := m.FreeplaySessionCount(u, "en", otherMode, "")
-	if n != 0 || len(stats) != 0 || learn != 0 || climb != 1 {
-		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Climb rounds %d (want Climb kept)", n, len(stats), learn, climb)
+	ft5000, _ := m.FreeplaySessionCount(u, "en", otherMode, "")
+	if n != 0 || len(stats) != 0 || learn != 0 || ft5000 != 1 {
+		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Freetype rounds %d (want Freetype kept)", n, len(stats), learn, ft5000)
 	}
 }
 

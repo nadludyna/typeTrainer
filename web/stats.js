@@ -97,7 +97,7 @@ function header(s) {
 const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
 const last10 = (rounds, f) => avg(rounds.slice(-10).filter((x) => f(x) != null), f);
 const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
-export function trendTag(rounds, f) {
+function trendTag(rounds, f) {
   const last = rounds.slice(-10), before = rounds.slice(-20, -10);
   const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
   if (now === null || was === null || before.length < 5) return "";

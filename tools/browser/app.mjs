@@ -39,7 +39,7 @@ export function nextWord(page) {
 
 // typeRound types until the round ends (or `done`), a word at a time with
 // `delay` ms between keys.
-export async function typeRound(page, { delay = 35, done } = {}) {
+export async function typeRound(page, { delay = 40, done } = {}) {
   for (let i = 0; i < 600; i++) {
     if (done && await done()) return;
     const word = await nextWord(page);

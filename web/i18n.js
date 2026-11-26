@@ -68,9 +68,8 @@ const I18N = {
     "save.again": "Save again", "save.done": "Saved",
     "save.late": "Too late, a newer round is already saved.",
     "tile.exercises": "Rounds", "tile.best": "Best WPM",
-    "tile.avgWpm": "WPM, last 10",
     "chart.cons": "{pct}% consistency",
-    "tile.wpm": "WPM", "tile.acc": "Accuracy", "tile.cons": "Consistency", "tile.last10": "last 10",
+    "tile.wpm": "WPM", "tile.acc": "Accuracy", "tile.last10": "last 10",
     "tile.trend": "How you're doing compared with your previous 10 rounds.",
     "chart.opened": "opened {l}",
     "act.day": "{date}: {time}, {n} rounds", "act.dayOne": "{date}: {time}, 1 round", "act.dayNone": "{date}: no practice",
@@ -78,7 +77,6 @@ const I18N = {
     "stats.speed": "Speed per round, wpm",
     "heat.count": "{n} presses",
     "chart.all": "All rounds", "chart.last": "Last {n} rounds",
-    "chart.note": "{scope}",
     "chart.axisRound": "round",
     "chart.empty": "Finish a round and it shows up here.",
     "letter.noData": "Not typed yet.", "letter.err": "{e}% mistakes", "letter.level": "level {n}", "letter.accuracy": "{n}% accurate",
@@ -206,8 +204,6 @@ export function t(key, vars = {}) {
   const text = I18N.en[key] ?? key;
   return text.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? i18nVars[name] ?? ""));
 }
-
-export const variantLabel = (v) => v ? t("ft." + v) : "";
 
 export function applyI18n(root = document) {
   root.querySelectorAll("[data-i18n]").forEach((node) => { node.innerHTML = t(node.dataset.i18n); });

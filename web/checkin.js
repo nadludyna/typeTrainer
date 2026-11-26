@@ -17,8 +17,6 @@ const SAMPLE_SECONDS = 30;
 const key = (mode) => `tt.checkin.${mode}`;
 const markDone = (mode) => store.set(key(mode), "1");
 
-export function resetCheckins() { for (const m of MODES) store.set(key(m), ""); }
-
 // A mode needs its check-in once, and only while it has no rounds of its own.
 export function needsCheckin(mode) {
   if (!MODES.includes(mode) || store.get(key(mode)) === "1") return false;

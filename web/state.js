@@ -51,8 +51,6 @@ export const listless = (v) => v === "sentences" || v === "custom";
 export const roundList = () => listless(S.freetypeVariant) ? 0 : S.freetypeList;
 export const listLabel = (n) => n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : String(n);
 export const isTouch = () => matchMedia("(pointer: coarse)").matches;
-const motionQuery = matchMedia("(prefers-reduced-motion: reduce)");
-export const reducedMotion = () => motionQuery.matches;
 export function boxState(on, ...names) {
   for (const n of names) {
     el.textBox.classList.toggle(n, on);
@@ -71,7 +69,5 @@ export const shownMode = (m) => SHOWN_MODES.includes(m);
 // browser's choice per language.
 export const reinforcing = () => S.mode === "reinforce";
 export const learnDone = () => !!S.lastStats?.keys?.length && S.lastStats.keys.every((k) => k.unlocked);
-// The stats screen opens with Reinforce: while letters are learned it would only distract.
-export const statsShown = () => true;
 export const wordLevel = () => Math.min(Math.max(Number(store.get(`tt.wordLevel.${S.lang}`)) || 1, 1), S.lastStats?.wordLevels?.length || 1);
 export const setWordLevel = (n) => store.set(`tt.wordLevel.${S.lang}`, String(n));

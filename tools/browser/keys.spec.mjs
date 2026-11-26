@@ -213,8 +213,10 @@ test("the caret stays one line tall with space marks across line wraps", async (
     const m = await caretAndNext(page);
     if (!m) break;
     expectCaretInLine(m);
+    // 40 ms a key is about 300 wpm: faster, and the server turns the round
+    // down as impossible (over 400 wpm), on a fast machine it would be.
     if (m.next) await page.keyboard.type(m.next);
-    else await page.waitForTimeout(50);
+    await page.waitForTimeout(m.next ? 40 : 50);
   }
   await expectResult(page);
 });

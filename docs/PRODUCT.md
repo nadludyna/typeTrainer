@@ -82,8 +82,10 @@ speed and builds the next words around your weak letters.
 
 ## Planned
 
-Leaderboards, public profile pages, more languages, more themes (a light
-one too), the mascot as a companion, special word sets, Freetype with
-symbols and digits, other layouts (QWERTZ, Dvorak and more). Accounts
-exist (sign up / log in / log out on the normal server, kept in
-PostgreSQL when it is configured).
+A light theme and designed motion with the redesign, more languages,
+typing with digits and symbols, the mascot as a quiet companion, other
+layouts (QWERTZ, Dvorak and more); the order is the plan's (issue #305).
+Not planned: leaderboards and public profiles (this is for practice, not a
+contest), sounds. Accounts exist (sign up / log
+in / log out on the normal server, kept in PostgreSQL when it is
+configured).

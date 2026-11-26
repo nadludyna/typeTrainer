@@ -62,7 +62,7 @@ const kLabel = (n) => n >= 1000 ? `${Math.round(n / 500) / 2}k` : String(n);
 
 // ---------- Freetype: the best and the last rounds of this list and length ----------
 const LAST_ROUNDS = 20;
-export const roundBars = (rounds, top) => rounds.map((r) => `<i style="height:${Math.max(4, r.wpm / top * 100).toFixed(1)}%" data-tip-text="${t("result.wordWpm", { wpm: Math.round(r.wpm) })}"></i>`).join("");
+const roundBars = (rounds, top) => rounds.map((r) => `<i style="height:${Math.max(4, r.wpm / top * 100).toFixed(1)}%" data-tip-text="${t("result.wordWpm", { wpm: Math.round(r.wpm) })}"></i>`).join("");
 function freetypeStand() {
   const f = S.freetype;
   if (!f) return "";

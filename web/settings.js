@@ -80,7 +80,7 @@ function applySettings() {
 const listeners = [];
 export function onSetting(fn) { listeners.push(fn); }
 
-export function setSetting(id, raw) {
+function setSetting(id, raw) {
   const s = BY_ID[id];
   const v = s && s.kind !== "action" ? parse(s, raw === "" ? "0" : raw) : undefined;
   if (v === undefined) return;

@@ -480,6 +480,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"learnRounds": len(every),
 		"wordLevels":  s.wordLevels(l),
 	}
+	if part != storage.PartLearn {
+		out["standing"] = s.standing(roundsOf(every, storage.PartReinforce), who.base, len(l.Levels))
+	}
 	if part == storage.PartReinforce {
 		out["pairs"] = s.pairsOf(mine[max(0, len(mine)-s.cfg.Freeplay.WeakRounds):])
 	}

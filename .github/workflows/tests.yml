@@ -1,8 +1,17 @@
-# Checks every pull request.
+# Checks every pull request that changes more than the docs, and main every
+# night: the nightly run types every browser check three times, to catch a
+# race that shows only now and then (docs/DEVELOPMENT.md).
 name: Tests
 
 on:
   pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "LICENSE"
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -74,7 +83,7 @@ jobs:
 
       - name: Browser checks
         working-directory: tools/browser
-        run: npx playwright test --shard=${{ matrix.shard }}
+        run: npx playwright test --shard=${{ matrix.shard }} ${{ github.event_name == 'schedule' && '--repeat-each 3' || '' }}
 
       - uses: actions/upload-artifact@v4
         if: failure()

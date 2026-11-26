@@ -27,12 +27,21 @@ type file struct {
 type Handler struct {
 	fsys  fs.FS
 	next  http.Handler
+	live  bool
 	mu    sync.Mutex
 	files map[string]*file
 }
 
 func New(fsys fs.FS) *Handler {
 	return &Handler{fsys: fsys, next: http.FileServerFS(fsys), files: map[string]*file{}}
+}
+
+// Live serves fsys as it is at every request, nothing kept: for working on
+// the page, where a file saved on the disk shows at the next reload.
+func Live(fsys fs.FS) *Handler {
+	h := New(fsys)
+	h.live = true
+	return h
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +72,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) load(name string) *file {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if f, ok := h.files[name]; ok {
+	if f, ok := h.files[name]; ok && !h.live {
 		return f
 	}
 	data, err := fs.ReadFile(h.fsys, name)
@@ -82,7 +91,9 @@ func (h *Handler) load(name string) *file {
 			f.gz, f.etagGz = gz, `"`+tag+`-gz"`
 		}
 	}
-	h.files[name] = f
+	if !h.live {
+		h.files[name] = f
+	}
 	return f
 }
 

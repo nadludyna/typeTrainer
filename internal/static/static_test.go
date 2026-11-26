@@ -110,3 +110,18 @@ func TestStatic_MissingFile(t *testing.T) {
 		t.Errorf("missing paths are remembered: %d entries", len(h.files))
 	}
 }
+
+func TestStatic_LiveServesTheFileAsItIsNow(t *testing.T) {
+	fsys := testFS()
+	kept, live := New(fsys), Live(fsys)
+	for _, h := range []http.Handler{kept, live} {
+		get(h, "/tiny.css", nil)
+	}
+	fsys["tiny.css"] = &fstest.MapFile{Data: []byte("b{}")}
+	if got := get(live, "/tiny.css", nil).Body.String(); got != "b{}" {
+		t.Errorf("live: %q, want the file as it is now", got)
+	}
+	if got := get(kept, "/tiny.css", nil).Body.String(); got != "a{}" {
+		t.Errorf("kept: %q, want the file as it was first read", got)
+	}
+}

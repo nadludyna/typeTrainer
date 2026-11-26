@@ -11,7 +11,7 @@ import { hideWarn } from "./warn.js";
 import { refreshActivity } from "./learnpanel.js";
 import { drawIntroKeys } from "./intro.js";
 import { renderProfile } from "./profile.js";
-import { refreshFreeplay, restoreMode } from "./modes.js";
+import { refreshFreetype, restoreMode } from "./modes.js";
 
 export async function loadLanguage(id) {
   S.busy = true;
@@ -33,7 +33,7 @@ export async function loadLanguage(id) {
     renderProfile();
     labelTips();
     await refreshStats();
-    await refreshFreeplay();
+    await refreshFreetype();
     refreshActivity();
     restoreMode();
     await loadExercise();

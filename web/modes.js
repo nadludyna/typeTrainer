@@ -15,7 +15,7 @@ export const learning = () => S.mode === "learn" || S.mode === "reinforce";
 export const freetypeUrl = (length, list, variant) =>
   `/freetype/stats?length=${length}${list ? `&list=${list}` : ""}${variant ? `&variant=${variant}` : ""}`;
 
-export async function refreshFreeplay() {
+export async function refreshFreetype() {
   const length = lengthFor("freetype");
   const list = Number(store.get(`tt.list.${S.lang}`)) || 0;
   let variant = store.get(`tt.variant.${S.lang}`) ?? "";

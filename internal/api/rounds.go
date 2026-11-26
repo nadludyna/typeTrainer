@@ -37,22 +37,22 @@ func (s *Server) pairsOf(rounds []storage.Session) []freeplay.Pair {
 func inRange(v, lo, hi float64) bool { return v >= lo && v <= hi }
 
 func (s *Server) history(user, lang, mode, length string) (map[string]any, error) {
-	count, err := s.store.FreeplaySessionCount(user, lang, mode, length)
+	count, err := s.store.FreetypeSessionCount(user, lang, mode, length)
 	if err != nil {
 		return nil, err
 	}
-	all, err := s.store.RecentFreeplaySessions(user, lang, mode, length, count)
+	all, err := s.store.RecentFreetypeSessions(user, lang, mode, length, count)
 	if err != nil {
 		return nil, err
 	}
 	sessions := slices.Clone(all[:min(len(all), 50)])
 	slices.Reverse(all)
 	streaks := history.AccuracyStreaks(all, s.cfg.StreakAccuracies)
-	lengths, err := s.store.FreeplaySessionLengths(user, lang, mode)
+	lengths, err := s.store.FreetypeSessionLengths(user, lang, mode)
 	if err != nil {
 		return nil, err
 	}
-	bests, err := s.store.BestFreeplayRounds(user, lang, mode)
+	bests, err := s.store.BestFreetypeRounds(user, lang, mode)
 	if err != nil {
 		return nil, err
 	}

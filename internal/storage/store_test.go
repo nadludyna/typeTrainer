@@ -20,7 +20,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"KeyStatsIsACopy":           testKeyStatsIsACopy,
 	"RecentSessionsNewestFirst": testRecentSessionsNewestFirst,
 	"Reset":                     testReset,
-	"Freeplay":                  testFreeplay,
+	"Freetype":                  testFreetype,
 	"FreetypeModes":             testFreetypeModes,
 	"UsersAreSeparate":          testUsersAreSeparate,
 	"Users":                     testUsers,
@@ -59,10 +59,10 @@ func testRoundSentTwice(t *testing.T, m Store) {
 	if n, _ := m.SessionCount(u, "en", ""); n != 1 {
 		t.Fatalf("learning round sent twice: %d rounds, want 1", n)
 	}
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r1"})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
-	if n, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); n != 1 {
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r1"})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
+	if n, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); n != 1 {
 		t.Fatalf("Freetype: %d rounds, want 1 (r1 is taken, r2 once)", n)
 	}
 	if has, _ := m.HasRound(u, "en", "r2"); !has {
@@ -188,26 +188,26 @@ func testReset(t *testing.T, m Store) {
 	}
 }
 
-func testFreeplay(t *testing.T, m Store) {
+func testFreetype(t *testing.T, m Store) {
 	for _, w := range []float64{50, 60} {
-		m.AddFreeplaySession(u, "en", otherMode, Session{WPM: w, Level: w / 100})
+		m.AddFreetypeSession(u, "en", otherMode, Session{WPM: w, Level: w / 100})
 	}
 	m.AddSession(u, "en", Session{WPM: 20})
 
-	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); c != 2 {
-		t.Fatalf("freeplay sessions = %d, want 2", c)
+	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 2 {
+		t.Fatalf("freetype sessions = %d, want 2", c)
 	}
 	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
-		t.Fatalf("learning sessions = %d, want 1 (freeplay must not mix in)", c)
+		t.Fatalf("learning sessions = %d, want 1 (freetype must not mix in)", c)
 	}
-	if got, _ := m.RecentFreeplaySessions(u, "en", otherMode, "", 5); len(got) != 2 || got[0].WPM != 60 || got[0].Level != 0.6 {
-		t.Fatalf("recent freeplay = %+v, want newest first, with its level", got)
+	if got, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 5); len(got) != 2 || got[0].WPM != 60 || got[0].Level != 0.6 {
+		t.Fatalf("recent freetype = %+v, want newest first, with its level", got)
 	}
-	if c, _ := m.FreeplaySessionCount(u, "pl", otherMode, ""); c != 0 {
+	if c, _ := m.FreetypeSessionCount(u, "pl", otherMode, ""); c != 0 {
 		t.Fatal("the history leaked into another language")
 	}
 	m.Reset(u, "en")
-	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); c != 0 {
+	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 0 {
 		t.Fatalf("after reset: sessions=%d", c)
 	}
 }
@@ -222,38 +222,38 @@ func testFreetypeModes(t *testing.T, m Store) {
 		t.Fatalf("variant modes = %q, %q", long, sentences)
 	}
 	at := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.AddFreeplaySession(u, "en", small, Session{WPM: 80, Length: "words-30", FinishedAt: at})
-	m.AddFreeplaySession(u, "en", small, Session{WPM: 90, Length: "time-30", FinishedAt: at})
-	m.AddFreeplaySession(u, "en", big, Session{WPM: 50, Length: "words-30", FinishedAt: at})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 60, FinishedAt: at})
+	m.AddFreetypeSession(u, "en", small, Session{WPM: 80, Length: "words-30", FinishedAt: at})
+	m.AddFreetypeSession(u, "en", small, Session{WPM: 90, Length: "time-30", FinishedAt: at})
+	m.AddFreetypeSession(u, "en", big, Session{WPM: 50, Length: "words-30", FinishedAt: at})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 60, FinishedAt: at})
 	for _, mode := range []string{long, sentences} {
-		if err := m.AddFreeplaySession(u, "en", mode, Session{WPM: 40, Length: "words-30", FinishedAt: at}); err != nil {
+		if err := m.AddFreetypeSession(u, "en", mode, Session{WPM: 40, Length: "words-30", FinishedAt: at}); err != nil {
 			t.Fatalf("%s: %v", mode, err)
 		}
 	}
 
 	for mode, want := range map[string]int{small: 2, big: 1, otherMode: 1, FreetypeMode(1000, ""): 0, long: 1, sentences: 1} {
-		if c, _ := m.FreeplaySessionCount(u, "en", mode, ""); c != want {
+		if c, _ := m.FreetypeSessionCount(u, "en", mode, ""); c != want {
 			t.Errorf("%s: %d rounds, want %d", mode, c, want)
 		}
 	}
-	if got, _ := m.RecentFreeplaySessions(u, "en", big, "", 5); len(got) != 1 || got[0].WPM != 50 {
+	if got, _ := m.RecentFreetypeSessions(u, "en", big, "", 5); len(got) != 1 || got[0].WPM != 50 {
 		t.Errorf("recent of %s = %+v, want only its own round", big, got)
 	}
-	if l, _ := m.FreeplaySessionLengths(u, "en", small); len(l) != 2 {
+	if l, _ := m.FreetypeSessionLengths(u, "en", small); len(l) != 2 {
 		t.Errorf("lengths of %s = %v, want 2", small, l)
 	}
-	if b, _ := m.BestFreeplayRounds(u, "en", small); b["words-30"].WPM != 80 || b["time-30"].WPM != 90 {
+	if b, _ := m.BestFreetypeRounds(u, "en", small); b["words-30"].WPM != 80 || b["time-30"].WPM != 90 {
 		t.Errorf("bests of %s = %+v", small, b)
 	}
-	if b, _ := m.BestFreeplayRounds(u, "en", big); b["words-30"].WPM != 50 {
+	if b, _ := m.BestFreetypeRounds(u, "en", big); b["words-30"].WPM != 50 {
 		t.Errorf("bests of %s = %+v, want its own 50", big, b)
 	}
 	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 1 || days[0].Rounds != 6 {
 		t.Errorf("practice days = %+v, want one day with all 6 rounds", days)
 	}
 	m.Reset(u, "en")
-	if c, _ := m.FreeplaySessionCount(u, "en", small, ""); c != 0 {
+	if c, _ := m.FreetypeSessionCount(u, "en", small, ""); c != 0 {
 		t.Errorf("after reset: %d rounds", c)
 	}
 }
@@ -262,12 +262,12 @@ func testUsersAreSeparate(t *testing.T, m Store) {
 	m.SaveKeyStats("ann", "en", map[string]engine.KeyStat{"e": {Count: 5}})
 	m.SetUnlocked("ann", "en", 9)
 	m.AddSession("ann", "en", Session{WPM: 40})
-	m.AddFreeplaySession("ann", "en", otherMode, Session{WPM: 70})
+	m.AddFreetypeSession("ann", "en", otherMode, Session{WPM: 70})
 
 	stats, _ := m.KeyStats("bob", "en")
 	unlocked, _ := m.Unlocked("bob", "en")
 	count, _ := m.SessionCount("bob", "en", "")
-	free, _ := m.FreeplaySessionCount("bob", "en", otherMode, "")
+	free, _ := m.FreetypeSessionCount("bob", "en", otherMode, "")
 	if len(stats) != 0 || unlocked != 0 || count != 0 || free != 0 {
 		t.Fatalf("bob sees ann's data: stats=%v unlocked=%d sessions=%d free=%d",
 			stats, unlocked, count, free)
@@ -343,8 +343,8 @@ func testSignUpTakesGuest(t *testing.T, m Store) {
 	m.SetUnlocked(guest, "en", 9)
 	m.SetLap(guest, "en", 2)
 	m.AddSession(guest, "en", Session{WPM: 40})
-	m.AddFreeplaySession(guest, "en", otherMode, Session{WPM: 50, Level: 3})
-	m.AddFreeplaySession(guest, "en", FreetypeMode(200, ""), Session{WPM: 60})
+	m.AddFreetypeSession(guest, "en", otherMode, Session{WPM: 50, Level: 3})
+	m.AddFreetypeSession(guest, "en", FreetypeMode(200, ""), Session{WPM: 60})
 	m.AddSession(guest, "uk", Session{WPM: 30})
 	m.AddSession(other, "en", Session{WPM: 20})
 
@@ -356,8 +356,8 @@ func testSignUpTakesGuest(t *testing.T, m Store) {
 	unlocked, _ := m.Unlocked(a.ID, "en")
 	lap, _ := m.Lap(a.ID, "en")
 	learn, _ := m.SessionCount(a.ID, "en", "")
-	ft5000, _ := m.FreeplaySessionCount(a.ID, "en", otherMode, "")
-	free, _ := m.FreeplaySessionCount(a.ID, "en", FreetypeMode(200, ""), "")
+	ft5000, _ := m.FreetypeSessionCount(a.ID, "en", otherMode, "")
+	free, _ := m.FreetypeSessionCount(a.ID, "en", FreetypeMode(200, ""), "")
 	uk, _ := m.SessionCount(a.ID, "uk", "")
 	if stats["e"].Count != 5 || unlocked != 9 || lap != 2 || learn != 1 || ft5000 != 1 || free != 1 || uk != 1 {
 		t.Fatalf("account: stats=%v unlocked=%d lap=%d learn=%d freetype 5000=%d freetype 200=%d uk=%d", stats, unlocked, lap, learn, ft5000, free, uk)
@@ -448,7 +448,7 @@ func testLengths(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 40, Length: "time-60"})
 	m.AddSession(u, "en", Session{WPM: 50, Length: "words-10"})
 	m.AddSession(u, "en", Session{WPM: 60, Length: "time-60"})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 70, Length: "words-60"})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 70, Length: "words-60"})
 
 	if c, _ := m.SessionCount(u, "en", ""); c != 4 {
 		t.Fatalf("all lengths: %d, want 4", c)
@@ -468,11 +468,11 @@ func testLengths(t *testing.T, m Store) {
 	if want := []string{"time-60", "words-10", "words-30"}; fmt.Sprint(lengths) != fmt.Sprint(want) {
 		t.Fatalf("lengths = %v, want %v", lengths, want)
 	}
-	free, _ := m.FreeplaySessionLengths(u, "en", otherMode)
+	free, _ := m.FreetypeSessionLengths(u, "en", otherMode)
 	if fmt.Sprint(free) != "[words-60]" {
 		t.Fatalf("free lengths = %v (learning must not mix in)", free)
 	}
-	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, "words-60"); c != 1 {
+	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, "words-60"); c != 1 {
 		t.Fatalf("free words-60: %d", c)
 	}
 	none, _ := m.RecentSessions(u, "pl", "", 10)
@@ -484,13 +484,13 @@ func testLengths(t *testing.T, m Store) {
 // Every Freetype round of any list or text, newest first, with its mode;
 // other rounds, other users and dropped rounds are not in it.
 func testRecentFreetype(t *testing.T, m Store) {
-	if got, err := m.RecentFreetypeSessions(u, "en", 10); err != nil || len(got) != 0 {
+	if got, err := m.LastFreetypeRounds(u, "en", 10); err != nil || len(got) != 0 {
 		t.Fatalf("no rounds: %v, %v", got, err)
 	}
 	at := time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)
 	add := func(mode string, wpm float64, sec int) {
 		t.Helper()
-		if err := m.AddFreeplaySession(u, "en", mode, Session{WPM: wpm, Chars: 10, FinishedAt: at.Add(time.Duration(sec) * time.Second), Keys: []engine.Sample{{Char: "a", Ms: 100}}}); err != nil {
+		if err := m.AddFreetypeSession(u, "en", mode, Session{WPM: wpm, Chars: 10, FinishedAt: at.Add(time.Duration(sec) * time.Second), Keys: []engine.Sample{{Char: "a", Ms: 100}}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -498,11 +498,11 @@ func testRecentFreetype(t *testing.T, m Store) {
 	add(FreetypeMode(1000, VariantLong), 2, 2)
 	add(FreetypeMode(0, VariantSentences), 3, 3)
 	add(FreetypeMode(200, ""), 4, 4)
-	m.AddFreeplaySession(u, "en", FreetypeMode(200, ""), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
-	m.AddFreeplaySession(u, "pl", FreetypeMode(200, ""), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
-	m.AddFreeplaySession("someone-else", "en", FreetypeMode(200, ""), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
+	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
+	m.AddFreetypeSession(u, "pl", FreetypeMode(200, ""), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
+	m.AddFreetypeSession("someone-else", "en", FreetypeMode(200, ""), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
 	m.AddSession(u, "en", Session{WPM: 96, FinishedAt: at.Add(8 * time.Second)})
-	got, err := m.RecentFreetypeSessions(u, "en", 3)
+	got, err := m.LastFreetypeRounds(u, "en", 3)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -516,7 +516,7 @@ func testRecentFreetype(t *testing.T, m Store) {
 	}
 	add(FreetypeMode(5000, ""), 5, 9)
 	add(FreetypeMode(1000, ""), 6, 9)
-	if got, _ := m.RecentFreetypeSessions(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
+	if got, _ := m.LastFreetypeRounds(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
 		t.Fatalf("two rounds ending at once: the one saved last comes first, got %v", got)
 	}
 }
@@ -531,7 +531,7 @@ func testLettersTyped(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{Chars: 999, Unlocked: 26, Device: DeviceTouch})
 	m.AddSession(u, "pl", Session{Chars: 999, Unlocked: 32})
 	m.AddSession("someone-else", "en", Session{Chars: 999, Unlocked: 26})
-	m.AddFreeplaySession(u, "en", otherMode, Session{Chars: 999})
+	m.AddFreetypeSession(u, "en", otherMode, Session{Chars: 999})
 	if n, _ := m.LettersTyped(u, "en", 26); n != 200 {
 		t.Fatalf("all letters open: %d, want 200", n)
 	}
@@ -574,12 +574,12 @@ func testLap(t *testing.T, m Store) {
 func testDevice(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 30, Device: DeviceTouch})
 	m.AddSession(u, "en", Session{WPM: 31})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 40, Device: DeviceKeyboard})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 40, Device: DeviceKeyboard})
 	got, _ := m.RecentSessions(u, "en", "", 2)
 	if len(got) != 2 || got[0].Device != "" || got[1].Device != DeviceTouch {
 		t.Fatalf("learning devices: %+v", got)
 	}
-	free, _ := m.RecentFreeplaySessions(u, "en", otherMode, "", 1)
+	free, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 1)
 	if len(free) != 1 || free[0].Device != DeviceKeyboard {
 		t.Fatalf("free practice device: %+v", free)
 	}
@@ -591,7 +591,7 @@ func testPracticeDays(t *testing.T, m Store) {
 	}
 	at := func(s string) time.Time { v, _ := time.Parse(time.RFC3339, s); return v }
 	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 30, Accuracy: 100, Chars: 150, FinishedAt: at("2026-10-17T22:30:00Z")})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, Accuracy: 100, Chars: 150, FinishedAt: at("2026-10-17T22:30:00Z")})
 	m.AddSession(u, "en", Session{WPM: 0, Accuracy: 0, Chars: 0, FinishedAt: at("2026-10-18T09:00:00Z")})
 	m.AddSession(u, "pl", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
 	m.AddSession("someone-else", "en", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
@@ -632,7 +632,7 @@ func testBestRounds(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 55, Accuracy: 97, Length: "words-10", Keys: keys})
 	m.AddSession(u, "en", Session{WPM: 55, Accuracy: 80, Length: "words-10"})
 	m.AddSession(u, "en", Session{WPM: 30, Accuracy: 99, Length: "time-30"})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 99, Accuracy: 100, Length: "words-10"})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 99, Accuracy: 100, Length: "words-10"})
 	m.AddSession("someone-else", "en", Session{WPM: 99, Length: "words-10"})
 
 	mine, _ := m.RecentSessions(u, "en", "", 10)
@@ -644,7 +644,7 @@ func testBestRounds(t *testing.T, m Store) {
 	if b["words-10"].Keys != nil {
 		t.Fatalf("a best round keeps its raw keys: %v", b["words-10"].Keys)
 	}
-	f, _ := m.BestFreeplayRounds(u, "en", otherMode)
+	f, _ := m.BestFreetypeRounds(u, "en", otherMode)
 	if len(f) != 1 || f["words-10"].WPM != 99 {
 		t.Fatalf("free practice bests %+v, want words-10 99 wpm", f)
 	}
@@ -655,15 +655,15 @@ func testImportAtomic(t *testing.T, m Store) {
 	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"e": {Count: 5}})
 	m.SetUnlocked(u, "en", 4)
 	m.AddSession(u, "en", Session{WPM: 40, FinishedAt: when})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, FinishedAt: when})
 
 	bad := ImportData{
 		Keys: map[string]engine.KeyStat{"a": {Count: 1}}, Unlocked: 2,
 		Sessions: []Session{{WPM: 10, FinishedAt: when}},
-		Freeplay: map[string][]Session{"": {{WPM: 20, FinishedAt: when}}},
+		Freetype: map[string][]Session{"": {{WPM: 20, FinishedAt: when}}},
 	}
 	if err := m.Import(u, "en", bad); err == nil {
-		t.Fatal("an import with an empty freeplay mode must fail")
+		t.Fatal("an import with an empty freetype mode must fail")
 	}
 	if s, _ := m.KeyStats(u, "en"); len(s) != 1 || s["e"].Count != 5 {
 		t.Fatalf("a failed import changed the key stats: %v", s)
@@ -674,8 +674,8 @@ func testImportAtomic(t *testing.T, m Store) {
 	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
 		t.Fatalf("a failed import changed the sessions: %d", c)
 	}
-	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); c != 1 {
-		t.Fatalf("a failed import changed the freeplay sessions: %d", c)
+	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 1 {
+		t.Fatalf("a failed import changed the freetype sessions: %d", c)
 	}
 	m.AddSession(u, "en", Session{WPM: 45, FinishedAt: when})
 	if got, _ := m.RecentSessions(u, "en", "", 5); got[0].Epoch != 0 {
@@ -685,7 +685,7 @@ func testImportAtomic(t *testing.T, m Store) {
 	good := ImportData{
 		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1,
 		Sessions: []Session{{WPM: 12, FinishedAt: when}},
-		Freeplay: map[string][]Session{otherMode: {{WPM: 30, FinishedAt: when}}},
+		Freetype: map[string][]Session{otherMode: {{WPM: 30, FinishedAt: when}}},
 	}
 	if err := m.Import(u, "en", good); err != nil {
 		t.Fatal(err)
@@ -702,8 +702,8 @@ func testImportAtomic(t *testing.T, m Store) {
 	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 12 {
 		t.Fatalf("import did not replace the sessions: %+v", got)
 	}
-	if c, _ := m.FreeplaySessionCount(u, "en", otherMode, ""); c != 1 {
-		t.Fatalf("import did not replace the freeplay sessions: %d", c)
+	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 1 {
+		t.Fatalf("import did not replace the freetype sessions: %d", c)
 	}
 }
 
@@ -717,12 +717,12 @@ func testEpoch(t *testing.T, m Store) {
 		t.Fatal(err)
 	}
 	m.AddSession(u, "en", Session{WPM: 20, FinishedAt: when})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 30, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, FinishedAt: when})
 	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 1 {
 		t.Fatalf("a session after a reset must carry the next epoch: %+v", got)
 	}
-	if got, _ := m.RecentFreeplaySessions(u, "en", otherMode, "", 5); len(got) != 1 || got[0].Epoch != 1 {
-		t.Fatalf("a freeplay session after a reset must carry the next epoch: %+v", got)
+	if got, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 5); len(got) != 1 || got[0].Epoch != 1 {
+		t.Fatalf("a freetype session after a reset must carry the next epoch: %+v", got)
 	}
 	if err := m.Import(u, "en", ImportData{
 		Sessions: []Session{{WPM: 40, Epoch: 5, FinishedAt: when}},
@@ -742,7 +742,7 @@ func testAbortedNotShown(t *testing.T, m Store) {
 	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	m.AddSession(u, "en", Session{WPM: 20, Chars: 10, Unlocked: 1, Length: "words-10", FinishedAt: when})
 	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 30, Chars: 30, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, Chars: 30, FinishedAt: when})
 
 	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 20 {
 		t.Fatalf("recent: %+v, want only the live round", got)
@@ -770,14 +770,14 @@ func testResetLearn(t *testing.T, m Store) {
 	m.SetUnlocked(u, "en", 12)
 	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 3}})
 	m.AddSession(u, "en", Session{WPM: 60, Chars: 10, Round: "r1"})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "c1"})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "c1"})
 	if err := m.ResetLearn(u, "en"); err != nil {
 		t.Fatal(err)
 	}
 	n, _ := m.Unlocked(u, "en")
 	stats, _ := m.KeyStats(u, "en")
 	learn, _ := m.SessionCount(u, "en", "")
-	ft5000, _ := m.FreeplaySessionCount(u, "en", otherMode, "")
+	ft5000, _ := m.FreetypeSessionCount(u, "en", otherMode, "")
 	if n != 0 || len(stats) != 0 || learn != 0 || ft5000 != 1 {
 		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Freetype rounds %d (want Freetype kept)", n, len(stats), learn, ft5000)
 	}
@@ -788,8 +788,8 @@ func testDaysPerMode(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 30, Chars: 10, FinishedAt: when})
 	m.AddSession(u, "en", Session{WPM: 40, Chars: 20, Level: 2, FinishedAt: when})
 	m.AddSession(u, "en", Session{WPM: 45, Chars: 20, Level: 3, FinishedAt: when})
-	m.AddFreeplaySession(u, "en", FreetypeMode(200, ""), Session{WPM: 50, Chars: 40, FinishedAt: when})
-	m.AddFreeplaySession(u, "en", otherMode, Session{WPM: 60, Chars: 80, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 50, Chars: 40, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 60, Chars: 80, FinishedAt: when})
 	for part, want := range map[string]int{"": 5, PartLearn: 1, PartReinforce: 2, PartFreetype: 2} {
 		days, err := m.PracticeDays(u, "en", part, 0)
 		if err != nil || len(days) != 1 || days[0].Rounds != want {

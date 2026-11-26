@@ -27,7 +27,7 @@ type Session struct {
 	Aborted  bool            `json:"aborted,omitempty"`
 	Seconds  float64         `json:"seconds,omitempty"`
 	Round    string          `json:"-"`
-	Mode     string          `json:"-"` // set by RecentFreetypeSessions only
+	Mode     string          `json:"-"` // set by LastFreetypeRounds only
 	seq      int64           // the memory store's order of saving, as PostgreSQL's id
 }
 
@@ -168,7 +168,7 @@ type ImportData struct {
 	Unlocked int
 	Lap      int
 	Sessions []Session
-	Freeplay map[string][]Session
+	Freetype map[string][]Session
 }
 
 type Learned struct {
@@ -213,14 +213,14 @@ type Store interface {
 	// with at least unlocked letters open (OnKeyboard).
 	LettersTyped(user, lang string, unlocked int) (int, error)
 
-	AddFreeplaySession(user, lang, mode string, s Session) error
-	RecentFreeplaySessions(user, lang, mode, length string, limit int) ([]Session, error)
-	// RecentFreetypeSessions is the last Freetype rounds of every list and
+	AddFreetypeSession(user, lang, mode string, s Session) error
+	RecentFreetypeSessions(user, lang, mode, length string, limit int) ([]Session, error)
+	// LastFreetypeRounds is the last Freetype rounds of every list and
 	// text, newest first, each with its Mode.
-	RecentFreetypeSessions(user, lang string, limit int) ([]Session, error)
-	FreeplaySessionCount(user, lang, mode, length string) (int, error)
-	FreeplaySessionLengths(user, lang, mode string) ([]string, error)
-	BestFreeplayRounds(user, lang, mode string) (map[string]Session, error)
+	LastFreetypeRounds(user, lang string, limit int) ([]Session, error)
+	FreetypeSessionCount(user, lang, mode, length string) (int, error)
+	FreetypeSessionLengths(user, lang, mode string) ([]string, error)
+	BestFreetypeRounds(user, lang, mode string) (map[string]Session, error)
 
 	HasRound(user, lang, round string) (bool, error)
 	SaveLearned(user, lang string, l Learned) error

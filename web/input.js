@@ -10,7 +10,7 @@ import { welcomeKey, onWelcomeStart, resetWelcome } from "./intro.js";
 import { profileOpen, closeProfile } from "./profile.js";
 import { resultOpen, closeResult } from "./result.js";
 import { settingsOpen, openSettings, onSettingsClose, onSetting, setLength } from "./settings.js";
-import { setMode, refreshFreeplay, renderNav, setFreetypeList, setFreetypeVariant } from "./modes.js";
+import { setMode, refreshFreetype, renderNav, setFreetypeList, setFreetypeVariant } from "./modes.js";
 import { openCustomText, hasCustomText } from "./customtext.js";
 import { onBarPick, renderModeBar } from "./modebar.js";
 import { needsCheckin, runCheckin } from "./checkin.js";
@@ -104,7 +104,7 @@ async function barPick(pick) {
   }
   if (pick.length) {
     setLength(S.mode, pick.length);
-    await Promise.all([refreshStats(), refreshFreeplay()]);
+    await Promise.all([refreshStats(), refreshFreetype()]);
   }
   renderModeBar();
   if (resultOpen()) closeResult();

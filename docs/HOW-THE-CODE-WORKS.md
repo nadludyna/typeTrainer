@@ -183,7 +183,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 - `result.js`: The result screen in the text window: `showResult(r)` shows the result of Freetype; Learn has none (its rounds follow one another; `learnpanel.js` shows the last one). Speed and accuracy carry their unit instead of a label; beside them, each word's speed on a line chart (a dot's tooltip gives its speed); under them, the words coloured by speed (five bands, slow to fast; red is for mistakes only), then one line of facts (consistency, time, correct characters, and wrong, extra and missed only when not zero). The words of the round with their own speed come from `typedWords()` in `typing.js`, the characters and the time from `roundFacts()`. A small ↻ button (and Enter / Tab, shown in the hint line) starts the next round. A new best shows "New best" under the speed.
 
 
-- `modes.js`: The modes (learn / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreeplay()` (`S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
+- `modes.js`: The modes (learn / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreetype()` (`S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 
 
 - `settings-list.js`: Every setting as one entry of `SETTINGS`, in `CATEGORIES` (text, caret, typing, keyboard, goals, data), plus `LENGTHS` and `DAILY`. The fields of an entry: `docs/CODE-RULES.md`, "Settings".
@@ -469,7 +469,7 @@ the page there, so there are no cookies, and the only guest is `local`.
 Three modes, each a tab after Welcome (`web/modes.js`): Learn, Reinforce
 and Freetype. Learn and Reinforce share the letter model and its routes
 (`/portion`, `/results`; `learning()` in the browser is true for both);
-Freetype shares no data: it has its own routes and histories (the `AddFreeplaySession` family of the store, with
+Freetype shares no data: it has its own routes and histories (the `AddFreetypeSession` family of the store, with
 a mode: `FreetypeMode(n, variant)` for each list and kind of text).
 
 - **Learn**, for beginners, is the adaptive trainer described in

@@ -9,7 +9,7 @@ import { postJSON } from "./api.js";
 import { showCard } from "./result.js";
 import { runProbe } from "./typing.js";
 import { refreshStats } from "./stats.js";
-import { setMode, setFreetypeList, refreshFreeplay } from "./modes.js";
+import { setMode, setFreetypeList, refreshFreetype } from "./modes.js";
 
 const MODES = ["learn", "reinforce", "freetype"];
 const SAMPLE = { reinforce: 200, freetype: 1000 };
@@ -76,7 +76,7 @@ async function sampleCheckin(mode) {
     } else {
       await setFreetypeList(out.list);
       if (r.consistency != null) store.set(`tt.rhythm.${S.lang}`, String(Math.round(r.consistency)));
-      await refreshFreeplay();
+      await refreshFreetype();
       text = r.consistency != null
         ? t("ci.ftResult", { list: listLabel(out.list), rhythm: Math.round(r.consistency) })
         : t("ci.ftNoRhythm", { list: listLabel(out.list) });

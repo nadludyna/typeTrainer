@@ -9,7 +9,7 @@ import { refreshStats } from "./stats.js";
 import { showResult, showFinish } from "./result.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal, roundEnded } from "./learnpanel.js";
-import { learning, refreshFreeplay, renderNav, setMode, setFreetypeList } from "./modes.js";
+import { learning, refreshFreetype, renderNav, setMode, setFreetypeList } from "./modes.js";
 import { renderModeBar } from "./modebar.js";
 import { lengthOf } from "./settings.js";
 import { customPortions, customRoundDone } from "./customtext.js";
@@ -708,7 +708,7 @@ async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const saved = async () => {
     if (variant === "custom") customRoundDone(done);
     refreshActivity();
-    await refreshFreeplay();
+    await refreshFreetype();
     return {};
   };
   const shown = { wpm, accuracy, list, variant, words: typedWords(), ...roundFacts() };

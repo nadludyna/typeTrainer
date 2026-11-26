@@ -20,7 +20,7 @@ import (
 // typedRounds is the last Freetype rounds typed on a keyboard, newest first.
 func (s *Server) typedRounds(user, lang string) ([]storage.Session, error) {
 	p := s.cfg.Freeplay
-	rounds, err := s.store.RecentFreetypeSessions(user, lang, max(p.WeakRounds, p.History))
+	rounds, err := s.store.LastFreetypeRounds(user, lang, max(p.WeakRounds, p.History))
 	return storage.OnKeyboard(rounds), err
 }
 
@@ -183,7 +183,7 @@ func (s *Server) handleFreetypeResults(w http.ResponseWriter, r *http.Request, u
 	}
 	s.writeMu.Lock()
 	defer s.writeMu.Unlock()
-	err := s.store.AddFreeplaySession(user, l.Info.ID, storage.FreetypeMode(req.List, req.Variant), storage.Session{
+	err := s.store.AddFreetypeSession(user, l.Info.ID, storage.FreetypeMode(req.List, req.Variant), storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
 		Keys:    req.Keys,
 		Length:  req.Length,

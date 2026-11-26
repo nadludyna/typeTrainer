@@ -2,6 +2,8 @@ package freeplay
 
 import (
 	"math/rand"
+	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -18,7 +20,7 @@ func typed(text string, ms, slowMs float64, slow []string, seed int64) []Key {
 		if i == 0 {
 			continue
 		}
-		pair := string(runes[i-1:i+1])
+		pair := string(runes[i-1 : i+1])
 		for _, s := range slow {
 			if pair == s {
 				if seen[pair]%2 == 0 {
@@ -163,5 +165,62 @@ func TestFreetype_StumblePairsComeMoreOften(t *testing.T) {
 	// 2 of 10 words: 20 % plain; weighted 3 : 1, 2·3 / (2·3 + 8) ≈ 43 %.
 	if plain < 0.17 || plain > 0.23 || boosted < 0.39 || boosted > 0.47 {
 		t.Fatalf("words with a stumble pair: %.2f plain, %.2f with the pairs; want about 0.20 and 0.43", plain, boosted)
+	}
+}
+
+// The whole loop on a simulated typist who stumbles on "ou" every other
+// time: 30 rounds of 30 words from the 1 000 most common, the stumble pairs
+// read again before every round from the last 20. With the loop the typist
+// meets their stumble pair more often than with words drawn evenly.
+func TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften(t *testing.T) {
+	list, err := os.ReadFile("../../data/langs/en/free.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	words := strings.Fields(string(list))[:1000]
+	run := func(adaptive bool) (share float64, found []string) {
+		pk := NewPicker(words, rand.New(rand.NewSource(9)))
+		rng := rand.New(rand.NewSource(10))
+		var rounds [][]Key
+		var pairs []string
+		met, all := 0, 0
+		for r := range 30 {
+			text := strings.Join(pk.Freetype(nil, 30, len(words), false, pairs, testParams), " ") + " "
+			runes := []rune(text)
+			keys := make([]Key, len(runes))
+			for i, c := range runes {
+				keys[i] = Key{Char: string(c), Ms: 150 * (0.8 + 0.4*rng.Float64())}
+				if i > 0 && string(runes[i-1:i+1]) == "ou" {
+					if r >= 10 {
+						met++
+					}
+					if rng.Float64() < 0.5 {
+						keys[i].Ms = 600
+					}
+				}
+				if r >= 10 && i > 0 && runes[i] != ' ' && runes[i-1] != ' ' {
+					all++
+				}
+			}
+			rounds = append(rounds, keys)
+			rh := ReadRhythm(rounds[max(0, len(rounds)-testParams.WeakRounds):], testParams)
+			pairs = nil
+			for _, s := range rh.Pairs {
+				if adaptive {
+					pairs = append(pairs, s.Pair)
+				}
+				found = append(found, s.Pair)
+			}
+		}
+		return float64(met) / float64(all), found
+	}
+	plain, _ := run(false)
+	loop, found := run(true)
+	t.Logf(`presses on "ou" in rounds 11-30: %.1f %% with words drawn evenly, %.1f %% with the loop (%.1f×)`, 100*plain, 100*loop, loop/plain)
+	if !slices.Contains(found, "ou") {
+		t.Fatalf("the loop never found ou: %v", found)
+	}
+	if loop < 1.5*plain {
+		t.Fatalf("ou: %.3f with the loop, %.3f without; want at least 1.5×", loop, plain)
 	}
 }

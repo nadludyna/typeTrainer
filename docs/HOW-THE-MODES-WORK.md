@@ -61,10 +61,11 @@ at `/results`.
 
 | | |
 |---|---|
-| Input | Learn's input, plus the time between keys and between words. |
-| Model | Planned: for each pair of letters, how much its time varies, and the stumbles (a pause much longer than your own median). The number of the round is consistency (section 0.5). |
-| Output | Planned: words with your stumble pairs come more often, and the level moves by consistency. |
-| Status | Not built. Today Freetype draws words evenly from the N most common words, and consistency is only measured and shown. |
+| Input | The presses inside words of the last `WeakRounds = 20` Freetype rounds typed on a keyboard: a letter after a letter, right on the first try, timed, no slower than `RhythmMaxMs = 2000` (a longer gap is a rest). Time between words enters only the round's consistency (0.5): it holds the reading of the next word. |
+| Model | `m` = the median of those times, `s = 1.4826 · median(|t − m|)` (a robust spread: one long pause does not move it). A press is a **stumble** when `t > max(m + 3s, 1.5m)` (`StumbleSpreads`, `StumbleLeast`; the second part keeps a very even typist from stumbling on noise). `R` = the share of stumbles. For each pair of letters `r = (stumbles + 3R) / (presses + 3)` (`StumblePrior`: three presses imagined at your own rate). A **stumble pair** has at least `StumbleMinPresses = 8` presses, `StumbleMinCount = 2` stumbles and `r ≥ 2R` (`StumbleRatio`); the three worst count (`StumblePairs`). Under `RhythmMinPresses = 50` presses nothing is read. |
+| Output 1: the words | A word with a stumble pair weighs `1 + StumbleBoost = 3` times as much (lists and long words; sentences and your own text stay as written). |
+| Output 2: the word list | Moves by itself as Reinforce's word level does (`freeplay.Standing`), each round judged by its consistency (`freeplay.JudgeRhythm`): it **passes** at `ConsPass = 80 %` or more with 96 % accuracy, **fails** under `ConsFail = 70 %` or under 92 % accuracy, and **holds** in between or with no consistency (a round under 5 s). Three passes up, two fails down, over the last run at one list of the same kind (words or long words). The page follows a move right after a round at its list (`followList` in `web/typing.js`). |
+| Status | Built (`internal/freeplay/rhythm.go`). `ConsPass` and `ConsFail` are a first guess, to be measured on real rounds. In a simulated typist who stumbles on `ou` half the time, the loop brings `ou` 2.7 times as often as words drawn evenly (`TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften`). |
 
 ### 0.4 Advice, on top of the three
 

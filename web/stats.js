@@ -194,7 +194,7 @@ function barChart(node, rounds, total, o) {
   const shift = plotW - slot * rounds.length;
   const cx = (i) => padL + shift + (i + 0.5) * slot;
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${node.closest(".panel").querySelector("h2").textContent}">` +
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img">` +
     `<text class="axis axis-name" x="${shift > slot ? padL : padL + plotW / 2}" y="${H - 6}" text-anchor="${shift > slot ? "start" : "middle"}">${t("chart.axisRound")}</text>`;
   for (let i = 0; i <= 4; i++) {
     const v = lo + ((hi - lo) / 4) * i, yy = y(v);
@@ -228,6 +228,8 @@ function barChart(node, rounds, total, o) {
   if (rounds.length > 1) svg += `<text class="axis" x="${cx(rounds.length - 1)}" y="${H - 6}" text-anchor="middle">#${total}</text>`;
   rounds.forEach((_, i) => { svg += `<rect class="hit" data-i="${i}" x="${padL + shift + i * slot}" y="${padT}" width="${slot}" height="${plotH}"/>`; });
   node.innerHTML = svg + `</svg>`;
+  // The chart is named by its panel's title, set as text, never parsed as HTML.
+  node.firstElementChild.setAttribute("aria-label", node.closest(".panel").querySelector("h2").textContent);
 
   const bars = new Map([...node.querySelectorAll(".bar")].map((b) => [Number(b.dataset.i), b]));
   grow([...bars.values()], [{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], 300, 6);

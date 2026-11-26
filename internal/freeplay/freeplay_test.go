@@ -10,7 +10,7 @@ import (
 var testParams = Params{
 	PortionWords: 6, MaxStartWords: 60, RecentWords: 20, RepeatPenalty: 0.3,
 	Levels: []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000}, LevelStart: 1,
-	PassAccuracy: 96, FailAccuracy: 92, PassesUp: 3, FailsDown: 2, History: 50,
+	PassAccuracy: 96, FailAccuracy: 92, FailSpeed: 0.9, PassesUp: 3, FailsDown: 2, History: 50,
 	WeakRounds: 20, WeakMinSamples: 15, WeakMissMs: 1000, WeakPairs: 3,
 	LongMin: 6, TextMarks: ".,?!;:'-", SentenceTries: 20,
 }
@@ -101,9 +101,28 @@ func TestDraw_DoesNotChangeRecent(t *testing.T) {
 
 func TestJudge(t *testing.T) {
 	for acc, want := range map[float64]Verdict{100: Pass, 96: Pass, 95.9: Hold, 92: Hold, 91.9: Fail, 0: Fail} {
-		if got := Judge(acc, testParams); got != want {
-			t.Errorf("accuracy %v: %s, want %s", acc, got, want)
+		if got := Judge(Round{Accuracy: acc}, testParams); got != want {
+			t.Errorf("no goal, accuracy %v: %s, want %s", acc, got, want)
 		}
+	}
+	for _, c := range []struct {
+		wpm, acc float64
+		want     Verdict
+	}{
+		{60, 97, Pass},   // at the goal, accurate
+		{75, 99, Pass},   // above it
+		{59.9, 97, Hold}, // just under the goal: the zone
+		{54, 97, Hold},   // 90 % of the goal is still the zone
+		{53.9, 99, Fail}, // under 90 %: too slow, however accurate
+		{80, 91, Fail},   // fast but careless
+		{60, 94, Hold},   // at the goal, accuracy in the zone
+	} {
+		if got := Judge(Round{WPM: c.wpm, Accuracy: c.acc, Goal: 60}, testParams); got != c.want {
+			t.Errorf("goal 60, %v wpm at %v%%: %s, want %s", c.wpm, c.acc, got, c.want)
+		}
+	}
+	if got := Judge(Round{WPM: 10, Accuracy: 97, Goal: 60}, Params{PassAccuracy: 96, FailAccuracy: 92}); got != Hold {
+		t.Errorf("FailSpeed 0: speed never fails a round, got %s", got)
 	}
 }
 
@@ -137,6 +156,12 @@ func TestStanding(t *testing.T) {
 		{"another level before the run does not count",
 			append(rounds(3, 98, 98), rounds(4, 99)...), Place{Level: 4, Passes: 1}},
 		{"a level out of range counts as the nearest", rounds(14, 98), Place{Level: 10, Passes: 1}},
+		{"too slow twice: down, however accurate",
+			[]Round{{Level: 5, Accuracy: 99, WPM: 40, Goal: 60}, {Level: 5, Accuracy: 99, WPM: 45, Goal: 60}}, Place{Level: 4, Moved: -1}},
+		{"in the zone it holds",
+			[]Round{{Level: 5, Accuracy: 97, WPM: 56, Goal: 60}, {Level: 5, Accuracy: 97, WPM: 58, Goal: 60}, {Level: 5, Accuracy: 97, WPM: 57, Goal: 60}}, Place{Level: 5}},
+		{"each round at its own goal",
+			[]Round{{Level: 5, Accuracy: 97, WPM: 52, Goal: 50}, {Level: 5, Accuracy: 97, WPM: 62, Goal: 60}, {Level: 5, Accuracy: 97, WPM: 70, Goal: 70}}, Place{Level: 6, Moved: 1}},
 	} {
 		if got := Standing(c.rounds, p); got != c.want {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)

@@ -1,6 +1,7 @@
 // Package freeplay is the word draws outside Learn's letter model
-// (Freetype), the weak letter pairs, and the pass / hold / fail rule of a
-// level (Judge, Standing).
+// (Freetype), the weak letter pairs, and the pass / hold / fail rule that
+// moves Reinforce's word level (Judge, Standing; docs/HOW-THE-MODES-WORK.md,
+// section 0.2).
 package freeplay
 
 import (
@@ -19,6 +20,7 @@ type Params struct {
 	LevelStart   int
 	PassAccuracy float64
 	FailAccuracy float64
+	FailSpeed    float64 // a round slower than this share of its goal fails
 	PassesUp     int
 	FailsDown    int
 	History      int
@@ -42,11 +44,16 @@ const (
 	Fail Verdict = "fail"
 )
 
-func Judge(acc float64, p Params) Verdict {
+// Judge: a round passes at its goal speed or faster with PassAccuracy or
+// more, fails below FailAccuracy or below FailSpeed of its goal, and holds in
+// between. A round with no goal is judged by its accuracy alone.
+func Judge(r Round, p Params) Verdict {
+	fast := r.Goal <= 0 || r.WPM >= r.Goal
+	slow := r.Goal > 0 && r.WPM < p.FailSpeed*r.Goal
 	switch {
-	case acc >= p.PassAccuracy:
+	case r.Accuracy >= p.PassAccuracy && fast:
 		return Pass
-	case acc < p.FailAccuracy:
+	case r.Accuracy < p.FailAccuracy || slow:
 		return Fail
 	}
 	return Hold
@@ -55,6 +62,8 @@ func Judge(acc float64, p Params) Verdict {
 type Round struct {
 	Level    int
 	Accuracy float64
+	WPM      float64
+	Goal     float64 // the speed goal the round was typed at, wpm
 }
 
 type Place struct {
@@ -77,7 +86,7 @@ func Standing(rounds []Round, p Params) Place {
 	var at Place
 	for _, r := range rounds[first:] {
 		at.Moved = 0
-		switch Judge(r.Accuracy, p) {
+		switch Judge(r, p) {
 		case Pass:
 			at.Passes, at.Fails = at.Passes+1, 0
 			if at.Passes >= p.PassesUp {

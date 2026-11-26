@@ -65,7 +65,7 @@ there is a reason not to).
 ## 3. Responsive design
 
 **Established**
-- Breakpoints in `web/responsive.css` and `web/stats.css`: 900 px (rail vs bottom bar; 200% browser zoom on a 1920 px screen stays above it), 860 px (stats
+- Breakpoints in `web/responsive.css` and `web/stats.css`: 900 px (rail vs bottom bar; 200% browser zoom on a 1920 px screen stays above it), 1040 px (stats
   columns), 640 px (phone), 380 px (very small phone).
 - Sizes follow the window: the keyboard key size `--u` and the text width
   `--tw` are computed from the viewport, not picked from presets.
@@ -139,12 +139,14 @@ consequences, the same word for the same thing. All text lives in
   side by side, with a thin line between them, so it reads as one switch.
 - A destructive action asks first in a confirm window (Reset all progress:
   "Reset all progress? This can't be undone.", Cancel has the focus).
-- Hold `~` or rest the pointer on the Stats tab before a round to see the
-  mode's stats under the text; they go as soon as you let go (`web/peek.js`).
-  Nothing moves, and a round being typed is never interrupted.
+- `~` or the Stats button opens the stats of the mode you're in, full
+  screen; `~`, Esc, Tab (back to a new round) or the button close them.
+  There is no mode switch inside: the stats are always the current mode's,
+  and they lead with that mode's own measure (`web/stats.js`).
 - Results stay on screen until the user presses Next round, Enter or Tab
   (Tab = new round everywhere). Esc opens the settings on every screen
-  (a round being typed pauses behind it), never "next round".
+  but the stats, where it goes back to typing (a round being typed pauses
+  behind it), never "next round".
 - Short messages go in a toast (`web/fx.js`) that floats under the header
   and never pushes the page; live areas use `aria-live="polite"`.
 

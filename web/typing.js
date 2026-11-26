@@ -233,6 +233,7 @@ function resetStream() {
   pausedAt = null; boxState(false, "paused");
   backWord = -1; backErrors = 0; fixedWords = new Set();
   startTime = null; lastTime = null; presses = 0; correctPresses = 0; perSecond = [];
+  sampleOver = false;
   resetGlide();
   el.text.replaceChildren(el.caret);
 }
@@ -241,6 +242,9 @@ const learnLevel = () => (reinforcing() ? wordLevel() : 0);
 
 // ---------- the check-in's sample: a timed round of common words, sent nowhere ----------
 let probe = null;   // { list, seconds, resolve } while a sample runs
+// A sample that has ended keeps its text on screen until the next round loads,
+// but its clock is stopped and keys do nothing: it must not become a round.
+let sampleOver = false;
 // Learn's stream (one word at a time, its routes) in Learn and Reinforce, not in a sample.
 const learnStream = () => learning() && !probe;
 export const probing = () => probe !== null;
@@ -270,7 +274,10 @@ function finishProbe() {
   probe = null;
   streamId++;
   setTyping(false);
-  p.resolve({ wpm: currentWpm(end), accuracy: currentAccuracy(), consistency: consistencyOf(fullSeconds(end)) });
+  const result = { wpm: currentWpm(end), accuracy: currentAccuracy(), consistency: consistencyOf(fullSeconds(end)) };
+  startTime = null;
+  sampleOver = true;
+  p.resolve(result);
 }
 
 export async function loadExercise() {
@@ -307,7 +314,7 @@ export async function loadExercise() {
 
 // ---------- typing ----------
 const MAX_EXTRA = 10;
-const canType = () => !(S.busy || S.pos >= S.text.length || introOpen() || S.view !== "type");
+const canType = () => !(S.busy || sampleOver || S.pos >= S.text.length || introOpen() || S.view !== "type");
 
 function wordStart(i) { while (i > 0 && S.text[i - 1] !== " ") i--; return i; }
 function wordEnd(i) { while (i < S.text.length && S.text[i] !== " ") i++; return i; }

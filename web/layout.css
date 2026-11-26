@@ -108,15 +108,7 @@ body:not(.typing-now) .live:not(.final) > .metric.num { opacity: 0; pointer-even
 }
 .hints kbd { background: var(--panel); color: color-mix(in srgb, var(--text) 60%, var(--sub)); padding: 1px 6px; border-radius: var(--r-sm); }
 @media (pointer: coarse) { .bottom { display: none; } }
-.stats-only-note { display: none; }
-body.stats-only .rail, body.stats-only #view-type { display: none; }
-body.stats-only { padding-bottom: env(safe-area-inset-bottom); }
-body.stats-only .stats-only-note {
-  display: block; margin: 0 0 14px; padding: 10px 14px; border-radius: var(--r-md);
-  background: var(--panel); box-shadow: var(--ring); color: var(--label); font-size: var(--fs-min); line-height: 1.45;
-}
 .hints .stats-hint { display: none; }
-body:not([data-view="stats"]) .hints .stats-line { display: none; }
 .hints .result-only { display: none; }
 body.tb-resulting:not([data-view="stats"]) .hints .result-only { display: inline; }
 body[data-view="stats"] .hints :is(.type-only, .round-only) { display: none; }

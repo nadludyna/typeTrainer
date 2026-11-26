@@ -150,6 +150,25 @@ type Learned struct {
 	Session  *Session
 }
 
+// The parts of a language's rounds, one per mode: Learn and Reinforce share
+// the learning rounds, and a Reinforce round has a word level.
+const (
+	PartLearn     = "learn"
+	PartReinforce = "reinforce"
+	PartFreetype  = "freetype"
+)
+
+// InPart: is a learning round (word level 0 or not) in this part ("" = all)?
+func InPart(level float64, part string) bool {
+	switch part {
+	case PartLearn:
+		return level == 0
+	case PartReinforce:
+		return level > 0
+	}
+	return part == ""
+}
+
 type Store interface {
 	KeyStats(user, lang string) (map[string]engine.KeyStat, error)
 	SaveKeyStats(user, lang string, stats map[string]engine.KeyStat) error
@@ -162,8 +181,6 @@ type Store interface {
 	AddSession(user, lang string, s Session) error
 	RecentSessions(user, lang, length string, limit int) ([]Session, error)
 	SessionCount(user, lang, length string) (int, error)
-	SessionLengths(user, lang string) ([]string, error)
-	BestRounds(user, lang string) (map[string]Session, error)
 	LettersTyped(user, lang string, unlocked int) (int, error)
 
 	AddFreeplaySession(user, lang, mode string, s Session) error
@@ -175,7 +192,8 @@ type Store interface {
 	HasRound(user, lang, round string) (bool, error)
 	SaveLearned(user, lang string, l Learned) error
 
-	PracticeDays(user, lang string, tz time.Duration) ([]Day, error)
+	// PracticeDays: part is "" for every round, or one mode's (PartLearn ...).
+	PracticeDays(user, lang, part string, tz time.Duration) ([]Day, error)
 
 	Reset(user, lang string) error
 	// ResetLearn starts Learn over: its letters and rounds; the

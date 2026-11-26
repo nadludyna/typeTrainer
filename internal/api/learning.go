@@ -421,6 +421,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	if !ok {
 		return
 	}
+	part := r.URL.Query().Get("part")
+	if part != "" && part != storage.PartLearn && part != storage.PartReinforce {
+		badRequest(w, "part: learn or reinforce")
+		return
+	}
 	stats, err := s.store.KeyStats(user, id)
 	if err != nil {
 		serverError(w, err)
@@ -454,49 +459,59 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		})
 	}
 	sort.SliceStable(keys, func(i, j int) bool { return keys[i].Difficulty > keys[j].Difficulty })
-	sessions, err := s.store.RecentSessions(user, id, length, 50)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	count, err := s.store.SessionCount(user, id, length)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	lengths, err := s.store.SessionLengths(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	bests, err := s.store.BestRounds(user, id)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	all, err := s.store.RecentSessions(user, id, length, count)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	slices.Reverse(all)
 	every, err := s.allLearning(user, id)
 	if err != nil {
 		serverError(w, err)
 		return
 	}
+	mine := roundsOf(every, part)
+	all := withLength(mine, length)
+	sessions := slices.Clone(all[max(0, len(all)-50):])
+	slices.Reverse(sessions)
 	rounds := history.LetterTimeline(every, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
-	writeJSON(w, http.StatusOK, map[string]any{
+	out := map[string]any{
 		"forecast": history.NextForecast(rounds, gen.Order(), stats, unlocked, p, s.cfg.Forecast),
 		"lap":      lap, "lastLap": who.base.LastLap(s.cfg.Laps),
 		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
 		"order":   gen.Order(),
-		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": count, "targetWpm": p.TargetWPM,
+		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": len(all), "targetWpm": p.TargetWPM,
 		"masteryMin": masteryMin, "masteryLevel": masteryLevel, "accuracy": p.AccWindow > 0,
-		"lengths": lengths, "bests": bests,
+		"lengths": storage.Lengths(mine), "bests": storage.BestOf(mine),
 		"learnRounds": len(every),
 		"wordLevels":  s.wordLevels(l),
-	})
+	}
+	if part == storage.PartReinforce {
+		out["pairs"] = s.pairsOf(mine[max(0, len(mine)-s.cfg.Freeplay.WeakRounds):])
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// roundsOf is the learning rounds /stats counts: "" all of them (what the
+// typing screen needs), or Learn's or Reinforce's own.
+func roundsOf(rounds []storage.Session, part string) []storage.Session {
+	if part == "" {
+		return rounds
+	}
+	out := []storage.Session{}
+	for _, r := range rounds {
+		if storage.InPart(r.Level, part) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func withLength(rounds []storage.Session, length string) []storage.Session {
+	if length == "" {
+		return rounds
+	}
+	out := []storage.Session{}
+	for _, r := range rounds {
+		if r.Length == length {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 func (s *Server) allLearning(user, lang string) ([]storage.Session, error) {
@@ -533,7 +548,12 @@ func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request, user str
 		}
 		tz = n
 	}
-	days, err := s.store.PracticeDays(user, l.Info.ID, time.Duration(tz)*time.Minute)
+	part := r.URL.Query().Get("part")
+	if part != "" && part != storage.PartLearn && part != storage.PartReinforce && part != storage.PartFreetype {
+		badRequest(w, "part: learn, reinforce or freetype")
+		return
+	}
+	days, err := s.store.PracticeDays(user, l.Info.ID, part, time.Duration(tz)*time.Minute)
 	if err != nil {
 		serverError(w, err)
 		return

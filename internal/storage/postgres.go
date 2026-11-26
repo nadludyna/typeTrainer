@@ -347,12 +347,6 @@ func (p *PostgresStore) RecentSessions(user, lang, length string, limit int) ([]
 func (p *PostgresStore) SessionCount(user, lang, length string) (int, error) {
 	return p.sessionCount(user, lang, modeLearning, length)
 }
-func (p *PostgresStore) SessionLengths(user, lang string) ([]string, error) {
-	return p.sessionLengths(user, lang, modeLearning)
-}
-func (p *PostgresStore) BestRounds(user, lang string) (map[string]Session, error) {
-	return p.bestRounds(user, lang, modeLearning)
-}
 func (p *PostgresStore) LettersTyped(user, lang string, unlocked int) (int, error) {
 	var n int
 	err := p.db.QueryRow(`SELECT COALESCE(SUM(chars), 0) FROM sessions
@@ -361,13 +355,17 @@ func (p *PostgresStore) LettersTyped(user, lang string, unlocked int) (int, erro
 	return n, err
 }
 
-func (p *PostgresStore) PracticeDays(user, lang string, tz time.Duration) ([]Day, error) {
+func (p *PostgresStore) PracticeDays(user, lang, part string, tz time.Duration) ([]Day, error) {
 	rows, err := p.db.Query(`SELECT to_char((finished_at AT TIME ZONE 'UTC') + make_interval(secs => $3), 'YYYY-MM-DD') AS d,
 		COUNT(*) FILTER (WHERE NOT aborted),
 		COALESCE(SUM(CASE WHEN seconds IS NOT NULL THEN seconds WHEN aborted THEN 0 WHEN wpm > 0 THEN chars * accuracy / 100 / 5 / wpm * 60 ELSE 0 END), 0),
 		COALESCE(SUM(chars) FILTER (WHERE NOT aborted), 0)
-		FROM sessions WHERE user_id = $1 AND lang = $2 GROUP BY d ORDER BY d`,
-		user, lang, tz.Seconds())
+		FROM sessions WHERE user_id = $1 AND lang = $2 AND ($4 = ''
+			OR $4 = 'learn' AND mode = 'learning' AND level = 0
+			OR $4 = 'reinforce' AND mode = 'learning' AND level > 0
+			OR $4 = 'freetype' AND mode LIKE 'freetype-%')
+		GROUP BY d ORDER BY d`,
+		user, lang, tz.Seconds(), part)
 	if err != nil {
 		return nil, err
 	}

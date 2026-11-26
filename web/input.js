@@ -2,7 +2,7 @@
 
 import { $, el, S, isTouch, focusText, setWordLevel } from "./state.js";
 import { requestFit, highlightNextKey, toggleKb, autoKb } from "./keyboard.js";
-import { refreshStats, renderStats, resetStatsPick } from "./stats.js";
+import { refreshStats, renderStats, resetStatsView } from "./stats.js";
 import { postJSON } from "./api.js";
 import { fitText, placeCaret, handleChar, backspace, restartRound, setTyping, loadExercise, roundStarted, pauseRound, checkLayout, cancelProbe } from "./typing.js";
 import { checkCaps } from "./warn.js";
@@ -16,7 +16,6 @@ import { onBarPick, renderModeBar } from "./modebar.js";
 import { needsCheckin, runCheckin } from "./checkin.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel } from "./learnpanel.js";
-import { peekShown, openPeek, closePeek } from "./peek.js";
 import { startGrow } from "./fx.js";
 
 window.addEventListener("resize", () => {
@@ -41,9 +40,8 @@ function setView(name) {
     resetWelcome();
   } else if (stats) {
     startGrow();
-    resetStatsPick();
+    resetStatsView();
     setTyping(false);
-    refreshStats().catch(console.error);
     renderStats();
   } else {
     fitText();
@@ -52,7 +50,8 @@ function setView(name) {
     if (!resultOpen()) focusText();
   }
 }
-el.tabStats.addEventListener("click", (e) => { e.currentTarget.blur(); setView("stats"); });
+el.tabStats.addEventListener("click", (e) => { e.currentTarget.blur(); setView(S.view === "stats" ? "type" : "stats"); });
+el.viewStats.addEventListener("click", (e) => { if (e.target.closest(".st-back")) setView("type"); });
 el.tabWelcome.addEventListener("click", (e) => { e.currentTarget.blur(); if (S.view !== "welcome") setView("welcome"); });
 export function openWelcome() { setView("welcome"); }
 
@@ -141,14 +140,20 @@ function shortcut(e, name) {
   return true;
 }
 
-const PEEK_KEY = "Backquote";
-document.addEventListener("keyup", (e) => { if (e.code === PEEK_KEY) closePeek(); });
+// ~ opens the stats of the mode you're in and closes them; Esc and Tab close them too.
+const STATS_KEY = "Backquote";
+const plain = (e) => !e.ctrlKey && !e.metaKey && !e.altKey;
 
 document.addEventListener("keydown", (e) => {
-  if (peekShown() && e.code !== PEEK_KEY) closePeek();
   if (document.querySelector("dialog[open]")) return;
   if (profileOpen()) {
     if (e.key === "Escape") { e.preventDefault(); closeProfile(); }
+    return;
+  }
+  if (S.view === "stats" && plain(e) && (e.code === STATS_KEY || e.key === "Escape" || e.key === "Tab")) {
+    if (!shortcut(e, "view")) return;
+    setView("type");
+    if (e.key === "Tab") { if (resultOpen()) closeResult("tab"); else restartRound(); }
     return;
   }
   if (e.key === "Escape") {
@@ -163,9 +168,8 @@ document.addEventListener("keydown", (e) => {
     if (shortcut(e, "kb") && S.view === "type") toggleKb();
     return;
   }
-  if (e.key === "Tab" && e.shiftKey) {
-    if (!shortcut(e, "view")) return;
-    setView(S.view === "type" ? "stats" : "type");
+  if (e.code === STATS_KEY && plain(e) && S.view === "type") {
+    if (shortcut(e, "view")) setView("stats");
     return;
   }
   if (resultOpen()) {
@@ -174,7 +178,6 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (S.view !== "type") return;
-  if (e.code === PEEK_KEY && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); openPeek(); return; }
   if (e.key === "Tab") { if (shortcut(e, "tab")) restartRound(); return; }
   if (e.key === "Backspace") {
     e.preventDefault(); focusText(); hidePointer(); backspace(e.ctrlKey || e.altKey);

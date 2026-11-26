@@ -1,78 +1,21 @@
-// The stats screen.
+// The stats of the mode you're in, full screen (input.js opens and closes
+// them with ~ or the Stats button). Each mode leads with its own measure:
+// Learn accuracy, Reinforce speed against its goal, Freetype consistency.
 
 import { i18nVars, t, applyI18n } from "./i18n.js";
-import { $, el, S, store, listLabel, listless, shownMode } from "./state.js";
+import { $, el, S, listLabel, listless, wordLevel } from "./state.js";
 import { getJSON } from "./api.js";
-import { LENGTHS, lengthLabel, lengthFor, setSetting, pickDaily } from "./settings.js";
+import { lengthLabel, lengthFor, lengthOf } from "./settings.js";
 import { ring, ringBtn } from "./minipop.js";
-import { renderLearnStats, learnStatsStale } from "./learnstats.js";
+import { learnGrid, mixUps } from "./learnstats.js";
 import { freetypeUrl } from "./modes.js";
 import { grow } from "./fx.js";
 
-// ---------- the goal line ----------
-const goalPick = $("goal-pick");
-const GOAL_STEP = 5, GOAL_MIN = 20, GOAL_START = 40, GOAL_TOP = 300, GOAL_SAVE_MS = 400;
-let goalShown = 0, goalKind = "", saveTimer = 0;
-export const goalFor = (mode) => (mode === "freetype" ? S.settings.goal : S.lastStats?.targetWpm ?? 0);
-const goalText = (g) => (g ? t("stats.goalIs", { wpm: `<b>${g}</b>` }) : t("stats.goalOff"));
-function drawGoalPick(mode) {
-  const kind = mode === "learn" ? "learn" : "own";
-  if (kind === "own" && saveTimer) return;
-  const g = goalFor(mode);
-  if (kind !== goalKind) {
-    goalKind = kind;
-    goalPick.innerHTML = kind === "learn"
-      ? `<span class="goal-chip" data-tip-text="${t("stats.goalLearnTip")}"></span>`
-      : `<span class="goal-step">` +
-        `<button type="button" class="goal-btn" data-step="-1" aria-label="${t("stats.goalDown")}">−</button>` +
-        `<button type="button" class="goal-chip goal-toggle" data-tip-text="${t("stats.goalTip")}" aria-live="polite"></button>` +
-        `<button type="button" class="goal-btn" data-step="1" aria-label="${t("stats.goalUp")}">+</button></span>`;
-  }
-  goalShown = g;
-  goalPick.querySelector(".goal-chip").innerHTML = goalText(g);
-}
-function stepGoal(dir) {
-  let g = goalShown;
-  if (dir > 0) g = g ? Math.min(GOAL_TOP, (Math.floor(g / GOAL_STEP) + 1) * GOAL_STEP) : GOAL_START;
-  else if (g) g = (Math.ceil(g / GOAL_STEP) - 1) * GOAL_STEP;
-  if (g < GOAL_MIN) g = 0;
-  showGoal(g, dir);
-}
-function toggleGoal() {
-  if (goalShown) showGoal(0, -1);
-  else showGoal(Number(store.get("tt.goal.last")) || GOAL_START, 1);
-}
-function showGoal(g, dir) {
-  if (g === goalShown) return;
-  if (goalShown) store.set("tt.goal.last", String(goalShown));
-  goalShown = g;
-  goalPick.querySelector(".goal-chip").innerHTML = goalText(g);
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => { saveTimer = 0; setSetting("goal", String(goalShown)); }, GOAL_SAVE_MS);
-}
-goalPick.addEventListener("click", (e) => {
-  const b = e.target.closest(".goal-btn");
-  if (b) stepGoal(Number(b.dataset.step));
-  else if (e.target.closest(".goal-toggle")) toggleGoal();
-});
-goalPick.addEventListener("wheel", (e) => {
-  if (goalKind !== "own" || !e.deltaY) return;
-  e.preventDefault();
-  stepGoal(e.deltaY < 0 ? 1 : -1);
-}, { passive: false });
-goalPick.addEventListener("keydown", (e) => {
-  if (goalKind !== "own") return;
-  const dir = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
-  if (!dir) return;
-  e.preventDefault();
-  stepGoal(dir);
-});
-
+// S.lastStats is the typing screen's: every round of Learn's stream.
 let introVars = "";
 export async function refreshStats() {
   S.lastStats = await getJSON(`/stats?length=${lengthFor("learn")}`);
-  activityStale = true;
-  learnStatsStale();
+  stale = true;
   const vars = [S.lastStats.targetWpm, S.lastStats.masteryMin, Math.round(S.lastStats.masteryLevel)];
   if (vars.join() !== introVars) {
     introVars = vars.join();
@@ -82,305 +25,227 @@ export async function refreshStats() {
   if (S.view === "stats") renderStats();
 }
 
-const pick = { mode: "learn", list: 0, variant: "", length: "" };
-export function resetStatsPick() {
-  const mode = S.mode === "freetype" ? "freetype" : "learn";
-  Object.assign(pick, { mode, list: S.freetypeList, variant: S.freetypeVariant, length: lengthFor(mode) });
-}
-let other = null;
-const keyOf = (p) => `${p.mode} ${p.list} ${p.variant} ${p.length}`;
-function own(p) {
-  if (p.length !== lengthFor(p.mode)) return null;
-  if (p.mode === "learn") return S.lastStats;
-  return p.list === S.freetypeList && p.variant === S.freetypeVariant ? S.freetype : null;
-}
-const statsUrl = (p) => p.mode === "learn" ? `/stats?length=${p.length}` : freetypeUrl(p.length, p.list, p.variant);
+// ---------- what is shown: the mode's rounds of one length ----------
+const sheet = $("sheet");
+const shown = { mode: "", length: "", key: "", data: null, days: [], history: null };
+let stale = true;
 
-export function shownStats() {
-  if (!pick.length) resetStatsPick();
-  const s = own(pick) ?? (other?.key === keyOf(pick) ? other.data : null);
-  return { s, ...pick };
-}
+// resetStatsView: the stats open on the length you type now.
+export function resetStatsView() { shown.mode = ""; }
+const keyOf = () => [S.lang, S.mode, shown.length, S.freetypeList, S.freetypeVariant].join(" ");
+
 export function renderStats() {
-  const { s, length, mode, list, variant } = shownStats();
-  renderPick(mode, list, variant);
-  if (!s) return;
-  renderLengthFilter(s.lengths ?? [], length, s.bests ?? {});
-  document.getElementById("len-head").textContent = lengthLabel(length);
-  const sessions = [...s.sessions].reverse();
-  const goal = goalFor(mode);
-  el.tiles.innerHTML = tiles(sessions, s.sessionCount, goal, s.streaks ?? []);
-  drawActivity();
-  if (activityStale) loadActivity();
-
-  drawChart(sessions, goal, s.sessionCount, mode === "learn" ? s.order : null);
-  drawGoalPick(mode);
-  renderLearnStats(mode === "learn").catch(console.error);
+  if (shown.mode !== S.mode) Object.assign(shown, { mode: S.mode, length: S.mode === "learn" ? "" : lengthFor(S.mode) });
+  const key = keyOf();
+  if ((stale || shown.key !== key) && loading !== key) {
+    loading = key;
+    // A load cut short (a page left, the server away) says so on the sheet; the next open tries again.
+    load(key).catch(() => {
+      stale = true;
+      if (keyOf() === key && S.view === "stats") sheet.innerHTML = header(null) + `<div class="panel st-empty"><h2>${t("st.failTitle")}</h2><p>${t("st.fail")}</p></div>`;
+    }).finally(() => { if (loading === key) loading = ""; });
+  }
+  if (shown.key === key) draw();
+  else if (loading === key) sheet.innerHTML = header(null) + `<div class="st-wait"></div>`;
 }
 
-// ---------- the tiles ----------
-const compact = new Intl.NumberFormat("en", { notation: "compact" });
+let loading = "";   // the key of the stats being loaded
+async function load(key) {
+  stale = false;
+  const mode = S.mode, tz = -new Date().getTimezoneOffset();
+  const url = mode === "freetype" ? freetypeUrl(shown.length, S.freetypeList, S.freetypeVariant) : `/stats?length=${shown.length}&part=${mode}`;
+  const [data, act, history] = await Promise.all([
+    getJSON(url), getJSON(`/activity?tz=${tz}&part=${mode}`), mode === "learn" ? getJSON("/learn/history") : null,
+  ]);
+  if (key !== keyOf()) return;
+  Object.assign(shown, { key, data, days: act.days, history });
+  if (S.view === "stats") draw();
+}
+
+sheet.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-length]");
+  if (!b || b.dataset.length === shown.length) return;
+  b.blur();
+  shown.length = b.dataset.length;
+  renderStats();
+});
+
+// ---------- the sheet ----------
+const BODY = { learn, reinforce, freetype };
+function draw() {
+  const s = shown.data, rounds = [...s.sessions].reverse();
+  if (!s.lengths.length) {
+    const list = S.mode === "freetype" && !listless(S.freetypeVariant) ? t("st.noneList", { n: S.freetypeList }) : "";
+    sheet.innerHTML = header(s) + `<div class="panel st-empty"><h2>${t("st.noneTitle", { mode: t(`mode.${S.mode}`) })}</h2><p>${list || t("st.none")}</p></div>`;
+    return;
+  }
+  const { tiles, panels, chart } = BODY[S.mode](s, rounds);
+  sheet.innerHTML = header(s) + `<div class="st-tiles">${tiles.filter(Boolean).join("")}</div>` + panels + calendar();
+  barChart(sheet.querySelector(".st-chart"), rounds, s.sessionCount, chart);
+}
+
+const byLength = (a, b) => { const x = lengthOf(a), y = lengthOf(b); return x.kind.localeCompare(y.kind) || x.n - y.n; };
+function header(s) {
+  const mode = S.mode;
+  const lens = mode === "learn" || !s ? [] : [...new Set([...s.lengths, shown.length])].sort(byLength).reverse();
+  const pick = lens.length > 1 ? ring(t("settings.length"), lens.map((id) => ringBtn(`data-length="${id}"`, lengthLabel(id), id === shown.length))) : "";
+  return `<div class="st-head"><h1>${t("st.title", { mode: t(`mode.${mode}`) })}</h1><span class="st-what">${t(`st.what.${mode}`)}</span>${pick}` +
+    `<span class="st-close keys-only">${t("st.close")}</span><button type="button" class="btn st-back">${t("st.back")}</button></div>`;
+}
+
+// ---------- the numbers ----------
 const avg = (arr, f) => arr.length ? arr.reduce((a, x) => a + f(x), 0) / arr.length : null;
-export function trendTag(sessions, f) {
-  const last = sessions.slice(-10), before = sessions.slice(-20, -10);
+const last10 = (rounds, f) => avg(rounds.slice(-10).filter((x) => f(x) != null), f);
+const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
+export function trendTag(rounds, f) {
+  const last = rounds.slice(-10), before = rounds.slice(-20, -10);
   const now = avg(last.filter((x) => f(x) != null), f), was = avg(before.filter((x) => f(x) != null), f);
   if (now === null || was === null || before.length < 5) return "";
   const d = Math.round(now - was);
   if (!d) return "";
-  return ` <span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span>`;
+  return `<span class="trend ${d > 0 ? "up" : "down"}" data-tip="tile.trend">${d > 0 ? "↑" : "↓"} ${Math.abs(d)}</span> `;
 }
-function tiles(sessions, count, goal, streaks) {
-  const last = sessions.slice(-10);
-  const num = (v, unit = "") => v === null ? "—" : Math.round(v) + (unit && `<i>${unit}</i>`);
-  const tile = (value, label, meta = "", cls = "") =>
-    `<div class="tile${cls}"><b>${value}</b><small>${label}</small><span class="meta">${meta}</span></div>`;
-  const last10 = (f) => t("tile.last10") + trendTag(sessions, f);
-  const wpm = avg(last, (x) => x.wpm);
-  const out = [
-    tile(count, t("tile.exercises")),
-    tile(num(wpm), t("tile.wpm"), last10((x) => x.wpm), " speed"),
-    tile(num(avg(last, (x) => x.accuracy), "%"), t("tile.acc"), last10((x) => x.accuracy)),
-    tile(num(avg(last.filter((x) => x.consistency != null), (x) => x.consistency), "%"), t("tile.cons"), last10((x) => x.consistency)),
-  ];
-  if (count && streaks.length) {
-    const [first, ...more] = streaks;
-    const runs = more.map((x) => t("tile.streakAt", { min: x.min, n: x.longest })).join(", ");
-    const tip = runs ? ` data-tip-text="${t("tile.streakTip", { runs })}"` : "";
-    out.push(`<div class="tile"${tip}><b>${first.current}</b><small>${t("tile.streak", { min: first.min })}</small><span class="meta">${t("tile.streakBest", { n: first.longest })}</span></div>`);
-  }
-  if (goal) {
-    const left = wpm === null ? null : Math.max(0, Math.round(goal - wpm));
-    const note = left === null ? "" : left ? t("tile.toGo", { n: left }) : t("tile.reached");
-    const part = wpm === null ? 0 : Math.min(1, wpm / goal);
-    out.push(`<div class="tile goal${left === 0 ? " done" : ""}" data-tip="tile.goalTip">` +
-      `<b>${goal}</b><small>${t("tile.goal")}</small><span class="meta">${note}</span>` +
-      `<i class="goal-bar" style="--p:${part.toFixed(3)}"></i></div>`);
-  }
-  return out.join("");
+function tile(label, value, meta = "", { hero = false, part = null } = {}) {
+  const bar = part === null ? "" : `<i class="goal-bar" style="--p:${Math.min(1, Math.max(0, part)).toFixed(3)}"></i>`;
+  return `<div class="tile${hero ? " hero" : ""}"><b>${value}</b><small>${label}</small><span class="meta">${meta}</span>${bar}</div>`;
 }
-
-// ---------- all time: totals, days in a row, the calendar ----------
-let activity = null, activityStale = true;
-async function loadActivity() {
-  activityStale = false;
-  try {
-    activity = (await getJSON(`/activity?tz=${-new Date().getTimezoneOffset()}`)).days;
-  } catch (err) { console.error(err); return; }
-  if (S.view === "stats") drawActivity();
+function roundsTile(count) {
+  const sec = shown.days.reduce((a, d) => a + d.seconds, 0);
+  return tile(t("tile.exercises"), count, sec ? t("st.typing", { time: duration(sec) }) : "");
 }
-const WEEKS_MAX = 53, CELL_MIN = 10, CELL_GAP = 3, DAY_LABELS = 34;
-const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 function duration(sec) {
   sec = Math.round(sec);
   if (sec < 60) return t("time.s", { s: sec });
   const m = Math.floor(sec / 60);
   return m < 60 ? t("time.m", { m }) : t("time.h", { h: Math.floor(m / 60), m: m % 60 });
 }
-function dayStreak(byDate) {
-  const d = new Date();
-  if (!byDate.has(dayKey(d))) d.setDate(d.getDate() - 1);
-  let n = 0;
-  while (byDate.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
-  return n;
-}
-const PERIODS = { today: 1, week: 7, all: 0 };
-let period = PERIODS[store.get("tt.actPeriod")] !== undefined ? store.get("tt.actPeriod") : "all";
-function drawActivity() {
-  const box = document.getElementById("activity");
-  const days = activity ?? [];
-  const byDate = new Map(days.map((x) => [x.date, x]));
-  const from = new Date();
-  from.setDate(from.getDate() - PERIODS[period] + 1);
-  const counted = PERIODS[period] ? days.filter((x) => x.date >= dayKey(from)) : days;
-  const sum = (f) => counted.reduce((a, x) => a + f(x), 0);
-  const streak = dayStreak(byDate);
-  const stat = (value, label, cls = "") => `<div class="act-stat${cls}"><b>${value}</b><small>${t(label)}</small></div>`;
-  const width = box.clientWidth - 36 - DAY_LABELS;
-  const weeks = Math.max(8, Math.min(WEEKS_MAX, Math.floor((width + CELL_GAP) / (CELL_MIN + CELL_GAP))));
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (weeks - 1) * 7);
-  const shown = [];
-  for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) shown.push(dayKey(d));
-  const most = Math.max(1, ...shown.map((k) => byDate.get(k)?.seconds ?? 0));
-  const goal = S.settings.daily;
-  const lang = document.documentElement.lang || undefined;
-  const fmt = new Intl.DateTimeFormat(lang, { weekday: "short", month: "short", day: "numeric" });
-  const cells = shown.map((k) => {
-    const x = byDate.get(k), date = fmt.format(new Date(k + "T12:00"));
-    const level = x ? Math.max(1, Math.ceil((x.seconds / most) * 4)) : 0;
-    const met = x && goal && x.seconds >= goal * 60;
-    const tip = !x ? t("act.dayNone", { date })
-      : t(x.rounds === 1 ? "act.dayOne" : "act.day", { date, time: duration(x.seconds), n: x.rounds }) + (met ? ". " + t("act.goalMet") : "");
-    return `<i class="l${level}${met ? " met" : ""}" data-tip-text="${tip}"></i>`;
-  }).join("");
-  const monthName = new Intl.DateTimeFormat(lang, { month: "short" });
-  let months = "";
-  for (let w = 0, last = -1; w < weeks; w++) {
-    const d = new Date(start);
-    d.setDate(start.getDate() + w * 7);
-    if (d.getMonth() !== last && (w > 0 || d.getDate() <= 7)) months += `<span style="grid-column:${w + 1} / span 4">${monthName.format(d)}</span>`;
-    last = d.getMonth();
-  }
-  const dayName = new Intl.DateTimeFormat(lang, { weekday: "short" });
-  const dayNames = [0, 2, 4].map((i) => `<span style="grid-row:${i + 1}">${dayName.format(new Date(2026, 9, 19 + i))}</span>`).join("");
-  const legend = `<span class="act-legend">${t("act.less")}<i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l3"></i><i class="l4"></i>${t("act.more")}` +
-    `<button type="button" class="act-goal" aria-haspopup="dialog" data-tip-text="${t("lp.goalClick")}">` +
-    (goal ? `<i class="l2 met"></i>${t("act.goalLegend", { g: goal })}` : t("act.goalOff")) + `</button></span>`;
-  const periods = `<div class="ring act-period" role="group" aria-label="${t("act.period")}">` +
-    Object.keys(PERIODS).map((p) => `<button type="button" data-period="${p}" aria-pressed="${p === period}">${t("act." + p)}</button>`).join("") + `</div>`;
-  box.innerHTML = `<div class="act-head"><div class="act-stats" data-tip="act.${period}Tip">` +
-    stat(duration(sum((x) => x.seconds)), "act.time") +
-    stat(sum((x) => x.rounds), "act.rounds") +
-    stat(Math.round(sum((x) => x.chars) / 5), "act.words") +
-    stat(`${streak}`, "act.streak", streak ? " hot" : "") +
-    `</div><div class="act-side">${periods}${legend}</div></div>` +
-    `<div class="act-cal" style="--weeks:${weeks}"><div class="act-months">${months}</div>` +
-    `<div class="act-days">${dayNames}</div><div class="act-grid">${cells}</div></div>`;
-}
+const panel = (title, note, body, cls = "") =>
+  `<div class="panel${cls}"><div class="panel-head"><h2>${title}</h2><span class="panel-note">${note}</span></div>${body}</div>`;
+const chartPanel = (title, note) => panel(title, note, `<div class="chart st-chart"></div>`);
 
-export function summary(s) {
-  const sessions = [...s.sessions].reverse();
-  const last10 = sessions.slice(-10);
-  const measured = last10.filter((x) => x.consistency != null);
-  const fmt = (v, suffix = "") => v === null ? "—" : Math.round(v) + suffix;
-  const best = sessions.length ? Math.max(...sessions.map((x) => x.wpm)) : null;
-  return [
-    [s.sessionCount, "tile.exercises"],
-    [fmt(best), "tile.best"],
-    [fmt(avg(last10, (x) => x.wpm)), "tile.avgWpm"],
-    [fmt(avg(last10, (x) => x.accuracy), "%"), "tile.avgAcc"],
-    [fmt(avg(measured, (x) => x.consistency), "%"), "tile.avgCons"],
+// ---------- Learn: accuracy ----------
+function learn(s, rounds) {
+  const acc = last10(rounds, (x) => x.accuracy);
+  const open = s.keys.filter((k) => k.unlocked).length, all = s.order.length, next = s.order[open];
+  const f = s.forecast?.known ? s.forecast : null;
+  const weak = s.keys.filter((k) => k.unlocked && !k.mastered && k.count && k.char !== " ")
+    .sort((a, b) => b.difficulty - a.difficulty)[0];
+  const tiles = [
+    tile(t("st.acc10"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy), { hero: true, part: acc === null ? 0 : acc / 100 }),
+    tile(t("st.open"), `${open}<i>/ ${all}</i>`, next ? t("st.nextIs", { l: next }) : t("st.allOpen"), { part: open / all }),
+    tile(t(next ? "fc.next" : "fc.lap"), f ? (f.more ? `${f.rounds}+` : `≈ ${f.rounds}`) : "—", f ? t("st.rounds") : t("st.fcLater")),
+    roundsTile(s.sessionCount),
+    weak ? tile(t("st.weakest"), weak.char, t("st.right", { p: Math.floor(weak.level) })) : null,
   ];
-}
-
-// ---------- the mode, the list and the length shown ----------
-async function choose(change) {
-  Object.assign(pick, change);
-  const key = keyOf(pick);
-  if (!own(pick) && other?.key !== key) {
-    const data = await getJSON(statsUrl(pick));
-    if (keyOf(pick) !== key) return;
-    other = { key, data };
+  const h = shown.history, rounds2 = h?.rounds ?? [];
+  let grid = "";
+  if (rounds2.length) {
+    const g = learnGrid(rounds2, h.order, sheet.clientWidth - 36);
+    grid = panel(t("ls.grid"), t("st.gridNote", { scope: g.scope }), g.html);
   }
-  renderStats();
+  const panels = `<div class="st-two">${chartPanel(t("st.accChart"), t("st.accLine", { p: Math.round(s.masteryLevel) }))}` +
+    panel(t("ls.mix"), t("ls.mixNote"), mixUps(h?.confusions ?? [])) + `</div>` + grid;
+  return { tiles, panels, chart: { value: (x) => x.accuracy, unit: "%", line: s.masteryLevel, percent: true, order: s.order } };
 }
 
-const pickEl = $("stats-pick");
-function renderPick(mode, list, variant) {
-  const ft = mode === "freetype", lists = ft && !listless(variant) ? (S.freetype?.lists ?? []) : [];
-  const kinds = ["", "long", ...(S.freetype?.sentences ? ["sentences"] : []), "custom"];
-  const modes = [["learn", "mode.learn"], ["freetype", "mode.freetype"]].filter(([m]) => shownMode(m));
-  pickEl.innerHTML = (modes.length > 1 ? ring(t("stats.modes"), modes.map(([m, key]) => ringBtn(`data-mode="${m}"`, t(key), m === mode))) : "") +
-    (ft ? ring(t("ft.kind"), kinds.map((k) => ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), variant === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""))) : "") +
-    (lists.length ? ring(t("freetype.list"), lists.map((n) => ringBtn(`data-list="${n}"`, listLabel(n), n === list, t("freetype.listN", { n })))) : "");
+// ---------- Reinforce: speed against your goal ----------
+function reinforce(s, rounds) {
+  const wpm = last10(rounds, (x) => x.wpm), acc = last10(rounds, (x) => x.accuracy), goal = s.targetWpm;
+  const words = s.wordLevels?.[wordLevel() - 1];
+  const best = s.bests?.[shown.length];
+  const tiles = [
+    tile(t("st.wpm10"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + t("st.goalIs", { w: goal }), { hero: true, part: wpm === null ? 0 : wpm / goal }),
+    tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
+    words ? tile(t("re.words"), listLabel(words), t("st.common", { n: words })) : null,
+    tile(t("tile.best"), best ? num(best.wpm, "wpm") : "—", best ? t("st.bestAcc", { p: Math.round(best.accuracy) }) : ""),
+    roundsTile(s.sessionCount),
+  ];
+  const slowKeys = s.keys.filter((k) => k.unlocked && k.count && k.avgMs > 0 && k.char !== " ")
+    .sort((a, b) => b.avgMs - a.avgMs).slice(0, 4).map((k) => [k.char, 12000 / k.avgMs]);
+  const slowPairs = (s.pairs ?? []).map((p) => [p.pair, 12000 / p.cost]);
+  const chips = (list) => list.length ? `<div class="st-chips">${list.map(([c, w]) =>
+    `<span class="st-chip"><b>${c}</b><small class="${w < goal ? "bad" : ""}">${Math.round(w)} wpm</small></span>`).join("")}</div>` : `<p class="st-none">${t("st.noSlow")}</p>`;
+  const slow = panel(t("st.slowKeys"), t("st.goalIs", { w: goal }), chips(slowKeys) +
+    `<div class="panel-head st-sub"><h2>${t("st.slowPairs")}</h2></div>` + chips(slowPairs));
+  const panels = `<div class="st-two">${chartPanel(t("stats.speed"), t("st.goalLine"))}${slow}</div>`;
+  return { tiles, panels, chart: { value: (x) => x.wpm, unit: "wpm", line: goal } };
 }
-document.getElementById("activity").addEventListener("click", (e) => {
-  const g = e.target.closest(".act-goal");
-  if (g) { pickDaily(g, drawActivity); return; }
-  const b = e.target.closest("[data-period]");
-  if (!b || b.dataset.period === period) return;
-  period = b.dataset.period;
-  store.set("tt.actPeriod", period);
-  drawActivity();
-});
-pickEl.addEventListener("click", (e) => {
-  const b = e.target.closest("button");
-  if (!b) return;
-  b.blur();
-  if (b.dataset.mode && b.dataset.mode !== pick.mode) choose({ mode: b.dataset.mode, list: pick.list || S.freetypeList, length: lengthFor(b.dataset.mode) }).catch(console.error);
-  if (b.dataset.list && Number(b.dataset.list) !== pick.list) choose({ list: Number(b.dataset.list) }).catch(console.error);
-  if (b.dataset.variant !== undefined && b.dataset.variant !== pick.variant) choose({ variant: b.dataset.variant }).catch(console.error);
-});
 
-// ---------- one round length at a time ----------
-function renderLengthFilter(have, shown, bests = {}) {
-  const ids = [...LENGTHS, ...new Set(have.filter((id) => !LENGTHS.includes(id)))];
-  const cell = (id) => {
-    const b = bests[id];
-    return `<button type="button" role="tab" class="pb" data-length="${id}" aria-selected="${id === shown}">` +
-      `<small>${lengthLabel(id)}</small><b>${b ? Math.round(b.wpm) : "—"}</b>` +
-      `<span>${b ? Math.round(b.accuracy) + "%" : "&nbsp;"}</span></button>`;
-  };
-  const isTime = (id) => id.startsWith("time");
-  const words = ids.filter((id) => !isTime(id)), time = ids.filter(isTime);
-  el.lengthFilter.innerHTML = [words, time].filter((g) => g.length)
-    .map((g) => `<div class="pb-group panel">${g.map(cell).join("")}</div>`).join("");
+// ---------- Freetype: rhythm ----------
+function freetype(s, rounds) {
+  const cons = last10(rounds, (x) => x.consistency), wpm = last10(rounds, (x) => x.wpm), acc = last10(rounds, (x) => x.accuracy);
+  const goal = S.settings.goal, v = S.freetypeVariant;
+  const tiles = [
+    tile(t("st.cons10"), num(cons, "%"), trendTag(rounds, (x) => x.consistency) + t("st.consMeans"), { hero: true, part: cons === null ? 0 : cons / 100 }),
+    tile(t("tile.wpm"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + (goal ? t("st.goalIs", { w: goal }) : t("tile.last10")), goal ? { part: wpm === null ? 0 : wpm / goal } : {}),
+    tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
+    tile(t("re.words"), listless(v) ? t(`ft.${v}`) : listLabel(S.freetypeList), listless(v) ? "" : t("st.common", { n: S.freetypeList })),
+    roundsTile(s.sessionCount),
+  ];
+  const panels = chartPanel(t("st.consChart"), t("st.consNote"));
+  return { tiles, panels, chart: { value: (x) => x.consistency, unit: "%", percent: true } };
 }
-el.lengthFilter.addEventListener("click", async (e) => {
-  const b = e.target.closest("button[data-length]");
-  if (!b) return;
-  b.blur();
-  await choose({ length: b.dataset.length });
-});
 
-function drawChart(sessions, target, total, order) {
-  if (!sessions.length) {
-    el.chart.innerHTML = `<div class="empty">${t("chart.empty")}</div>`;
-    el.chartNote.textContent = "";
-    return;
-  }
-  const first = total - sessions.length + 1;
-  const scope = sessions.length === total ? t("chart.all") : t("chart.last", { n: sessions.length });
-  const withAvg = sessions.length >= 3;
-  el.chartNote.textContent = t(withAvg ? "chart.noteAvg" : "chart.note", { scope });
-
-  el.chart.replaceChildren();
-  const W = Math.max(280, el.chart.clientWidth || 860), H = Math.max(120, el.chart.clientHeight || 200);
+// ---------- the chart: one bar per round, the mode's measure ----------
+function barChart(node, rounds, total, o) {
+  if (!rounds.length) { node.innerHTML = `<div class="empty">${t("chart.empty")}</div>`; return; }
+  const vals = rounds.map(o.value), have = vals.filter((v) => v != null);
+  const first = total - rounds.length + 1;
+  const W = Math.max(280, node.clientWidth || 860), H = Math.max(120, node.clientHeight || 200);
   const padL = 34, padR = 8, padT = 10, padB = 22;
   const plotW = W - padL - padR, plotH = H - padT - padB;
-  const max = niceMax(Math.max(target, ...sessions.map((x) => x.wpm)));
-  const y = (v) => padT + plotH - (v / max) * plotH;
-  const slot = plotW / Math.max(sessions.length, 10);
+  const lo = o.percent ? Math.max(0, Math.floor((Math.min(...have, o.line ?? 100) - 5) / 20) * 20) : 0;
+  const hi = o.percent ? 100 : niceMax(Math.max(o.line ?? 0, ...have));
+  const y = (v) => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+  const slot = plotW / Math.max(rounds.length, 10);
   const bw = Math.max(3, Math.min(28, slot - 2));
-  const shift = plotW - slot * sessions.length;
+  const shift = plotW - slot * rounds.length;
+  const cx = (i) => padL + shift + (i + 0.5) * slot;
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="WPM per exercise">` +
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img">` +
     `<text class="axis axis-name" x="${shift > slot ? padL : padL + plotW / 2}" y="${H - 6}" text-anchor="${shift > slot ? "start" : "middle"}">${t("chart.axisRound")}</text>`;
   for (let i = 0; i <= 4; i++) {
-    const v = (max / 4) * i, yy = y(v);
+    const v = lo + ((hi - lo) / 4) * i, yy = y(v);
     svg += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${yy}" y2="${yy}"/>`;
     svg += `<text class="axis" x="${padL - 6}" y="${yy + 4}" text-anchor="end">${Math.round(v)}</text>`;
   }
-  sessions.forEach((x, i) => {
-    const bx = padL + shift + i * slot + (slot - bw) / 2, top = y(x.wpm), base = y(0);
+  vals.forEach((v, i) => {
+    if (v == null) return;
+    const bx = padL + shift + i * slot + (slot - bw) / 2, top = y(v), base = y(lo);
     const r = Math.min(4, bw / 2, base - top);
     const d = `M${bx},${base} V${top + r} Q${bx},${top} ${bx + r},${top} H${bx + bw - r} Q${bx + bw},${top} ${bx + bw},${top + r} V${base} Z`;
-    svg += `<path class="bar${i === sessions.length - 1 ? " last" : ""}" data-i="${i}" style="--i:${i}" d="${d}"/>`;
+    svg += `<path class="bar${i === rounds.length - 1 ? " last" : ""}${o.line != null && v < o.line ? " under" : ""}" data-i="${i}" d="${d}"/>`;
   });
-  const opened = sessions.map((x, i) => order && i && x.unlocked > (sessions[i - 1].unlocked || x.unlocked)
-    ? order.slice(sessions[i - 1].unlocked, x.unlocked) : []);
+  const opened = rounds.map((x, i) => o.order && i && x.unlocked > (rounds[i - 1].unlocked || x.unlocked)
+    ? o.order.slice(rounds[i - 1].unlocked, x.unlocked) : []);
   opened.forEach((letters, i) => {
     if (!letters.length) return;
-    const cx = padL + shift + (i + 0.5) * slot;
-    svg += `<text class="opened" x="${cx}" y="${padT + 9}" text-anchor="middle">${letters.join("")}</text>` +
-      `<line class="opened" x1="${cx}" x2="${cx}" y1="${padT + 13}" y2="${y(sessions[i].wpm) - 3}"/>`;
+    svg += `<text class="opened" x="${cx(i)}" y="${padT + 9}" text-anchor="middle">${letters.join("")}</text>` +
+      `<line class="opened" x1="${cx(i)}" x2="${cx(i)}" y1="${padT + 13}" y2="${y(vals[i] ?? lo) - 3}"/>`;
   });
-  if (target) svg += `<line class="target" x1="${padL}" x2="${W - padR}" y1="${y(target)}" y2="${y(target)}"/>`;
-  if (withAvg) {
-    const pts = sessions.map((_, i) => {
-      const part = sessions.slice(Math.max(0, i - 9), i + 1);
-      const v = part.reduce((a, x) => a + x.wpm, 0) / part.length;
-      return `${(padL + shift + (i + 0.5) * slot).toFixed(1)},${y(v).toFixed(1)}`;
+  if (o.line != null) svg += `<line class="target" x1="${padL}" x2="${W - padR}" y1="${y(o.line)}" y2="${y(o.line)}"/>`;
+  if (have.length >= 3) {
+    const pts = [];
+    vals.forEach((v, i) => {
+      const part = vals.slice(Math.max(0, i - 9), i + 1).filter((x) => x != null);
+      if (v != null) pts.push(`${cx(i).toFixed(1)},${y(part.reduce((a, x) => a + x, 0) / part.length).toFixed(1)}`);
     });
     svg += `<polyline class="avg" points="${pts.join(" ")}"/>`;
   }
-  svg += `<text class="axis" x="${padL + shift + slot / 2}" y="${H - 6}" text-anchor="middle">#${first}</text>`;
-  if (sessions.length > 1)
-    svg += `<text class="axis" x="${padL + shift + (sessions.length - 0.5) * slot}" y="${H - 6}" text-anchor="middle">#${total}</text>`;
-  sessions.forEach((_, i) => {
-    svg += `<rect class="hit" data-i="${i}" x="${padL + shift + i * slot}" y="${padT}" width="${slot}" height="${plotH}"/>`;
-  });
-  svg += `</svg>`;
-  el.chart.innerHTML = svg;
+  svg += `<text class="axis" x="${cx(0)}" y="${H - 6}" text-anchor="middle">#${first}</text>`;
+  if (rounds.length > 1) svg += `<text class="axis" x="${cx(rounds.length - 1)}" y="${H - 6}" text-anchor="middle">#${total}</text>`;
+  rounds.forEach((_, i) => { svg += `<rect class="hit" data-i="${i}" x="${padL + shift + i * slot}" y="${padT}" width="${slot}" height="${plotH}"/>`; });
+  node.innerHTML = svg + `</svg>`;
+  // The chart is named by its panel's title, set as text, never parsed as HTML.
+  node.firstElementChild.setAttribute("aria-label", node.closest(".panel").querySelector("h2").textContent);
 
-  const bars = el.chart.querySelectorAll(".bar");
-  grow(bars, [{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], 300, 6);
-  grow(el.chart.querySelectorAll(".avg, .target"), [{ opacity: 0 }, { opacity: 1 }], 300);
-  el.chart.querySelectorAll(".hit").forEach((h) => {
-    const i = Number(h.dataset.i), x = sessions[i];
-    h.addEventListener("pointerenter", () => bars[i].classList.add("hover"));
-    h.addEventListener("pointerleave", () => { bars[i].classList.remove("hover"); el.tooltip.classList.remove("show"); });
+  const bars = new Map([...node.querySelectorAll(".bar")].map((b) => [Number(b.dataset.i), b]));
+  grow([...bars.values()], [{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], 300, 6);
+  grow(node.querySelectorAll(".avg, .target"), [{ opacity: 0 }, { opacity: 1 }], 300);
+  node.querySelectorAll(".hit").forEach((h) => {
+    const i = Number(h.dataset.i), x = rounds[i];
+    h.addEventListener("pointerenter", () => bars.get(i)?.classList.add("hover"));
+    h.addEventListener("pointerleave", () => { bars.get(i)?.classList.remove("hover"); el.tooltip.classList.remove("show"); });
     h.addEventListener("pointermove", (e) => {
       const cons = x.consistency != null ? ` <span>·</span> ${t("chart.cons", { pct: Math.round(x.consistency) })}` : "";
       const news = opened[i].length ? ` <span>·</span> ${t("chart.opened", { l: opened[i].join(", ") })}` : "";
@@ -396,4 +261,47 @@ function niceMax(v) {
   const steps = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200, 250];
   const step = steps.find((s) => s * 4 >= v * 1.05) ?? Math.ceil(v * 1.05 / 400) * 100;
   return step * 4;
+}
+
+// ---------- the days you practised this mode ----------
+const WEEKS_MAX = 53, CELL_MIN = 10, CELL_GAP = 3, DAY_LABELS = 34;
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+function dayStreak(byDate) {
+  const d = new Date();
+  if (!byDate.has(dayKey(d))) d.setDate(d.getDate() - 1);
+  let n = 0;
+  while (byDate.has(dayKey(d))) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+}
+function calendar() {
+  const days = shown.days, byDate = new Map(days.map((x) => [x.date, x]));
+  const width = sheet.clientWidth - 36 - DAY_LABELS;
+  const weeks = Math.max(8, Math.min(WEEKS_MAX, Math.floor((width + CELL_GAP) / (CELL_MIN + CELL_GAP))));
+  const today = new Date(), start = new Date(today);
+  start.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (weeks - 1) * 7);
+  const dates = [];
+  for (const d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) dates.push(dayKey(d));
+  const most = Math.max(1, ...dates.map((k) => byDate.get(k)?.seconds ?? 0));
+  const lang = document.documentElement.lang || undefined;
+  const fmt = new Intl.DateTimeFormat(lang, { weekday: "short", month: "short", day: "numeric" });
+  const cells = dates.map((k) => {
+    const x = byDate.get(k), date = fmt.format(new Date(k + "T12:00"));
+    const level = x ? Math.max(1, Math.ceil((x.seconds / most) * 4)) : 0;
+    const tip = !x ? t("act.dayNone", { date }) : t(x.rounds === 1 ? "act.dayOne" : "act.day", { date, time: duration(x.seconds), n: x.rounds });
+    return `<i class="l${level}" data-tip-text="${tip}"></i>`;
+  }).join("");
+  const monthName = new Intl.DateTimeFormat(lang, { month: "short" });
+  let months = "";
+  for (let w = 0, last = -1; w < weeks; w++) {
+    const d = new Date(start);
+    d.setDate(start.getDate() + w * 7);
+    if (d.getMonth() !== last && (w > 0 || d.getDate() <= 7)) months += `<span style="grid-column:${w + 1} / span 4">${monthName.format(d)}</span>`;
+    last = d.getMonth();
+  }
+  const dayName = new Intl.DateTimeFormat(lang, { weekday: "short" });
+  const dayNames = [0, 2, 4].map((i) => `<span style="grid-row:${i + 1}">${dayName.format(new Date(2026, 9, 19 + i))}</span>`).join("");
+  const note = t("st.days", { n: days.filter((d) => d.rounds).length, streak: dayStreak(byDate) });
+  return panel(t("st.daysTitle", { mode: t(`mode.${S.mode}`) }), note,
+    `<div class="act-cal" style="--weeks:${weeks}"><div class="act-months">${months}</div>` +
+    `<div class="act-days">${dayNames}</div><div class="act-grid">${cells}</div></div>`, " activity");
 }

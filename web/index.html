@@ -103,31 +103,12 @@
         </div>
       </div>
       <p class="kb-away" id="kb-away" data-i18n="kb.away">Zoom out to see the keyboard.</p>
-      <div id="peek" class="peek panel" hidden></div>
 
     </section>
 
     <!-- ================= STATS VIEW ================= -->
     <section id="view-stats" class="view" role="tabpanel" aria-labelledby="tab-stats" hidden>
-      <p class="stats-only-note" data-i18n="phone.note">Typing practice needs a real keyboard, so here you can just look at your stats.</p>
-      <div class="stats-pick" id="stats-pick"></div>
-      <div class="pbs" id="length-filter" role="tablist" aria-label="Round length"></div>
-      <div class="activity panel" id="activity" aria-label="All time"></div>
-      <div class="len-bar">
-        <h2 class="len-head" id="len-head"></h2>
-      </div>
-      <div class="tiles" id="tiles"></div>
-
-      <div class="panel chart-panel">
-        <div class="panel-head">
-          <h2 data-i18n="stats.speed">Speed per round, wpm</h2>
-          <span class="panel-note" id="chart-note"></span>
-          <span class="goal-pick" id="goal-pick"></span>
-        </div>
-        <div class="chart" id="chart"></div>
-      </div>
-      <div class="learn-stats" id="learn-stats" hidden></div>
-
+      <div class="sheet" id="sheet"></div>
     </section>
 
     <!-- ================= WELCOME VIEW ================= -->
@@ -233,10 +214,9 @@
     <div class="hints" aria-label="Shortcuts">
       <span class="round-only"><kbd>tab</kbd> <span data-i18n="hint.tab">New round</span></span>
       <span class="result-only"><kbd>enter</kbd> / <kbd>tab</kbd> <span data-i18n="hint.next">Next round</span></span>
-      <span><kbd>esc</kbd> <span data-i18n="hint.settings">Settings</span></span>
-      <span class="stats-line"><kbd>shift</kbd> + <kbd>tab</kbd> <span class="type-only" data-i18n="hint.stats">Stats</span><span class="stats-hint" data-i18n="hint.typing">Typing</span></span>
+      <span class="type-only"><kbd>esc</kbd> <span data-i18n="hint.settings">Settings</span></span>
+      <span><kbd>~</kbd> <span class="type-only" data-i18n="hint.stats">Stats</span><span class="stats-hint" data-i18n="hint.typing">Typing</span></span>
       <span class="type-only"><kbd>alt</kbd> + <kbd>k</kbd> <span data-i18n="hint.kb">Keyboard</span></span>
-      <span class="round-only"><kbd>~</kbd> <span data-i18n="hint.peek">Hold for stats</span></span>
     </div>
   </footer>
 

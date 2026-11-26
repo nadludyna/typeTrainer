@@ -559,3 +559,39 @@ func TestApp_ReinforceBeforeLearnIsFinished(t *testing.T) {
 		t.Fatalf("a Reinforce round keeps its word level before Learn is finished: %v", s["level"])
 	}
 }
+
+// The stats of each mode: Learn's rounds and Reinforce's (with a word level)
+// are counted apart, and so are their days.
+func TestApp_StatsPerMode(t *testing.T) {
+	h, _, _ := newApp()
+	for _, round := range []string{`"wpm":30`, `"wpm":50,"level":2`, `"wpm":60,"level":2`} {
+		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"accuracy":100,`+round+`}`); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+	}
+	for part, want := range map[string]float64{"": 3, "learn": 1, "reinforce": 2} {
+		_, st := call(t, h, "GET", "/api/v1/stats?lang=en&part="+part, "")
+		if st["sessionCount"].(float64) != want || len(st["sessions"].([]any)) != int(want) {
+			t.Fatalf("part %q: %v rounds, want %v", part, st["sessionCount"], want)
+		}
+		if _, pairs := st["pairs"]; pairs != (part == "reinforce") {
+			t.Fatalf("part %q: pairs sent = %v, only Reinforce has them", part, pairs)
+		}
+		_, act := call(t, h, "GET", "/api/v1/activity?lang=en&part="+part, "")
+		if days := act["days"].([]any); len(days) != 1 || days[0].(map[string]any)["rounds"].(float64) != want {
+			t.Fatalf("part %q: days %v, want one day of %v rounds", part, days, want)
+		}
+	}
+	_, re := call(t, h, "GET", "/api/v1/stats?lang=en&part=reinforce", "")
+	if best := re["bests"].(map[string]any)["words-30"].(map[string]any)["wpm"]; best != 60.0 {
+		t.Fatalf("Reinforce's best: %v, want 60", best)
+	}
+	if _, act := call(t, h, "GET", "/api/v1/activity?lang=en&part=freetype", ""); len(act["days"].([]any)) != 0 {
+		t.Fatalf("Freetype has no days yet: %v", act["days"])
+	}
+	for _, path := range []string{"/api/v1/stats?lang=en&part=freetype", "/api/v1/activity?lang=en&part=climb"} {
+		if code, _ := call(t, h, "GET", path, ""); code != 400 {
+			t.Fatalf("%s: %d, want 400", path, code)
+		}
+	}
+}

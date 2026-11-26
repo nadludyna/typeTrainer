@@ -81,8 +81,13 @@ npx playwright test
 - **Another browser:** where Playwright's Chromium can't be installed,
   `TT_BROWSER=msedge` (PowerShell: `$env:TT_BROWSER = "msedge"`) runs the
   checks in the installed Edge, and `chrome` in Chrome.
-- **One area:** `npx playwright test -g "stats"` runs the checks whose
-  names contain the words.
+- **One area:** the checks are in files by area: `rounds` (a round in each
+  mode, its result, saving it), `keys` (the caret, the shortcuts, the
+  keyboard), `layout` (the grid, widths, zoom, text sizes, contrast),
+  `stats`, `modes` (the tabs, Welcome, the check-ins, the settings);
+  what they share is in `checks.mjs` and `app.mjs`. `npx playwright test
+  stats` runs one file, `npx playwright test -g "check-in"` the checks whose
+  names contain the words. On GitHub they run in two halves at once.
 - **No retries.** A check that fails now and then has found a race: in the
   app (the check-in's sample once ended twice, the stats loaded twice) or in
   the check. A check waits for a state the page reaches (`waitForText`, an

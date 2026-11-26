@@ -350,8 +350,8 @@ func (p *PostgresStore) SessionCount(user, lang, length string) (int, error) {
 func (p *PostgresStore) LettersTyped(user, lang string, unlocked int) (int, error) {
 	var n int
 	err := p.db.QueryRow(`SELECT COALESCE(SUM(chars), 0) FROM sessions
-		WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND unlocked >= $4`,
-		user, lang, modeLearning, unlocked).Scan(&n)
+		WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND unlocked >= $4 AND device <> $5`,
+		user, lang, modeLearning, unlocked, DeviceTouch).Scan(&n)
 	return n, err
 }
 

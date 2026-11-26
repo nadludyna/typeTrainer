@@ -47,7 +47,7 @@
 .st-two { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; }
 @media (max-width: 1040px) { .st-two { grid-template-columns: minmax(0, 1fr); } }
 .st-sub { margin: 16px 0 12px; }
-.st-none, .empty { margin: 0; color: var(--label); font-size: var(--fs-min); }
+.st-none, .st-phone, .empty { margin: 0; color: var(--label); font-size: var(--fs-min); }
 .empty { padding: 24px 0; text-align: center; }
 .st-empty { padding: 48px 16px; text-align: center; }
 .st-empty h2 { font-size: var(--fs-m); margin-bottom: 8px; }

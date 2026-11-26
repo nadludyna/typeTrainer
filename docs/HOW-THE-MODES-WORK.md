@@ -272,6 +272,13 @@ exactly the fastest real presses and make fast typists look slower.
 The press right after a wrong letter is measured normally: the cursor has
 already moved on, so it is an ordinary finger movement from the previous key.
 
+**Only rounds typed on a keyboard teach the trainer.** A round typed on a
+phone (`device: touch`: the screen's main pointer is a finger, `pointer:
+coarse`) is saved with its samples and shown in the stats, but no letter,
+pair, mix-up or word level moves by it, and its letters do not widen the
+word pool (`storage.OnKeyboard`). Thumbs on glass miss for other reasons
+than fingers on keys: a neighbouring key under the thumb, not a wrong finger.
+
 Exercise-level numbers, shown to the user:
 
 ```

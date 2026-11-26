@@ -18,14 +18,14 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 }
 
 // withWeakPairs is gen weighted to the letter pairs that slow this learner's
-// last Learn rounds down.
+// last rounds on a keyboard down.
 func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) (*engine.Generator, error) {
 	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Freeplay.WeakRounds)
 	if err != nil {
 		return nil, err
 	}
 	var pairs []string
-	for _, p := range s.pairsOf(rounds) {
+	for _, p := range s.pairsOf(storage.OnKeyboard(rounds)) {
 		pairs = append(pairs, p.Pair)
 	}
 	return gen.WithPairs(pairs), nil

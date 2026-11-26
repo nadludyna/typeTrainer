@@ -131,6 +131,7 @@ const I18N = {
     "st.common": "the {n} most common words",
     "st.toUp": "{n} of {of} rounds to {next}", "st.toDown": "{n} of {of} slips back to {prev}", "st.bestAcc": "{p}% accuracy",
     "st.slowKeys": "Slowest letters", "st.slowPairs": "Slowest pairs", "st.noSlow": "Not enough rounds yet.",
+    "st.phone": "Rounds on a phone are shown here, but only keyboard rounds move your letters and word level.",
     "st.consMeans": "even keys score high",
     "st.consChart": "Consistency per round", "st.consNote": "How even your keys were. The line is your 10-round average.",
     "st.daysTitle": "Days you practised {mode}", "st.days": "{n} days · {streak} in a row",

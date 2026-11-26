@@ -15,6 +15,7 @@ test("the stats of the mode you're in: ~ or the Stats button opens them, ~, Esc 
   await expect(sheet.locator("h1")).toHaveText("Learn stats");
   await expect(sheet.locator(".tile.hero"), "Learn leads with accuracy").toContainText("Accuracy, last 10 rounds");
   await expect(sheet.locator(".st-chart svg")).toBeVisible();
+  await expect(sheet.locator(".st-phone"), "a keyboard's rounds teach the trainer: no phone note").toHaveCount(0);
   await expect(page.locator("#tab-stats")).toHaveAttribute("aria-selected", "true");
   await page.waitForTimeout(350);
   await page.keyboard.press("Escape");
@@ -87,6 +88,20 @@ test("stats on a phone: nothing is wider than the screen", async ({ page }) => {
     expect(wide, `elements past the right edge at ${width}px`).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth), "no sideways scroll").toBe(width);
   }
+});
+
+test.describe("on a phone", () => {
+  test.use({ viewport: { width: 390, height: 800 }, hasTouch: true });
+  test("the stats say a phone's rounds don't move letters or the word level", async ({ page }) => {
+    await withHistory(page);
+    await withFreetypeHistory(page);
+    for (const mode of ["learn", "reinforce", "freetype"]) {
+      await openApp(page, { "tt.mode.en": mode });
+      await page.locator("#tab-stats").click();
+      await expect(page.locator(".st-tiles .tile.hero")).toBeVisible();
+      await expect(page.locator(".st-phone"), `${mode}: Freetype learns nothing yet, so it needs no note`).toHaveCount(mode === "freetype" ? 0 : 1);
+    }
+  });
 });
 
 test("stats on a desktop: every tile holds its own text", async ({ page }) => {

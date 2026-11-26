@@ -357,7 +357,11 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 		req.Keys = nil
 	}
 	reinforce := req.Level >= 1 && req.Level == math.Trunc(req.Level) && s.validWordLevel(l, int(req.Level))
-	done, err := s.learn(user, l, req.Keys, reinforce)
+	learnt := req.Keys
+	if req.Device == storage.DeviceTouch {
+		learnt = nil
+	}
+	done, err := s.learn(user, l, learnt, reinforce)
 	if err != nil {
 		serverError(w, err)
 		return
@@ -468,7 +472,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	all := withLength(mine, length)
 	sessions := slices.Clone(all[max(0, len(all)-50):])
 	slices.Reverse(sessions)
-	rounds := history.LetterTimeline(every, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
+	keyboard := storage.OnKeyboard(every)
+	rounds := history.LetterTimeline(keyboard, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
 	out := map[string]any{
 		"forecast": history.NextForecast(rounds, gen.Order(), stats, unlocked, p, s.cfg.Forecast),
 		"lap":      lap, "lastLap": who.base.LastLap(s.cfg.Laps),
@@ -481,10 +486,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"wordLevels":  s.wordLevels(l),
 	}
 	if part != storage.PartLearn {
-		out["standing"] = s.standing(roundsOf(every, storage.PartReinforce), who.base, len(l.Levels))
+		out["standing"] = s.standing(roundsOf(keyboard, storage.PartReinforce), who.base, len(l.Levels))
 	}
 	if part == storage.PartReinforce {
-		out["pairs"] = s.pairsOf(mine[max(0, len(mine)-s.cfg.Freeplay.WeakRounds):])
+		typed := roundsOf(keyboard, part)
+		out["pairs"] = s.pairsOf(typed[max(0, len(typed)-s.cfg.Freeplay.WeakRounds):])
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -533,6 +539,7 @@ func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user
 		serverError(w, err)
 		return
 	}
+	all = storage.OnKeyboard(all)
 	who := s.learner(user, l)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"order":      who.gen.Order(),

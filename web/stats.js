@@ -3,7 +3,7 @@
 // Learn accuracy, Reinforce speed against its goal, Freetype consistency.
 
 import { i18nVars, t, applyI18n } from "./i18n.js";
-import { $, el, S, listLabel, listless, wordLevel } from "./state.js";
+import { $, el, S, isTouch, listLabel, listless, wordLevel } from "./state.js";
 import { getJSON } from "./api.js";
 import { lengthLabel, lengthFor, lengthOf } from "./settings.js";
 import { ring, ringBtn } from "./minipop.js";
@@ -80,7 +80,9 @@ function draw() {
     return;
   }
   const { tiles, panels, chart } = BODY[S.mode](s, rounds);
-  sheet.innerHTML = header(s) + `<div class="st-tiles">${tiles.filter(Boolean).join("")}</div>` + panels + calendar();
+  // The server learns only from keyboard rounds (storage.OnKeyboard); on a phone the sheet says so.
+  const phone = isTouch() && S.mode !== "freetype" ? `<p class="st-phone">${t("st.phone")}</p>` : "";
+  sheet.innerHTML = header(s) + `<div class="st-tiles">${tiles.filter(Boolean).join("")}</div>` + phone + panels + calendar();
   barChart(sheet.querySelector(".st-chart"), rounds, s.sessionCount, chart);
 }
 

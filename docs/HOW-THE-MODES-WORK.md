@@ -785,7 +785,7 @@ fitted to real data. Every round keeps its raw keys (`docs/HOW-THE-CODE-WORKS.md
   for a guest (HOW-THE-CODE-WORKS.md, "Accounts"). Someone who types as a guest on
   two computers is two learners to the model; the model itself does not know
   about users at all.
-- **Word lists from subtitles.** The 2000 most frequent words,
+- **Word lists from subtitles.** The 25 000 most frequent words,
   counted in film and TV subtitles (section 11). That is spoken, everyday
   language: good for typing practice, but some names or slang may remain after
   filtering. Rare letters (`q`, `j`, `x`, `z`) have few words.

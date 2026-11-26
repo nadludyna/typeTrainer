@@ -124,7 +124,7 @@ test("Learn: the round that opens the last letter ends on the finish screen; Ent
   await page.evaluate((k) => fetch("/api/v1/import?lang=en", { method: "POST", body: JSON.stringify({ unlocked: k.n, keys: k.keys }) }), { n: order.length - 1, keys });
   await page.reload();
   await waitForText(page);
-  await typeRound(page, { delay: 30 });
+  await typeRound(page, { delay: 40 }); // about 300 wpm: the server turns down a round over 400
   const fin = page.locator("#result .fin");
   await expect(fin).toBeVisible();
   await expect(fin.locator("h2")).toHaveText("Every letter is open!");

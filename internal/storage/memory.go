@@ -3,7 +3,9 @@
 package storage
 
 import (
+	"cmp"
 	"errors"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -21,6 +23,7 @@ type MemoryStore struct {
 	users  map[string]User
 	names  map[string]string
 	logins map[string]login
+	seq    int64 // the last Session.seq given
 }
 
 type login struct {
@@ -264,7 +267,7 @@ func (m *MemoryStore) PracticeDays(user, lang, part string, tz time.Duration) ([
 		}
 	}
 	for mode, h := range d.freeplay {
-		if part == "" || part == PartFreetype && strings.HasPrefix(mode, "freetype-") {
+		if part == "" || part == PartFreetype && strings.HasPrefix(mode, freetypePrefix) {
 			all = append(all, h...)
 		}
 	}
@@ -301,6 +304,8 @@ func (m *MemoryStore) AddFreeplaySession(user, lang, mode string, s Session) err
 	if d.freeplay == nil {
 		d.freeplay = map[string][]Session{}
 	}
+	m.seq++
+	s.seq = m.seq
 	d.freeplay[mode] = append(d.freeplay[mode], s.WithLength())
 	return nil
 }
@@ -309,6 +314,25 @@ func (m *MemoryStore) RecentFreeplaySessions(user, lang, mode, length string, li
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return newestFirst(m.data(user, lang).freeplay[mode], length, limit), nil
+}
+
+func (m *MemoryStore) RecentFreetypeSessions(user, lang string, limit int) ([]Session, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var all []Session
+	for mode, h := range m.data(user, lang).freeplay {
+		if !strings.HasPrefix(mode, freetypePrefix) {
+			continue
+		}
+		for _, s := range h {
+			if !s.Aborted {
+				s.Mode = mode
+				all = append(all, s)
+			}
+		}
+	}
+	slices.SortFunc(all, func(a, b Session) int { return cmp.Or(b.FinishedAt.Compare(a.FinishedAt), cmp.Compare(b.seq, a.seq)) })
+	return all[:min(len(all), max(limit, 0))], nil
 }
 
 func (m *MemoryStore) BestFreeplayRounds(user, lang, mode string) (map[string]Session, error) {
@@ -367,6 +391,8 @@ func (m *MemoryStore) Import(user, lang string, data ImportData) error {
 			if mode == "learning" {
 				next.sessions = append(next.sessions, s)
 			} else {
+				m.seq++
+				s.seq = m.seq
 				next.freeplay[mode] = append(next.freeplay[mode], s)
 			}
 		}

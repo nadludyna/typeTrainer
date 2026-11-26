@@ -113,3 +113,72 @@ func TestApp_Freetype(t *testing.T) {
 		t.Fatal("an import with an unknown list must be rejected")
 	}
 }
+
+// Freetype's loop through the app (docs/HOW-THE-MODES-WORK.md, 0.3): the
+// word list moves by consistency, three even rounds up and two uneven ones
+// down, and the rhythm finds the pair typed with a stumble, from rounds on a
+// keyboard only.
+func TestApp_FreetypeRhythm(t *testing.T) {
+	h, _, _ := newApp()
+	stats := func(list int) map[string]any {
+		t.Helper()
+		_, st := call(t, h, "GET", fmt.Sprintf("/api/v1/freetype/stats?lang=en&list=%d", list), "")
+		return st
+	}
+	if st := stats(200); st["standing"].(map[string]any)["level"] != 1.0 || st["rhythm"].(map[string]any)["presses"] != 0.0 {
+		t.Fatalf("new user: list 1, no rhythm: %v %v", st["standing"], st["rhythm"])
+	}
+	// A round of "the quick " ten times: every press 150 ms, and "qu" 700 ms in half of them.
+	keys := func() string {
+		var b strings.Builder
+		for i := range 10 {
+			for j, c := range "the quick " {
+				ms := 150
+				if c == 'u' && i%2 == 0 {
+					ms = 700
+				}
+				if j > 0 || i > 0 {
+					b.WriteString(",")
+				}
+				fmt.Fprintf(&b, `{"char":%q,"errors":0,"ms":%d}`, string(c), ms)
+			}
+		}
+		return b.String()
+	}()
+	round := func(list int, perSecond, device string) {
+		t.Helper()
+		body := fmt.Sprintf(`{"wpm":60,"accuracy":99,"chars":100,"perSecond":[%s],"list":%d,"device":%q,"keys":[%s]}`, perSecond, list, device, keys)
+		if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", body); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+	}
+	even, uneven := "5,5,5,5,5,5", "1,9,1,9,1,9"
+	for range 3 {
+		round(200, even, "touch")
+	}
+	if st := stats(200); st["standing"].(map[string]any)["level"] != 1.0 || st["rhythm"].(map[string]any)["presses"] != 0.0 {
+		t.Fatalf("rounds on a phone move nothing: %v %v", st["standing"], st["rhythm"])
+	}
+	round(200, even, "keyboard")
+	round(200, even, "keyboard")
+	if s := stats(200)["standing"].(map[string]any); s["level"] != 1.0 || s["passes"] != 2.0 {
+		t.Fatalf("two even rounds: %v", s)
+	}
+	round(200, even, "keyboard")
+	st := stats(200)
+	if s := st["standing"].(map[string]any); s["level"] != 2.0 || s["moved"] != 1.0 {
+		t.Fatalf("the third even round moves the list up: %v", s)
+	}
+	pairs := st["rhythm"].(map[string]any)["pairs"].([]any)
+	if len(pairs) != 1 || pairs[0].(map[string]any)["pair"] != "qu" {
+		t.Fatalf("the stumble pair: %v", st["rhythm"])
+	}
+	round(1000, uneven, "keyboard")
+	round(1000, uneven, "keyboard")
+	if s := stats(1000)["standing"].(map[string]any); s["level"] != 1.0 || s["moved"] != -1.0 {
+		t.Fatalf("two uneven rounds move the list down: %v", s)
+	}
+	if _, st := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&variant=sentences", ""); st["standing"] != nil {
+		t.Fatalf("sentences have no list to move: %v", st["standing"])
+	}
+}

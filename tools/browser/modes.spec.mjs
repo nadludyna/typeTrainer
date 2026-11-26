@@ -245,6 +245,34 @@ test("check-in, Freetype: Skip starts the round at once; Welcome brings the chec
   expect(await page.evaluate(() => ["learn", "reinforce", "freetype"].map((m) => localStorage.getItem(`tt.checkin.${m}`)))).toEqual(["", "", ""]);
 });
 
+test("Freetype: the word list follows the rounds' rhythm, and the stats say how close the next move is", async ({ page }) => {
+  let saved = false;
+  await page.route("**/api/v1/freetype/results?*", async (route) => {
+    const res = await route.fetch();
+    if (res.ok()) saved = true;
+    return route.fulfill({ response: res });
+  });
+  // The server's standing: one even round at the first list, then the round just saved moved it up.
+  await page.route("**/api/v1/freetype/stats?*", async (route) => {
+    const res = await route.fetch(), body = await res.json();
+    body.standing = saved ? { level: 2, passes: 0, fails: 0, moved: 1, passesUp: 3, failsDown: 2 }
+      : { level: 1, passes: 1, fails: 0, moved: 0, passesUp: 3, failsDown: 2 };
+    if (!body.lengths?.length) body.lengths = ["words-10"];
+    return route.fulfill({ response: res, json: body });
+  });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.list.en": "200", "tt.length.freetype": "words-10" });
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-tiles"), "how close the next list is").toContainText("1 of 3 rounds to 1k");
+  await expect(page.locator(".st-two"), "the stumbles panel").toContainText("Where your rhythm stumbles");
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Backquote");
+  await typeRound(page);
+  await expectResult(page);
+  await expect(page.locator("#toasts")).toContainText("now the 1k most common words");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("tt.list.en")), { message: "the list followed" }).toBe("1000");
+  await expect(page.locator('#mode-bar button[data-list="1000"]')).toHaveAttribute("aria-pressed", "true");
+});
+
 test("Reinforce: the word level follows the rounds, and the stats say how close the next move is", async ({ page }) => {
   let saved = false;
   // The round is marked saved before its answer reaches the page, so the next /stats sees it.

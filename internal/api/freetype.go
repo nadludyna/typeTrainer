@@ -11,8 +11,49 @@ import (
 	"time"
 
 	"typingtrainer/internal/engine"
+	"typingtrainer/internal/freeplay"
 	"typingtrainer/internal/storage"
 )
+
+// ---------- Freetype's loop: the rhythm and the word list (docs/HOW-THE-MODES-WORK.md, 0.3) ----------
+
+// typedRounds is the last Freetype rounds typed on a keyboard, newest first.
+func (s *Server) typedRounds(user, lang string) ([]storage.Session, error) {
+	p := s.cfg.Freeplay
+	rounds, err := s.store.RecentFreetypeSessions(user, lang, max(p.WeakRounds, p.History))
+	return storage.OnKeyboard(rounds), err
+}
+
+// rhythmOf is the rhythm of the last WeakRounds of these rounds.
+func (s *Server) rhythmOf(rounds []storage.Session) freeplay.Rhythm {
+	rounds = rounds[:min(len(rounds), s.cfg.Freeplay.WeakRounds)]
+	keys := make([][]freeplay.Key, len(rounds))
+	for i, r := range rounds {
+		keys[i] = make([]freeplay.Key, len(r.Keys))
+		for j, k := range r.Keys {
+			keys[i][j] = freeplay.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms}
+		}
+	}
+	return freeplay.ReadRhythm(keys, s.cfg.Freeplay)
+}
+
+// listStanding is where the rounds of one variant (newest first) leave its
+// word list: each judged by its consistency (freeplay.JudgeRhythm), the last
+// run at one list counted, as Reinforce's word level is.
+func (s *Server) listStanding(rounds []storage.Session, lists []int, variant string) standing {
+	p := s.cfg.Freeplay
+	p.Levels = lists
+	var rs []freeplay.Round
+	for i := len(rounds) - 1; i >= 0; i-- {
+		n, v, ok := storage.ParseFreetypeMode(rounds[i].Mode)
+		at := slices.Index(lists, n)
+		if !ok || v != variant || at < 0 {
+			continue
+		}
+		rs = append(rs, freeplay.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency})
+	}
+	return standing{Place: freeplay.Standing(rs, freeplay.JudgeRhythm, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
+}
 
 func (s *Server) freetypeLists(l *Language) []int {
 	out := []int{}
@@ -87,6 +128,17 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 	p := s.cfg.Freeplay
+	var stumbles []string
+	if !storage.Listless(req.Variant) {
+		rounds, err := s.typedRounds(user, l.Info.ID)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		for _, x := range s.rhythmOf(rounds).Pairs {
+			stumbles = append(stumbles, x.Pair)
+		}
+	}
 	count := s.startPortions(req.Start, req.Words)
 	type portion struct {
 		Words []string `json:"words"`
@@ -98,7 +150,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		if req.Variant == storage.VariantSentences {
 			out[i].Words = l.Sentences.Portion(recent, p.PortionWords, p)
 		} else {
-			out[i].Words = l.Freetype.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, p)
+			out[i].Words = l.Freetype.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, stumbles, p)
 		}
 		recent = append(recent, out[i].Words...)
 	}
@@ -177,5 +229,14 @@ func (s *Server) handleFreetypeStats(w http.ResponseWriter, r *http.Request, use
 		return
 	}
 	out["lists"], out["list"], out["variant"], out["sentences"] = lists, list, variant, l.Sentences != nil
+	rounds, err := s.typedRounds(user, l.Info.ID)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	out["rhythm"] = s.rhythmOf(rounds)
+	if !storage.Listless(variant) {
+		out["standing"] = s.listStanding(rounds, lists, variant)
+	}
 	writeJSON(w, http.StatusOK, out)
 }

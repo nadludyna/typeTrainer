@@ -2,14 +2,14 @@
 
 import { t } from "./i18n.js";
 import { FX, fade } from "./fx.js";
-import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel, setWordLevel, listLabel } from "./state.js";
+import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel, setWordLevel, listLabel, listless } from "./state.js";
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
 import { showResult, showFinish } from "./result.js";
 import { renderLetters } from "./letters.js";
 import { renderPanel, roundMilestone, compareStats, refreshActivity, tickGoal, roundEnded } from "./learnpanel.js";
-import { learning, refreshFreeplay, renderNav, setMode } from "./modes.js";
+import { learning, refreshFreeplay, renderNav, setMode, setFreetypeList } from "./modes.js";
 import { renderModeBar } from "./modebar.js";
 import { lengthOf } from "./settings.js";
 import { customPortions, customRoundDone } from "./customtext.js";
@@ -646,6 +646,18 @@ function followLevel(level) {
   FX.toast(t(st.moved > 0 ? "re.levelUp" : "re.levelDown", { n: listLabel(levels[st.level - 1]) }));
 }
 
+// Freetype's word list moves by itself as Reinforce's level does: the page
+// follows it only right after a round at the list it uses (/freetype/stats
+// "standing", judged by consistency).
+async function followList(list, variant) {
+  const st = S.freetype?.standing, lists = S.freetype?.lists ?? [];
+  const next = st?.moved ? lists[st.level - 1] : 0;
+  if (!next || next === list || listless(variant) || list !== S.freetypeList || variant !== S.freetypeVariant) return;
+  await setFreetypeList(next);
+  renderModeBar();
+  FX.toast(t(st.moved > 0 ? "ft.listUp" : "ft.listDown", { n: listLabel(next) }));
+}
+
 async function finishLearn() {
   const rounds = S.lastStats.sessions ?? [];
   const accuracy = rounds.length ? rounds.reduce((a, x) => a + x.accuracy, 0) / rounds.length : 0;
@@ -703,6 +715,7 @@ async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const { res, unsaved } = await trySave("/freetype/results", body, saved);
   if (res) {
     await saved();
+    await followList(list, variant);
     const best = before.length > 0 && wpm > Math.max(...before.map((x) => x.wpm));
     await showResult({ ...shown, consistency: res.consistency, best });
   } else {

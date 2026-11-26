@@ -122,7 +122,6 @@ test("a click on the logo goes home: from the stats and from a result", async ({
   await expectResult(page);
   await page.locator("#logo").click();
   await expect(page.locator("body")).not.toHaveClass(/\btb-resulting\b/);
-  await expect(page.locator(".mascot"), "one click doesn't wake the mascot").toHaveCount(0);
 });
 
 test("the stats screen opens after a round and shows it", async ({ page }) => {

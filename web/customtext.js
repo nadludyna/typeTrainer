@@ -8,7 +8,7 @@ const PORTION_WORDS = 6;
 const MARKS = ".,?!;:'-";
 const key = (k) => `tt.${k}.${S.lang}`;
 
-export function cleanText(raw, alphabet) {
+function cleanText(raw, alphabet) {
   const out = [];
   for (const w of raw.slice(0, MAX).replace(/[‘’ʼ`]/g, "'").replace(/[–—]/g, "-").split(/\s+/)) {
     const word = [...w].filter((c) => alphabet.has(c.toLowerCase()) || MARKS.includes(c)).join("");

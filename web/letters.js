@@ -93,7 +93,7 @@ export function letterProgress(k) {
 // What holds a letter back: a mistake costs more than a slow press (Learn's
 // difficulty weighs them 0.6 and 0.4), so mistakes over 5% come first.
 const CLEAN_ENOUGH = 0.05;
-export function letterNeeds(k) {
+function letterNeeds(k) {
   if (k?.mastered) return [];
   if (!k?.count) return ["need.start"];
   const r = rule(), out = [];
@@ -116,7 +116,7 @@ function letterTip(k) {
 }
 
 // ---------- the forecast ----------
-export function forecastText(f, allOpen) {
+function forecastText(f, allOpen) {
   if (!f?.known) return null;
   const label = t(allOpen ? "fc.lap" : "fc.next");
   const value = f.more ? t("fc.more", { n: f.rounds }) : t(f.rounds === 1 ? "fc.one" : "fc.rounds", { n: f.rounds });

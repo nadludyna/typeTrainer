@@ -1,6 +1,6 @@
 // The modes and their tabs.
 
-import { el, S, store, shownMode, statsShown } from "./state.js";
+import { el, S, store, shownMode } from "./state.js";
 import { getJSON } from "./api.js";
 import { autoKb } from "./keyboard.js";
 import { lengthFor } from "./settings.js";
@@ -60,14 +60,11 @@ export function setMode(m) {
   autoKb();
 }
 
-
 export function renderNav() {
-  el.tabStats.hidden = !statsShown();
   const tabs = [el.tabWelcome, el.tabLearn, el.tabReinforce, el.tabFreetype, el.tabStats];
   const mine = S.view === "stats" ? el.tabStats : S.view === "welcome" ? el.tabWelcome : tabs[MODES.indexOf(S.mode) + 1];
-  const shown = tabs.filter((b) => !b.hidden);
-  el.nav.style.setProperty("--n", shown.length);
-  el.nav.style.setProperty("--i", shown.indexOf(mine));
+  el.nav.style.setProperty("--n", tabs.length);
+  el.nav.style.setProperty("--i", tabs.indexOf(mine));
   tabs.forEach((b) => b.setAttribute("aria-selected", String(b === mine)));
   document.body.dataset.mode = S.mode;
 }

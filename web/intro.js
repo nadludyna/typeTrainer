@@ -66,7 +66,7 @@ function drawMap(box) {
 
 // A finger's keys in the order the tour asks for them: column by column,
 // each from the top row down (r f v, then t g b for the left index).
-export function fingerKeys(rows, f) {
+function fingerKeys(rows, f) {
   const cols = rows.map((r) => r.filter((k) => k.finger === f).map((k) => k.char));
   const out = [];
   for (let c = 0; c < Math.max(0, ...cols.map((x) => x.length)); c++) {
@@ -86,7 +86,7 @@ export function resetWelcome() {
   renderWelcome();
 }
 
-export function renderWelcome() {
+function renderWelcome() {
   const info = S.languages.find((l) => l.id === S.lang);
   $("intro-lang").textContent = info ? " · " + info.name : "";
   el.intro.querySelectorAll(".intro-step").forEach((s, i) => s.classList.toggle("active", i === step));
@@ -177,7 +177,7 @@ export function welcomeKey(e) {
   else if (step === STEP_TOUR) tourKey(e.key.toLowerCase());
 }
 
-export function startLearn() {
+function startLearn() {
   store.set("tt.introDone", "1");
   onStart();
 }

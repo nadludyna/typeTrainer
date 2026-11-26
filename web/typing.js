@@ -247,7 +247,6 @@ let probe = null;   // { list, seconds, resolve } while a sample runs
 let sampleOver = false;
 // Learn's stream (one word at a time, its routes) in Learn and Reinforce, not in a sample.
 const learnStream = () => learning() && !probe;
-export const probing = () => probe !== null;
 export function runProbe(list, seconds) {
   return new Promise((resolve) => {
     probe = { list, seconds, resolve };
@@ -337,7 +336,7 @@ function record(i, wrong, now, typed) {
     if (r.typed === undefined) r.typed = typed;
   }
 }
-export function typedWords() {
+function typedWords() {
   const out = [];
   for (let start = 0; start < S.pos; ) {
     const end = wordEnd(start), upTo = Math.min(end, S.pos);
@@ -353,7 +352,7 @@ export function typedWords() {
   }
   return out;
 }
-export function roundFacts(end = lastTime) {
+function roundFacts(end = lastTime) {
   const raw = Math.round(currentRaw(end));
   const chars = { correct: 0, wrong: 0, extra: 0, missed: 0 };
   for (let i = 0; i < S.pos; i++) {

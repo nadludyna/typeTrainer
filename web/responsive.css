@@ -22,17 +22,31 @@
   .logo-key { display: none; }
   .logo-name { font-size: var(--fs-m); }
   .rail { justify-content: space-between; gap: 0; padding-inline: 2px; }
-  .rail-group { flex: 2; }
-  .rail .nav-switch { flex: 3; }
+  .rail-group { flex: 1; min-width: 0; }
+  .rail .nav-switch { flex: var(--n); min-width: 0; grid-auto-columns: minmax(0, 1fr); }
   .rail .switch button, .rail-btn { width: auto; flex: 1; min-width: 0; }
-  .rail .pop { flex: 1; display: flex; }
-  .rail .switch button small, .rail-btn small { font-size: var(--fs-min); }
+  .rail .pop { flex: 1; display: flex; min-width: 0; }
+  /* icons only: six names never fit a phone's width; screen readers still read them */
+  .rail .switch button small, .rail-btn small { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .rail .switch button svg, .rail-btn svg { width: 24px; height: 24px; }
   .rail .switch button, .rail-btn { height: 54px; }
   .tiles { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 100%; }
   .tiles > .tile:first-child:nth-last-child(odd) { grid-column: 1 / -1; }
   .tile { padding: 10px 10px 9px; }
   .tile b { font-size: var(--fs-m); }
   .note { font-size: var(--fs-min); border-radius: var(--r-md); }
+  /* Nothing may be wider than the screen: a phone's browser widens the whole
+     page to the widest element, and the bottom navigation slides off it. */
+  :root { --text-l: 16px; --text-r: 16px; }
+  .live, .live-right { column-gap: 12px; }
+  .goal-count { display: none; }
+  #view-type > .letters { height: auto; min-height: var(--band); }
+  .mode-bar { flex-wrap: wrap; row-gap: 8px; }
+  .bar-side { flex-wrap: wrap; gap: 8px; min-width: 0; }
+  .mode-bar .ring { flex-wrap: wrap; }
+  /* the result: the numbers, then the chart under them at the full width */
+  .r-top { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .r-legend > span { min-width: 0; padding: 0 2px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

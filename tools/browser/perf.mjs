@@ -8,7 +8,8 @@ import { chromium } from "@playwright/test";
 import { spawn, execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { openApp, waitForText } from "./app.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).join(" ").split("--").filter(Boolean)
@@ -107,7 +108,7 @@ if (!opt.against) {
     console.error("perf: something already serves :3000. Stop it (and any other test server) and run again: a busy machine reads slow.");
     process.exit(1);
   }
-  const repo = resolve("../..");
+  const repo = resolve(dirname(fileURLToPath(import.meta.url)), "../..");   // from any folder it is run in
   const dir = mkdtempSync(join(tmpdir(), "tt-perf-"));
   const exe = process.platform === "win32" ? ".exe" : "";
   const base = { name: opt.against, tree: join(dir, "base"), bin: join(dir, "base" + exe), runs: { fast: [], slow: [] } };

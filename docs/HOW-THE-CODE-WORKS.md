@@ -2,23 +2,45 @@
 
 ## Overview
 
+```mermaid
+flowchart LR
+  subgraph page["Browser: web/, ES modules, no framework"]
+    input["input.js<br/>keys and buttons"] --> typing["typing.js<br/>the round, the time of each press"]
+    screens["stats.js, result.js,<br/>intro.js, checkin.js<br/>the screens"]
+    apijs["api.js<br/>JSON over HTTP"]
+    typing --> apijs
+    screens --> apijs
+  end
+  subgraph server["Go server: main.go, setup.go"]
+    static["internal/static<br/>the page's files, gzip, ETag"]
+    api["internal/api<br/>/api/v1/*, a guest or an account"]
+    engine["internal/engine<br/>letter model, word choice"]
+    freeplay["internal/freeplay<br/>Freetype's words, weak pairs,<br/>Reinforce's level rule"]
+    history["internal/history<br/>rounds replayed for the stats"]
+    auth["internal/auth<br/>passwords, sign-in limit"]
+    store["internal/storage<br/>Store"]
+    mem[("MemoryStore")]
+    pg[("PostgreSQL")]
+  end
+  page -- "GET the page" --> static
+  apijs -- "POST /portion, /results, /checkin<br/>GET /stats, /activity" --> api
+  api --> engine
+  api --> freeplay
+  api --> history
+  api --> auth
+  api --> store
+  store --> mem
+  store --> pg
 ```
- Browser (web/)                         Go server
- ┌───────────────────────┐   JSON    ┌─────────────────────────────────────────┐
- │ ES modules: app.js,   │ ───────▶  │ api        HTTP handlers, /api/v1/*      │
- │  typing.js (keydown,  │ ◀───────  │   │                                      │
- │  timing), keyboard... │           │   ├──▶ engine   model + word generator   │
- └───────────────────────┘           │   └──▶ storage  Store interface          │
-                                     │              ├─ MemoryStore (default)    │
-                                     │              └─ PostgresStore (DB URL)   │
-                                     │ config  all numbers   layout  key data   │
-                                     └─────────────────────────────────────────┘
-```
+
+On GitHub Pages the same Go code runs inside the page as WebAssembly: there is
+no server, `pages/wasm-shim.js` answers the `/api/v1/` calls with it, and the
+memory store is copied to the browser's IndexedDB ("Two ways to run" below).
 
 **Dependency rule:** `api` uses `engine`, `freeplay` and `storage`. `storage` imports
 `engine` only for the `KeyStat` type. `engine` imports nothing from the project.
 The engine therefore never knows about HTTP or the database and can be tested on
-its own.
+its own. Every number they use is in `internal/config`.
 
 ## Packages and files
 
@@ -216,6 +238,31 @@ Colours are CSS variables on `:root`; there is one theme, dark.
 The text is a stream of short portions (`Generator.Portion`, see
 `docs/HOW-THE-MODES-WORK.md`, section 7), not one exercise built in advance. A round
 is `RoundPortions` portions (30 words).
+
+```mermaid
+sequenceDiagram
+  actor P as Person
+  participant B as Browser (typing.js)
+  participant A as internal/api
+  participant E as internal/engine
+  participant S as internal/storage
+  B->>A: POST /portion {start: true}
+  A->>S: the letter model, the open letters
+  A->>E: Portion: words weighted to the weak letters
+  A-->>B: the first portions of the round
+  loop every key
+    P->>B: keydown
+    B->>B: right or wrong, ms since the last key
+  end
+  B->>A: POST /portion: the next one, at a portion's last space
+  A->>E: Portion from the model as it is
+  A-->>B: one more portion
+  B->>A: POST /results: the round's presses and numbers
+  A->>E: Apply: the presses update the letter model
+  A->>S: SaveLearned: letters, open letters, lap and the round, all or nothing
+  A-->>B: a new letter or step, if any
+  B->>A: GET /stats
+```
 
 1. Start of a round (`loadExercise()` in `typing.js`) → `POST /api/v1/portion {start: true}`
    returns the portion to type plus `AheadPortions` waiting after it, and
@@ -507,6 +554,88 @@ in git. How to install PostgreSQL on Windows: DEVELOPMENT.md.
   separate database); the pull request checks start a PostgreSQL 16 for it.
   The app tests (`setup_test.go`) always use memory.
 
+### The tables after every migration
+
+```mermaid
+erDiagram
+  users ||--o{ logins : "signs in with"
+  users ||--o| owner : "is, as u + id"
+  owner ||--o{ progress : "one row per language"
+  owner ||--o{ key_stats : "one row per letter and language"
+  owner ||--o{ sessions : "every round"
+  owner ||--o| epochs : "one per language"
+  users {
+    bigserial id PK
+    text name UK
+    text password_hash
+    timestamptz created_at
+  }
+  logins {
+    text token_hash PK
+    text user_id
+    timestamptz expires
+  }
+  progress {
+    text user_id PK
+    text lang PK
+    int unlocked
+    int lap
+  }
+  key_stats {
+    text user_id PK
+    text lang PK
+    text ch PK
+    int count
+    int mistakes
+    float err_ema
+    float time_ema
+    int timed_count
+    bool held
+    text hits
+    bool slipped
+  }
+  sessions {
+    bigserial id PK
+    text user_id
+    text lang
+    text mode
+    float wpm
+    float accuracy
+    int chars
+    float consistency
+    int unlocked
+    jsonb keys
+    timestamptz finished_at
+    text length
+    text device
+    float level
+    int lap
+    text round_id
+    int epoch
+    bool aborted
+    float seconds
+  }
+  epochs {
+    text user_id PK
+    text lang PK
+    int epoch
+  }
+```
+
+`owner` is not a table: it is the `user_id` every data table carries, an
+account's `u<id>` or a guest's `g…` (`local` without accounts). That is why
+there are no foreign keys: a guest has data and no row in `users`.
+
+| Table | Keeps | Written by |
+|---|---|---|
+| `users` | an account: its name and the password's hash (PBKDF2) | sign-up |
+| `logins` | a signed-in browser: the hash of its token and when it ends | sign-in, sign-out |
+| `progress` | per language: how many letters Learn has opened, Reinforce's speed goal step | every Learn or Reinforce round, the check-in, starting Learn over |
+| `key_stats` | per letter: presses, mistakes, the error and time averages, the last 100 presses (`hits`), mastered and slipped | every Learn or Reinforce round |
+| `sessions` | every round of every mode: its numbers, its raw presses (`keys`), its length, Reinforce's word level, Freetype's list (`mode`), whether Tab dropped it | the end of every round |
+| `epochs` | per language: how many times the data was wiped or replaced, so a round sent from before it is never kept | Reset, Start Learn over, Import |
+| `schema_migrations` | which migration files are applied | the server, at start |
+
 ## Two ways to run: server and GitHub Pages
 
 The same code runs in two places. Go build tags pick the entry point:
@@ -534,6 +663,43 @@ server version never loads them. Every file is linked with `?v=<commit>`
 modules), because GitHub Pages lets browsers cache files for 10 minutes:
 without it, a visitor right after a deploy could get the new page with an old
 module or an old `app.wasm`.
+
+## Measured
+
+On 2026-11-26, on `main`, on a 2018 laptop (Intel i5-8300H, 4 cores) in
+Edge. Measure again before quoting: the commands are next to each table.
+
+**Typing latency** (`node tools/browser/perf.mjs --mode … --runs 3`, nothing
+else running; the goal is in AGENTS.md, "How we work"):
+
+| Screen | Style recalc per key | Key → caret start, CPU 6× slower | Slow frames (> 25 ms), CPU 6× slower |
+|---|---|---|---|
+| Learn, keyboard and background on | 1.4 ms | 24 ms | 7 % |
+| Learn, bare (`--bare`) | 0.7 ms | 15 ms | 1 % |
+| Freetype | 0.7 ms | 16 ms | 2 % |
+
+The share of slow frames moves a lot from run to run on a busy machine
+(5 % to 30 % on the same build here), so a change is judged side by side
+with `main` (`--against main`).
+
+**Test coverage** (`go test -cover ./internal/...`; `internal/api` through the
+whole-app tests, `go test -coverpkg=./internal/api .`):
+
+| Package | Coverage | Package | Coverage |
+|---|---|---|---|
+| `engine` | 94.3 % | `freeplay` | 98.6 % |
+| `history` | 94.5 % | `sim` | 94.5 % |
+| `auth` | 93.3 % | `layout` | 93.3 % |
+| `language` | 100 % | `static` | 100 % |
+| `api` | 83.1 % | `storage`, memory only | 50.3 % |
+
+`storage`'s PostgreSQL half runs only with a database (`TT_TEST_DATABASE_URL`),
+as it does in CI; `config` is numbers, and `demo` is checked by importing its
+file (`TestDemo_Imports`).
+
+**Size** (lines, `git ls-files`): Go 6 552, Go tests 5 228 (186 test
+functions), the page's JavaScript 3 830, CSS 1 166, browser checks 1 354
+(57 checks), docs 2 475.
 
 ## Where to add something
 

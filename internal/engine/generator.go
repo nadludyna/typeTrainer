@@ -210,7 +210,7 @@ func (g *Generator) NextUnlocked(stats map[string]KeyStat, unlocked int, p Param
 	return unlocked + 1
 }
 
-// FocusLetter is the focus of the accuracy rules (section 14.4): in the
+// FocusLetter is the focus of the accuracy rules (section 14.3): in the
 // first lesson the lowest letter under AccMaster; later a slipped letter,
 // the lowest first, else the newest letter.
 func (g *Generator) FocusLetter(stats map[string]KeyStat, unlocked int, p Params) string {

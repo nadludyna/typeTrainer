@@ -10,7 +10,7 @@ speed and builds the next words around your weak letters.
 
 ## Pillars
 
-1. **One path in three stages.** Learn the letters, reinforce them on words, then type freely. Each stage adds one thing to train: accuracy, then speed, then consistency.
+1. **Three modes, three skills.** Learn the letters, reinforce them on words, then type freely. Each mode trains one thing: accuracy, then speed, then rhythm.
 2. **It adapts to you.** The next words bring your weak letters and transitions.
 3. **Real words and real sentences** are what you practise on.
 4. **Fast and calm.** Nothing jumps while you type.
@@ -24,44 +24,37 @@ speed and builds the next words around your weak letters.
 - **The on-screen keyboard with the hands** is part of the product: it shows
   which finger presses which key; it can be turned off.
 - **Phones:** the whole site adapts to the screen: the same screens as on a
-  computer with fewer elements, and you can type. Rounds typed on a phone are
-  stored apart and never enter the letter model or the computer stats: thumbs
-  on glass make other mistakes than fingers on keys. Phone typing may grow its
+  computer with fewer elements, and you can type. A round typed on a phone
+  keeps its device (`touch`), so it can be told apart, but it counts in the
+  letter model and the stats like any other for now, although thumbs on
+  glass make other mistakes than fingers on keys. Phone typing may grow its
   own training later.
-- **One mode, three stages.** Every stage adapts to you; each adds one
-  measure on top of the ones before. How the trainer picks what you type:
-  `docs/HOW-THE-MODES-WORK.md`.
+- **Three modes, each its own tab, always open.** Each trains one skill
+  with its own adaptive loop: what it measures, what it learns about you,
+  what it changes (`docs/HOW-THE-MODES-WORK.md`, section 0). Welcome is the
+  fourth tab, and each mode asks a question or takes a 30-second sample the
+  first time it opens.
 
-  | Stage | What you practise | What it trains | How it adapts | Opens when |
-  |---|---|---|---|---|
-  | **Learn** | letters, from the home row, one at a time | accuracy | words around your weak letters and the letter pairs you stumble on | from the start |
-  | **Reinforce** | words in levels that add up: 200, then 200 and 500, then up to 1k, and so on to 25k | accuracy and speed | the same, inside the open levels; the speed goal grows by a step you choose, with no ceiling | every letter is open |
-  | **Freetype** | free typing with your own settings | accuracy, speed and consistency | the next word is picked by the move from the end of one word into the start of the next, so the hands find a flow | the first Reinforce level is passed once |
+  | Mode | What you practise | What it trains | How it adapts |
+  |---|---|---|---|
+  | **Learn** | letters, from the home row, one at a time | accuracy | a letter opens when the newest is typed right 90 % of the time and none is under 85 %; the words bring your weak letters |
+  | **Reinforce** | real words of a level, the 200 to the 25 000 most common, every letter | speed, with accuracy as the gate | the words bring your slow letters and letter pairs; the word level moves by itself (three rounds at your goal speed up, two far under it down); the speed goal grows in steps of 10 wpm, 30 to 200 |
+  | **Freetype** | a list of common words, long words, sentences or your own text, by words or by seconds | rhythm: how even your keys are | its own loop is the plan's task 10: the letter pairs where your rhythm stumbles come more often |
 
-  Consistency belongs to Freetype because it depends most on the moves
-  between words. The letter row is all the progress Learn shows; the stats
-  screen opens with Reinforce.
-
-  **Built now:** a Welcome screen with the finger tour (section 14.1 of
-  `docs/HOW-THE-MODES-WORK.md`), a check-in when each mode is first opened (section 0.6), Learn, and Reinforce with one word level at a time and a
-  speed goal from 30 to 200 in steps of 10. Learn counts accuracy only,
-  with a focus on two thresholds (`docs/HOW-THE-MODES-WORK.md`, section
-  14). **To build:** a key drill for every new letter,
-  levels that add up, a level that can be passed, a goal step in the
-  settings and no ceiling, Freetype as the third stage with word-to-word
-  flow. Every mode, list and round length keeps its own history, and
-  nothing outside Learn touches Learn's data.
+  Learn's last letter ends on a finish screen that offers Reinforce;
+  Reinforce is open before that too, with every letter. Each mode has its
+  own stats on `~`. Every mode, list and round length keeps its own
+  history.
 - **What adapts and what does not.** The trainer cannot bend to everyone,
   so the line is drawn here:
   - *The trainer adapts:* which letter is in focus, which words come, when
     the next letter opens, the weak letter pairs, the speed goal.
-  - *You adapt to the method:* the path Learn, Reinforce, Freetype; fingers
-    rest on F and J (the bumps on the keys) and each finger owns its
-    column, because from there every finger reaches its keys equally; the
-    thresholds of 90 % and 85 %; a short drill with every new letter, no
-    skip; real words.
-  - *You choose:* going back to the finger tour, turning the on-screen
-    keyboard off, the step of the speed goal.
+  - *You adapt to the method:* fingers rest on F and J (the bumps on the
+    keys) and each finger owns its column, because from there every finger
+    reaches its keys equally; the thresholds of 90 % and 85 %; real words.
+  - *You choose:* the mode, going back to the finger tour, turning the
+    on-screen keyboard off, Reinforce's word level and speed goal by hand,
+    Freetype's list and round length.
 - **Settings: quick ones at hand, the rest in the window.** What belongs to
   the stage you are in can be changed right on the typing screen, on the
   fly. The settings window holds what concerns the whole site. Which
@@ -79,6 +72,72 @@ speed and builds the next words around your weak letters.
   silent change moves every user's progress. Explain the change, show it
   in the simulation (`go run ./tools/sim`) and ask.
 - **Try things freely:** build an idea, try it by feel, keep it or drop it.
+
+## Next to other trainers
+
+As they were on 2026-11-25. Each of the parts exists somewhere; the
+difference is the combination: real words, a loop that adapts in every mode
+and can be explained in a sentence, and a calm screen.
+
+| Trainer | What you type | What adapts, and by what | Strong | Missing |
+|---|---|---|---|---|
+| keybr | made-up words from the letters' sounds (real words as an option) | letters open by speed; each word holds one target letter | the learning algorithm and its charts, open source | made-up words; one of its six modes adapts |
+| Monkeytype | random common words, quotes | nothing | the feel, the settings, its community | no teaching, no stats per key |
+| Typing Improver | real words | the next words by the key-to-key transitions slower than your own median | thorough statistics, a control group | a long calibration before it adapts, a fixed course, many numbers |
+| typing.com | a fixed course, and stories written by a language model around the weak keys | a short practice after each block | school use, connected text | the course itself does not adapt; generated text is unpredictable |
+| TypeGG | quotes rated by difficulty | the quotes' difficulty to the typist's level | speed corrected for difficulty | made for competing, not learning |
+| Entertrained | books | nothing | the wish to finish the book | no adaptation, no stats per key |
+| Klavarog | word lists by speed level | the level is picked by hand | the finger shown for each key, Russian and Ukrainian | no stats, nothing adapts by itself |
+| **typeTrainer** | real words of the most common 200 to 25 000 | Learn: letters open by accuracy; Reinforce: the slow letters and pairs, the word level and the speed goal; Freetype: the rhythm (task 10) | every mode adapts, by rules written as formulas and checked in a simulation; stats per mode | English only; letters and pairs, not whole transitions; no study with people |
+
+## Use cases
+
+The person is the only actor: a guest by default, an account if they sign
+up. Each case is walked by a browser check (`tools/browser`) or a test
+through HTTP; the step-by-step path of a round is in
+`docs/HOW-THE-CODE-WORKS.md`, "Request lifecycle".
+
+| # | Case | Steps | Result |
+|---|---|---|---|
+| U1 | First visit | Welcome opens: what touch typing is, the home row, the finger tour; Enter starts Learn | Learn's first round with 6 letters |
+| U2 | A mode's first opening | Learn asks one question (no, a little, yes); Reinforce and Freetype take a 30-second sample | Learn starts with 6 or 10 letters; Reinforce gets its first goal and word level, Freetype its list |
+| U3 | A Learn round | type 30 words; the server picks each portion from the letter model; at the end the round is saved and learned from | a letter opens when its rule is met; the last letter ends on the finish screen |
+| U4 | A Reinforce round | pick or keep a word level and a speed goal; type the words | the slow letters and pairs come more often; the level moves after three passes or two fails; the goal steps up once every letter holds it |
+| U5 | A Freetype round | pick a list, long words, sentences or your own text, a length in words or seconds; type | the result with speed, accuracy and consistency |
+| U6 | Look at a mode's stats | `~` or the Stats button; `~`, Esc or Tab back | the mode's own measure, its chart, its panel, its days |
+| U7 | Keep progress across devices | sign up (the guest's progress moves into the account), sign in elsewhere | the same letters, rounds and stats |
+| U8 | Save or move progress | Settings, Data: Export to a file, Import from one | the whole language's progress written or replaced, all or nothing |
+| U9 | Start over | Settings, Data: Start Learn over, or Reset everything | Learn's letters and rounds, or everything, gone after a confirmation |
+
+## Requirements
+
+**Functional**
+
+| # | The site… | Where | Checked by |
+|---|---|---|---|
+| F1 | opens letters one at a time from the home row, by accuracy: the newest at 90 %, none under 85 %, over its last 100 presses | `internal/engine` (`NextUnlocked`, `Accuracy`) | `TestNextUnlocked_AccuracyRules`, `TestAccuracy_*` |
+| F2 | picks real words, weighted to the weak letters (Learn) and the slow letters and pairs (Reinforce) | `engine.Generator.Portion`, `WithPairs` | `TestNext_WeakLetterGetsFocus`, `TestWithPairs_WeakPairsComeMoreOften` |
+| F3 | measures every press: right or wrong and its time, a word's first letter not timed | `web/typing.js`, `engine.Apply` | `TestApply_WordStartsAreNotTimed` |
+| F4 | moves Reinforce's word level by itself and its speed goal by steps | `freeplay.Judge`, `Standing`; `engine.LapDone` | `TestJudge`, `TestStanding`, `TestApp_ReinforceLevelMovesByItself` |
+| F5 | gives Freetype a list, long words, sentences or the person's text, by words or seconds, with a consistency per round | `internal/freeplay`, `engine.Consistency` | `TestApp_Freetype`, `TestConsistency*` |
+| F6 | starts each mode from a check-in | `internal/api/checkin.go`, `web/checkin.js` | `TestApp_Checkin*`, the check-in browser checks |
+| F7 | shows each mode's stats on one key | `web/stats.js`, `/stats?part=`, `/activity?part=` | `TestApp_StatsPerMode`, the stats browser checks |
+| F8 | shows the next key and its finger on a keyboard that can be hidden | `web/keyboard.js`, `data/layouts/` | the keyboard browser checks |
+| F9 | keeps accounts; a guest's progress moves into a new account | `internal/auth`, `internal/api/auth.go` | `TestApp_Accounts`, `TestApp_SignUpKeepsGuestProgress` |
+| F10 | exports and imports a language's whole progress | `internal/api/data.go` | `TestApp_ExportImportRoundTrip`, `TestApp_ImportRejectsBadDataAndKeepsOldData` |
+
+**Non-functional**
+
+| # | Requirement | How it is met | Checked by |
+|---|---|---|---|
+| N1 | A key answers at once: the caret starts within 40 ms with the CPU slowed 6× | the keypress path touches only its own nodes (`docs/CODE-RULES.md`) | `node tools/browser/perf.mjs --against main` |
+| N2 | A round sent twice, or a save that fails halfway, is counted once and whole | round ids, one transaction per save | `RoundSentTwice`, `TestApp_ResultsSentTwice`, `TestApp_ResultsAfterAFailedSave` |
+| N3 | Passwords and sign-in tokens are kept only as hashes; sign-in attempts are limited | PBKDF2, SHA-256 of the token, a limiter | `TestPassword_*`, `TestToken_RandomAndHashed`, `TestApp_LoginAttemptLimit` |
+| N4 | The same storage rules hold in memory and in PostgreSQL | one `Store` interface | `store_test.go` on both, PostgreSQL in CI |
+| N5 | The same code runs as a server and in the browser (GitHub Pages) | WebAssembly build of the same Go code | the Pages build in `go run ./tools/check` and CI |
+| N6 | Few dependencies: Go's standard library and one PostgreSQL driver; plain HTML, CSS and JavaScript | `docs/CODE-RULES.md`, "Stack" | `go.mod`, no build step |
+| N7 | Every change is checked before it reaches `main` | `go run ./tools/check`; CI on every pull request, and every night | `.github/workflows/tests.yml` |
+| N8 | A desktop with a physical keyboard is the main place; a phone shows the same screens with fewer elements | `web/responsive.css` | the phone-width browser checks |
 
 ## Planned
 

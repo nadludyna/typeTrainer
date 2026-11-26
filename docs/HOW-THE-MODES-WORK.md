@@ -7,7 +7,7 @@ formula here is exactly what the code does, and every number comes from
 Section 14 is Learn's accuracy rules: its accuracy, focus and next letter
 are built and on (`AccWindow = 100`) and replace the level, mastery, focus
 and unlock rules of sections 5-7 while letters are still closed; the
-finger tour is built (in Welcome), the key drill is not built yet. Once every letter is open
+finger tour is built (in Welcome). Once every letter is open
 in Learn, the rules of sections 5-7 apply as written (and in Reinforce).
 
 Code: `internal/engine/model.go` (the math) and `internal/engine/generator.go`
@@ -767,8 +767,8 @@ All in `internal/config/config.go`.
 | `ConsistencyMinSeconds` | 5 | shortest round that gets a consistency (section 3) | a standard deviation of 2-3 numbers says little; 5 s is a few words even for a beginner |
 | `RankPenalty` | 0.5 | weight multiplier per `RankStep` over the limit | halving is easy to explain; with `T = 0.1` one step equals about 0.07 of difficulty, so weak letters still decide first |
 | `Laps.StepWPM` / `Laps.MaxWPM` | 10 / 200 | in Reinforce the goal goes up 10 WPM a step, up to 200 (section 6.1) | ten wpm is a step a typist feels; about 200 wpm is the top of real typing |
-| `AccWindow` / `AccPrior` | 100 / 3 | a letter's accuracy reads its last 100 presses plus 3 imaginary misses (section 14.3); 0 turns the rules off | 27 clean presses reach 90 %; a few lucky presses are not 100 % |
-| `AccMaster` / `AccSlip` | 0.90 / 0.85 | mastered; an older letter under the second takes the focus until it is back at the first (section 14.4) | the owner's choice; two thresholds keep a letter near 90 % from flipping the focus |
+| `AccWindow` / `AccPrior` | 100 / 3 | a letter's accuracy reads its last 100 presses plus 3 imaginary misses (section 14.2); 0 turns the rules off | 27 clean presses reach 90 %; a few lucky presses are not 100 % |
+| `AccMaster` / `AccSlip` | 0.90 / 0.85 | mastered; an older letter under the second takes the focus until it is back at the first (section 14.3) | the owner's choice; two thresholds keep a letter near 90 % from flipping the focus |
 | `PairBoost` | 2 | a word's weight grows by this for each weak pair in it, in Learn and Reinforce (section 6.1) | 3 times as likely: the pair comes up often, the letters' focus still leads |
 | `Forecast.Window` / `MinRounds` / `MaxRounds` | 10 / 3 / 50 | the forecast reads a letter's last 10 rounds, needs 3, says "50+" beyond 50 (section 6.2) | 10 rounds of a few presses are about what the EMA remembers (20 presses); with the simulation (section 10), 3 rounds answered more often than 5 at about the same error |
 
@@ -934,10 +934,9 @@ in lower case (names drop out) and a list of offensive words; the first
 
 ## 14. Learn: the accuracy rules
 
-Built: 14.3 to 14.5. Not built: the tour (14.1) and the drill (14.2).
 Each stage adds one measure: Learn trains accuracy
 only, Reinforce adds speed, Freetype adds consistency
-(`docs/PRODUCT.md`, "One mode, three stages"). Learn below replaces the
+(`docs/PRODUCT.md`, "Pillars"). Learn below replaces the
 level, mastery, focus and unlock rules of sections 5-7.
 
 ### 14.1 Welcome: the finger tour
@@ -967,20 +966,7 @@ with the finger's colour.
 
 It takes under a minute.
 
-### 14.2 The key drill
-
-A letter gets a short **drill** when it opens: about 10 seconds of the
-letter alone and with the home key of its finger, then straight into
-words. For `r` (left index, home `f`): `r r fr rf ra`. The six start
-letters get their drill right after the tour. The drill has no skip; its
-presses never enter the letter statistics.
-
-The drill comes when the letter opens, not all of them at the start: a
-movement is kept when it is typed in words right after it is drilled. The
-order of practice goes from blocked (one movement repeated) to mixed
-(movements in words), which is remembered better (Shea & Morgan, 1979).
-
-### 14.3 Accuracy, the one number of a letter
+### 14.2 Accuracy, the one number of a letter
 
 ```
 accuracy = correct / (presses + 3)        over the letter's last 100 presses
@@ -1005,7 +991,7 @@ not count in Learn. The letter row shows each letter's accuracy in %; it
 is all the progress Learn shows. The difficulty that weighs the words is
 `1 - accuracy`.
 
-### 14.4 Focus and the next letter
+### 14.3 Focus and the next letter
 
 - The **newest letter** is the focus until its accuracy reaches 90 %.
 - An older letter that falls **under 85 %** takes the focus and keeps it
@@ -1019,23 +1005,22 @@ The two thresholds are hysteresis, as in a thermostat: a letter that
 wobbles around 90 % neither flips the focus back and forth nor holds back
 the next letter.
 
-### 14.5 Words
+### 14.4 Words
 
 Section 7 stays: the stream, portions, the whole 25 000-word list from
 open letters, no repeat while fresh words exist, the lesson floor, weak
-pairs. What changes: the focus letter comes from 14.4 instead of the
-softmax draw, and the weights use the difficulty of 14.3.
+pairs. What changes: the focus letter comes from 14.3 instead of the
+softmax draw, and the weights use the difficulty of 14.2.
 
-### 14.6 What you adapt to, what adapts to you
+### 14.5 What you adapt to, what adapts to you
 
 The trainer adapts the focus, the words, when the next letter opens, the
 weak pairs and the speed goal. You adapt to the path, the fingers on F
-and J with a column each, the thresholds of 90 % and 85 %, the drill with
-every new letter and real words. You choose to reopen the tour, to turn
+and J with a column each, the thresholds of 90 % and 85 % and real words. You choose to reopen the tour, to turn
 the on-screen keyboard off and the step of the speed goal
 (`docs/PRODUCT.md`).
 
-### 14.7 The simulation
+### 14.6 The simulation
 
 The rules are in the engine behind a switch (`AccWindow`, 0 = off; the
 app has 100); `go run ./tools/sim -apply round -acc 100` turns them on in

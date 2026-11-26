@@ -595,3 +595,44 @@ func TestApp_StatsPerMode(t *testing.T) {
 		}
 	}
 }
+
+// Reinforce's word level moves by its rounds: three at the goal speed with
+// 96 % or more move it up, two under 90 % of the goal move it down, a level
+// picked by hand starts a run of its own (docs/HOW-THE-MODES-WORK.md, 0.2).
+func TestApp_ReinforceLevelMovesByItself(t *testing.T) {
+	h, _, _ := newApp()
+	round := func(level int, wpm float64) map[string]any {
+		t.Helper()
+		body := fmt.Sprintf(`{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"accuracy":99,"wpm":%v,"level":%d}`, wpm, level)
+		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+		_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+		return st["standing"].(map[string]any)
+	}
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	goal := st["targetWpm"].(float64)
+	if s := st["standing"].(map[string]any); s["level"] != 1.0 || s["moved"] != 0.0 || s["passesUp"] != 3.0 || s["failsDown"] != 2.0 {
+		t.Fatalf("no rounds yet: %v", s)
+	}
+	round(3, goal+5)
+	if s := round(3, goal); s["passes"] != 2.0 || s["moved"] != 0.0 {
+		t.Fatalf("two passes: %v", s)
+	}
+	if s := round(3, goal+10); s["level"] != 4.0 || s["moved"] != 1.0 {
+		t.Fatalf("the third pass moves up: %v", s)
+	}
+	if s := round(2, goal); s["level"] != 2.0 || s["passes"] != 1.0 || s["moved"] != 0.0 {
+		t.Fatalf("a level picked by hand starts its own run: %v", s)
+	}
+	if s := round(2, goal*0.95); s["level"] != 2.0 || s["passes"] != 1.0 || s["fails"] != 0.0 {
+		t.Fatalf("just under the goal holds: %v", s)
+	}
+	round(2, goal*0.5)
+	if s := round(2, goal*0.5); s["level"] != 1.0 || s["moved"] != -1.0 {
+		t.Fatalf("two rounds far under the goal move down: %v", s)
+	}
+	if _, learn := call(t, h, "GET", "/api/v1/stats?lang=en&part=learn", ""); learn["standing"] != nil {
+		t.Fatalf("Learn's stats carry no word level: %v", learn["standing"])
+	}
+}

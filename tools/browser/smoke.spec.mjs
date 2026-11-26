@@ -1031,3 +1031,29 @@ test("check-in, Freetype: Skip starts the round at once; Welcome brings the chec
   await page.locator("#wl-checkins").click();
   expect(await page.evaluate(() => ["learn", "reinforce", "freetype"].map((m) => localStorage.getItem(`tt.checkin.${m}`)))).toEqual(["", "", ""]);
 });
+
+test("Reinforce: the word level follows the rounds, and the stats say how close the next move is", async ({ page }) => {
+  let saved = false;
+  // The round is marked saved before its answer reaches the page, so the next /stats sees it.
+  await page.route("**/api/v1/results?*", async (route) => {
+    const res = await route.fetch();
+    if (res.ok()) saved = true;
+    return route.fulfill({ response: res });
+  });
+  // The server's standing: one pass at the first level, then the round just saved moved it up.
+  await page.route("**/api/v1/stats?*", async (route) => {
+    const res = await route.fetch(), body = await res.json();
+    body.standing = saved ? { level: 2, passes: 0, fails: 0, moved: 1, passesUp: 3, failsDown: 2 }
+      : { level: 1, passes: 1, fails: 0, moved: 0, passesUp: 3, failsDown: 2 };
+    if (!body.lengths?.length) body.lengths = ["words-30"];
+    return route.fulfill({ response: res, json: body });
+  });
+  await openApp(page, { "tt.mode.en": "reinforce", "tt.wordLevel.en": "1" });
+  await page.keyboard.press("Backquote");
+  await expect(page.locator(".st-tiles"), "how close the next level is").toContainText("1 of 3 rounds to 500");
+  await page.waitForTimeout(350);
+  await page.keyboard.press("Backquote");
+  await typeRound(page, { done: async () => saved });
+  await expect(page.locator("#toasts")).toContainText("now the 500 most common words");
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("tt.wordLevel.en")), { message: "the level followed" }).toBe("2");
+});

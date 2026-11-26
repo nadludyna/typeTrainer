@@ -54,8 +54,8 @@ at `/results`.
 | Model | For each letter: the error rate (EMA, `ErrAlpha = 0.05`) and the time of a press (EMA, `Alpha = 0.1`). Both are compared with the target speed: `TargetMs = 12000 / TargetWPM`. Together they give a difficulty and a level from 0 to 100 (section 5). The weak pairs are the pairs of letters with the highest cost over the last 20 rounds; a miss costs 1000 ms. |
 | Output 1: the words | At the chosen word level (the 200 ... 25 000 most common words). Each portion has a focus letter, drawn with softmax over difficulty. Slow letters and weak pairs come more often. |
 | Output 2: the speed goal | It goes up by one step of 10 wpm once every letter is mastered at the current goal. It starts at 30 and stops at 200. |
-| Output 3: the word level | Not built yet. Planned: it moves up by itself after 3 rounds at the goal speed with 95 % accuracy or more, and down after 2 rounds below. This is the same pass, hold and fail rule as `freeplay.Judge` and `Standing`, with speed added. A level picked by hand starts the climb from there. |
-| Status | The words and the speed goal are built (section 6.1). The word level only moves by hand. |
+| Output 3: the word level | Moves by itself. Each round is judged at the speed goal of its own step (`freeplay.Judge`): it **passes** at the goal or faster with `PassAccuracy = 96 %` or more, **fails** under `FailAccuracy = 92 %` or under `FailSpeed = 90 %` of the goal, and **holds** in between. Three passes with no fail between them (`PassesUp = 3`) move one level up, two fails in a row (`FailsDown = 2`) one level down; a hold keeps the passes and breaks a row of fails (`freeplay.Standing`, over the last run of rounds at one level). The zone between keeps the level from jumping on one uneven round. A level picked by hand starts a run of its own: the browser follows a move only right after a round at the level it uses (`followLevel` in `web/typing.js`), with a short message; the stats say how close the next move is. |
+| Status | Built: the words, the speed goal (section 6.1) and the word level. |
 
 ### 0.3 Freetype: rhythm
 
@@ -249,7 +249,12 @@ Some times are **ignored** for speed (but still count for accuracy):
 2. gaps longer than `MaxIntervalMs = 2000 ms`, which are pauses;
 3. the first press of a round (no previous press) and the first press
    after a Backspace (that time is spent correcting): both get `ms = 0`
-   (not measured).
+   (not measured);
+4. the first letter of a word: the press right after a space, and the
+   first press of a batch the browser sends (a batch is whole words). Its
+   time includes reading the word, not only the finger, so letters that
+   begin many words would look slow (`engine.Apply`). The raw times stay
+   in the round's keys.
 
 **Held keys are ignored.** When a key is held down, the operating system
 repeats it every ~30 ms (`keydown` with `repeat = true`). The trainer ignores

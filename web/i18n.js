@@ -119,6 +119,7 @@ const I18N = {
     "st.what.freetype": "rhythm: how even your keys are",
     "st.close": "<kbd>~</kbd> or <kbd>esc</kbd> back to typing",
     "st.noneTitle": "No {mode} rounds yet", "st.none": "Your stats start after your first round.",
+    "st.failTitle": "The stats didn't load", "st.fail": "Check the connection, then press <kbd>~</kbd> twice to try again.",
     "st.noneList": "None with the {n} most common words yet. Each word list keeps its own stats.",
     "st.acc10": "Accuracy, last 10 rounds", "st.wpm10": "Speed, last 10 rounds", "st.cons10": "Consistency, last 10 rounds",
     "st.open": "Letters open", "st.nextIs": "next: {l}", "st.allOpen": "every letter",

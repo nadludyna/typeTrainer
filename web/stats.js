@@ -37,11 +37,19 @@ const keyOf = () => [S.lang, S.mode, shown.length, S.freetypeList, S.freetypeVar
 export function renderStats() {
   if (shown.mode !== S.mode) Object.assign(shown, { mode: S.mode, length: S.mode === "learn" ? "" : lengthFor(S.mode) });
   const key = keyOf();
-  if (stale || shown.key !== key) load(key).catch(console.error);
+  if ((stale || shown.key !== key) && loading !== key) {
+    loading = key;
+    // A load cut short (a page left, the server away) says so on the sheet; the next open tries again.
+    load(key).catch(() => {
+      stale = true;
+      if (keyOf() === key && S.view === "stats") sheet.innerHTML = header(null) + `<div class="panel st-empty"><h2>${t("st.failTitle")}</h2><p>${t("st.fail")}</p></div>`;
+    }).finally(() => { if (loading === key) loading = ""; });
+  }
   if (shown.key === key) draw();
-  else sheet.innerHTML = header(null) + `<div class="st-wait"></div>`;
+  else if (loading === key) sheet.innerHTML = header(null) + `<div class="st-wait"></div>`;
 }
 
+let loading = "";   // the key of the stats being loaded
 async function load(key) {
   stale = false;
   const mode = S.mode, tz = -new Date().getTimezoneOffset();

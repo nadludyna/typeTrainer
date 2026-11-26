@@ -317,6 +317,7 @@ test("the stats of the mode you're in: ~ or the Stats button opens them, ~, Esc 
   await expect(sheet.locator(".chart .target"), "and its goal").toHaveCount(1);
   await page.locator("#tab-stats").click();
   await expect(page.locator("#view-type"), "the button closes them too").toBeVisible();
+  await waitForText(page);
 
   await page.locator("#tab-freetype").click();
   await page.keyboard.press("Backquote");

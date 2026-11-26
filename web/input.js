@@ -42,7 +42,6 @@ function setView(name) {
     startGrow();
     resetStatsView();
     setTyping(false);
-    refreshStats().catch(console.error);
     renderStats();
   } else {
     fitText();

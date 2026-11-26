@@ -75,11 +75,31 @@ npx playwright install chromium
 npx playwright test
 ```
 
+- **How long:** about 2–3 minutes. Each check opens the site as a guest of
+  its own, so they run side by side, on half the processor's cores
+  (`TT_WORKERS=4` sets the number).
+- **Another browser:** where Playwright's Chromium can't be installed,
+  `TT_BROWSER=msedge` (PowerShell: `$env:TT_BROWSER = "msedge"`) runs the
+  checks in the installed Edge, and `chrome` in Chrome.
+- **One area:** the checks are in files by area: `rounds` (a round in each
+  mode, its result, saving it), `keys` (the caret, the shortcuts, the
+  keyboard), `layout` (the grid, widths, zoom, text sizes, contrast),
+  `stats`, `modes` (the tabs, Welcome, the check-ins, the settings);
+  what they share is in `checks.mjs` and `app.mjs`. `npx playwright test
+  stats` runs one file, `npx playwright test -g "check-in"` the checks whose
+  names contain the words. On GitHub they run in two halves at once.
+- **No retries.** A check that fails now and then has found a race: in the
+  app (the check-in's sample once ended twice, the stats loaded twice) or in
+  the check. A check waits for a state the page reaches (`waitForText`, an
+  event, `expect.poll`), not for a guessed number of milliseconds; a fixed
+  wait only proves that nothing happens, or lets a shortcut's cooldown pass.
+
 Every pull request runs them too. A failed run on GitHub keeps a trace and a
 screenshot under the job's artifacts.
 
 `node perf.mjs` in the same folder measures typing latency: style recalc
-per key, key to caret start and slow frames. It needs a running server.
+per key, key to caret start and slow frames. It needs a running server, and
+takes `TT_BROWSER` too.
 Run it before and after a change to the typing screen, on the same machine,
 and put both results in the pull request. `node perf.mjs --bare` measures the
 screen without the keyboard.

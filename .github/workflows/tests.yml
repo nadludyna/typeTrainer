@@ -47,6 +47,12 @@ jobs:
   browser:
     # Playwright 1.56 cannot install Chromium on Ubuntu 26.04 (ubuntu-latest).
     runs-on: ubuntu-24.04
+    # The checks in two halves on two machines at once, each with its own
+    # server; a failed half still lets the other finish.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
     steps:
       - uses: actions/checkout@v4
 
@@ -68,12 +74,12 @@ jobs:
 
       - name: Browser checks
         working-directory: tools/browser
-        run: npx playwright test
+        run: npx playwright test --shard=${{ matrix.shard }}
 
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: browser-checks
+          name: browser-checks-${{ strategy.job-index }}
           path: |
             tools/browser/test-results/
             tools/browser/playwright-report/

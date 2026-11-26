@@ -15,12 +15,14 @@ test.afterEach(async ({}, info) => {
 
 async function expectCaretInLine(page) {
   const m = await page.evaluate(() => {
+    if (document.body.classList.contains("tb-resulting")) return null;
     const caret = document.getElementById("caret").getBoundingClientRect();
     const box = document.getElementById("text-box").getBoundingClientRect();
     const letter = [...document.querySelectorAll("#text > span")].find((s) => s.textContent.trim())
       .getBoundingClientRect();
     return { h: caret.height, line: letter.height, top: caret.top, bottom: caret.bottom, boxTop: box.top, boxBottom: box.bottom };
   });
+  if (!m) return; // the last key ended the round: the result covers the text
   expect(m.h, "caret height vs a letter").toBeLessThan(m.line * 1.3);
   expect(m.h, "caret height vs a letter").toBeGreaterThan(m.line * 0.5);
   expect(m.top, "caret top inside the text box").toBeGreaterThanOrEqual(m.boxTop - 2);
@@ -259,23 +261,24 @@ test("Live stats is on for a new user and doesn't switch itself", async ({ page 
 
 test("a held or hammered shortcut fires once: tab, ~, esc", async ({ page }) => {
   await openApp(page, {});
-  const text = () => page.evaluate(() => document.getElementById("text").textContent);
   const held = (key, extra = {}) => page.evaluate(([key, extra]) => {
     for (let i = 0; i < 5; i++) document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, repeat: true, bubbles: true, cancelable: true, ...extra }));
   }, [key, extra]);
-  const before = await text();
-  await page.keyboard.press("Tab");
-  // A new round clears the text before its words arrive: wait for the words.
-  const fresh = async () => { const t = await text(); return t && t !== before ? t : ""; };
-  await expect.poll(fresh).not.toBe("");
-  const once = await text();
+  // A new round asks the server for its first words: count those requests.
+  const starts = [];
+  page.on("request", (r) => { if (r.url().includes("/api/v1/portion") && r.postDataJSON()?.start) starts.push(r.url()); });
+  // Two presses inside the page in one go are surely within the cooldown,
+  // however slow the machine is; a held key only sends repeats.
+  await page.evaluate(() => {
+    for (let i = 0; i < 2; i++) document.activeElement.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", code: "Tab", bubbles: true, cancelable: true }));
+  });
   await held("Tab");
+  await expect.poll(() => starts.length).toBe(1);
+  await waitForText(page);
+  await page.waitForTimeout(400);
+  expect(starts.length, "repeats and a second press within the cooldown do nothing").toBe(1);
   await page.keyboard.press("Tab");
-  await page.waitForTimeout(150);
-  expect(await text(), "repeats and a second press within the cooldown do nothing").toBe(once);
-  await page.waitForTimeout(250);
-  await page.keyboard.press("Tab");
-  await expect.poll(text, "a press after the cooldown works").not.toBe(once);
+  await expect.poll(() => starts.length, "a press after the cooldown works").toBe(2);
 
   await page.keyboard.press("Backquote");
   await expect(page.locator("#view-stats")).toBeVisible();
@@ -882,8 +885,10 @@ test("Start Learn over in the settings: Learn's rounds go, the first lesson come
   await page.locator("#settings-q").fill("start over");
   await page.locator("#btn-relearn").click();
   await expect(page.locator("#reset-title")).toHaveText("Start Learn over?");
+  // Starting over reloads the page: wait for that load, not the one before it.
+  const reloaded = page.waitForEvent("load");
   await page.locator("#reset-ok").click();
-  await page.waitForLoadState("load");
+  await reloaded;
   await waitForText(page);
   const s = await page.evaluate(() => fetch("/api/v1/stats?lang=en").then((r) => r.json()));
   expect(s.keys.filter((k) => k.unlocked).length).toBe(6);

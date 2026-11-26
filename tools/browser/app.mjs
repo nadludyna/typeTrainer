@@ -24,7 +24,7 @@ export function nextChar(page) {
   });
 }
 
-export async function typeRound(page, { delay = 70, afterKey, done } = {}) {
+export async function typeRound(page, { delay = 35, afterKey, done } = {}) {
   for (let i = 0; i < 600; i++) {
     if (done && await done()) return;
     const ch = await nextChar(page);

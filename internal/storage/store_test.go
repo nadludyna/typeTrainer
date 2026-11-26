@@ -295,6 +295,20 @@ func TestSession_Summary(t *testing.T) {
 	}
 }
 
+// A round with no device is from before devices were kept: a keyboard's.
+func TestOnKeyboard(t *testing.T) {
+	if got := OnKeyboard(nil); got == nil || len(got) != 0 {
+		t.Fatalf("no rounds: %v, want an empty list", got)
+	}
+	got := OnKeyboard([]Session{{WPM: 1, Device: DeviceKeyboard}, {WPM: 2, Device: DeviceTouch}, {WPM: 3}})
+	if len(got) != 2 || got[0].WPM != 1 || got[1].WPM != 3 {
+		t.Fatalf("kept %+v, want the keyboard's and the one with no device", got)
+	}
+	if got := OnKeyboard([]Session{{Device: DeviceTouch}}); len(got) != 0 {
+		t.Fatalf("only phone rounds: %v, want none", got)
+	}
+}
+
 func testUsers(t *testing.T, m Store) {
 	now := time.Now()
 	a, err := m.CreateUser("ann", "hash-a", now, "")
@@ -472,7 +486,8 @@ func testLettersTyped(t *testing.T, m Store) {
 	}
 	m.AddSession(u, "en", Session{Chars: 100, Unlocked: 20})
 	m.AddSession(u, "en", Session{Chars: 150, Unlocked: 26})
-	m.AddSession(u, "en", Session{Chars: 50, Unlocked: 26})
+	m.AddSession(u, "en", Session{Chars: 50, Unlocked: 26, Device: DeviceKeyboard})
+	m.AddSession(u, "en", Session{Chars: 999, Unlocked: 26, Device: DeviceTouch})
 	m.AddSession(u, "pl", Session{Chars: 999, Unlocked: 32})
 	m.AddSession("someone-else", "en", Session{Chars: 999, Unlocked: 26})
 	m.AddFreeplaySession(u, "en", otherMode, Session{Chars: 999})

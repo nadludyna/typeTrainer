@@ -25,10 +25,11 @@ speed and builds the next words around your weak letters.
   which finger presses which key; it can be turned off.
 - **Phones:** the whole site adapts to the screen: the same screens as on a
   computer with fewer elements, and you can type. A round typed on a phone
-  keeps its device (`touch`), so it can be told apart, but it counts in the
-  letter model and the stats like any other for now, although thumbs on
-  glass make other mistakes than fingers on keys. Phone typing may grow its
-  own training later.
+  is shown in the stats, but the trainer does not learn from it: thumbs on
+  glass make other mistakes than fingers on keys, and touch typing is
+  trained on a keyboard. So on a phone alone no letter opens in Learn and
+  the word level does not move; the stats say so there. Phone typing may
+  grow its own training later.
 - **Three modes, each its own tab, always open.** Each trains one skill
   with its own adaptive loop: what it measures, what it learns about you,
   what it changes (`docs/HOW-THE-MODES-WORK.md`, section 0). Welcome is the
@@ -137,7 +138,7 @@ through HTTP; the step-by-step path of a round is in
 | N5 | The same code runs as a server and in the browser (GitHub Pages) | WebAssembly build of the same Go code | the Pages build in `go run ./tools/check` and CI |
 | N6 | Few dependencies: Go's standard library and one PostgreSQL driver; plain HTML, CSS and JavaScript | `docs/CODE-RULES.md`, "Stack" | `go.mod`, no build step |
 | N7 | Every change is checked before it reaches `main` | `go run ./tools/check`; CI on every pull request, and every night | `.github/workflows/tests.yml` |
-| N8 | A desktop with a physical keyboard is the main place; a phone shows the same screens with fewer elements | `web/responsive.css` | the phone-width browser checks |
+| N8 | A desktop with a physical keyboard is the main place; a phone shows the same screens with fewer elements, and its rounds are shown but not learned from | `web/responsive.css`, `storage.OnKeyboard` | the phone-width browser checks, `TestApp_PhoneRoundsTeachNothing` |
 
 ## Planned
 

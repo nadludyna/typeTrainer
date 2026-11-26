@@ -641,6 +641,46 @@ func TestApp_ReinforceLevelMovesByItself(t *testing.T) {
 	}
 }
 
+// A round typed on a phone is kept and counted in the stats, but the trainer
+// learns nothing from it: no letter, mix-up or word level moves
+// (docs/PRODUCT.md, "Phones"). The same rounds on a keyboard move all three.
+func TestApp_PhoneRoundsTeachNothing(t *testing.T) {
+	for _, device := range []string{"touch", "keyboard"} {
+		h, _, _ := newApp()
+		_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+		goal := st["targetWpm"].(float64)
+		keys := `[{"char":"a","errors":1,"ms":300,"typed":"s"},{"char":"s","errors":0,"ms":300}]`
+		send := func(level int) {
+			t.Helper()
+			body := fmt.Sprintf(`{"keys":%s,"chars":2,"accuracy":99,"wpm":%v,"level":%d,"device":%q}`, keys, goal+10, level, device)
+			if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
+				t.Fatalf("%s results: %d %v", device, code, out)
+			}
+		}
+		send(0)
+		for range 3 {
+			send(3)
+		}
+		_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
+		if st["sessionCount"].(float64) != 4 {
+			t.Fatalf("%s: %v rounds shown, want 4", device, st["sessionCount"])
+		}
+		count := 0.0
+		for _, k := range st["keys"].([]any) {
+			if k := k.(map[string]any); k["char"] == "a" {
+				count = k["count"].(float64)
+			}
+		}
+		level := st["standing"].(map[string]any)["level"].(float64)
+		_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
+		mixUps, timeline := len(hist["confusions"].([]any)), len(hist["rounds"].([]any))
+		learnt := device == "keyboard"
+		if (count > 0) != learnt || (level == 4) != learnt || (mixUps > 0) != learnt || (timeline == 4) != learnt {
+			t.Fatalf("%s: presses of a %v, word level %v, mix-ups %d, rounds in the letters' history %d", device, count, level, mixUps, timeline)
+		}
+	}
+}
+
 // The demo history (go run ./tools/demo) is a file the server takes, with
 // rounds in every mode, Reinforce's at a word level.
 func TestDemo_Imports(t *testing.T) {

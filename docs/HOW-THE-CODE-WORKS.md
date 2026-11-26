@@ -394,9 +394,9 @@ tried on real data. A round with its keys is
 5-7 KB of JSON; `MaxImportBytes` allows about 10 000 rounds in one import.
 History from before this has no keys (the field is missing). `device`
 says what the round was typed on (`keyboard` or `touch`; missing in older
-history); it is recorded only, the model does not use it (HOW-THE-MODES-WORK.md,
-section 9). `/stats` and
-`/freeplay/stats` and `/freetype/stats` drop the keys (`Session.Summary`), `/export` has them.
+history); the trainer learns only from rounds typed on a keyboard
+(`storage.OnKeyboard`, HOW-THE-MODES-WORK.md, section 3). `/stats` and
+`/freetype/stats` drop the keys (`Session.Summary`), `/export` has them.
 
 Every `Store` method takes the user id and the language id; the language is
 always `en` now.

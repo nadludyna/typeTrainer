@@ -245,7 +245,7 @@ func (m *MemoryStore) LettersTyped(user, lang string, unlocked int) (int, error)
 	defer m.mu.Unlock()
 	n := 0
 	for _, s := range m.data(user, lang).sessions {
-		if !s.Aborted && s.Unlocked >= unlocked {
+		if !s.Aborted && s.Unlocked >= unlocked && s.Device != DeviceTouch {
 			n += s.Chars
 		}
 	}

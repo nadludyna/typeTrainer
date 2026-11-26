@@ -100,6 +100,20 @@ const (
 	DeviceTouch    = "touch"
 )
 
+// OnKeyboard is the rounds typed on a keyboard: the only ones the trainer
+// learns from. Thumbs on glass make other mistakes than fingers on keys, so a
+// phone round is kept and shown but changes no letter, pair or word level. A
+// round from before devices were kept has none and counts as a keyboard's.
+func OnKeyboard(rounds []Session) []Session {
+	out := make([]Session, 0, len(rounds))
+	for _, r := range rounds {
+		if r.Device != DeviceTouch {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
 const DefaultLength = "words-30"
 
 func (s Session) WithLength() Session {
@@ -181,6 +195,8 @@ type Store interface {
 	AddSession(user, lang string, s Session) error
 	RecentSessions(user, lang, length string, limit int) ([]Session, error)
 	SessionCount(user, lang, length string) (int, error)
+	// LettersTyped is the letters of the learning rounds typed on a keyboard
+	// with at least unlocked letters open (OnKeyboard).
 	LettersTyped(user, lang string, unlocked int) (int, error)
 
 	AddFreeplaySession(user, lang, mode string, s Session) error

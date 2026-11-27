@@ -115,6 +115,7 @@ function appendPortions(list) {
     if (limit.kind === "words" && endAt < 0 && wordsLoaded + p.words.length >= limit.n) {
       endAt = at + p.words.slice(0, limit.n - wordsLoaded).join(" ").length;
     }
+    whys.push(...p.words.map((_, i) => p.why?.[i] ?? ""));
     wordsLoaded += p.words.length;
     at = end + 1;
   }
@@ -222,12 +223,13 @@ function newLetter(l) {
   if (ex?.locked?.includes(l)) S.exercise = { ...ex, unlocked: [...ex.unlocked, l], locked: ex.locked.filter((c) => c !== l) };
 }
 
+let whys = [];   // why each word of the round came, by word number (the server's "why")
 function resetStream() {
   streamId++;
   queue = Promise.resolve();
   S.text = ""; S.pos = 0; wordsTyped = 0;
   state = new Uint8Array(0); focusMask = new Uint8Array(0); records = []; spans = [];
-  portions = []; round = ""; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
+  portions = []; whys = []; round = ""; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
   wordOf = new Int32Array(0); revealAt = 0; shownWords = 0;
   extras = new Map(); correctChars = 0; afterBackspace = false; afterPause = false;
   pausedAt = null; boxState(false, "paused");
@@ -347,7 +349,7 @@ function typedWords() {
       if (i < upTo) letters.push({ c: S.text[i], bad: (r?.errors ?? 0) > 0 });
       if (r?.ms > 0) { ms += r.ms; n++; }
     }
-    if (letters.length) out.push({ letters, wpm: n ? Math.round(12000 / (ms / n)) : null });
+    if (letters.length) out.push({ letters, wpm: n ? Math.round(12000 / (ms / n)) : null, why: whys[wordOf[start]] ?? "" });
     start = end + 1;
   }
   return out;

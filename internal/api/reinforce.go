@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"typingtrainer/internal/engine"
@@ -21,18 +22,21 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 }
 
 // withWeakPairs is gen weighted to the letter pairs that slow this learner's
-// last rounds on a keyboard down.
-func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator, returning []string) (*engine.Generator, error) {
+// last rounds on a keyboard down, the letters coming back and the weak
+// finger; and those weak spots, to say why a word came.
+func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator, returning []string) (*engine.Generator, weakSpots, error) {
 	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", max(s.cfg.Levels.WeakRounds, s.cfg.Profile.Rounds))
 	if err != nil {
-		return nil, err
+		return nil, weakSpots{}, err
 	}
 	rounds = storage.OnKeyboard(rounds)
-	pairs := slices.Clone(returning)
+	weak := weakSpots{back: returning, share: s.cfg.Engine.FingerShare}
 	for _, p := range s.pairsOf(rounds[:min(len(rounds), s.cfg.Levels.WeakRounds)]) {
-		pairs = append(pairs, p.Pair)
+		weak.pairs = append(weak.pairs, p.Pair)
 	}
-	return gen.WithPairs(pairs).WithFinger(s.profileOf(rounds, l).Letters), nil
+	pr := s.profileOf(rounds, l)
+	weak.finger, weak.letters = pr.Weak, strings.Join(pr.Letters, "")
+	return gen.WithPairs(append(slices.Clone(returning), weak.pairs...)).WithFinger(pr.Letters), weak, nil
 }
 
 // tired says whether these rounds (oldest first) end in a sitting where

@@ -524,6 +524,7 @@ type Portion struct {
 	Weakest  string   `json:"weakest"`
 	Unlocked []string `json:"unlocked"`
 	Locked   []string `json:"locked"`
+	Why      []string `json:"why,omitempty"` // a reason per word, set by the API
 }
 
 func (g *Generator) Portion(stats map[string]KeyStat, unlocked, typed int, recent, retry []string, p Params) Portion {

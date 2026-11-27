@@ -87,6 +87,8 @@ body.tb-resulting .hints .round-only { display: none; }
   font-family: var(--mono); font-size: var(--fs-s); line-height: 1.75; color: color-mix(in srgb, var(--text) 80%, var(--sub));
   max-height: calc(1.75em * 5); overflow-y: auto; scrollbar-width: thin;
 }
+.r-why { margin: 8px 0 0; color: var(--label); font-size: var(--fs-min); }
+.r-why b { color: var(--text); font-weight: 500; }
 .r-w { border-radius: var(--r-sm); padding: 1px 0; cursor: default; color: var(--sp, inherit); }
 .r-w:hover, .r-w:focus-visible { background: color-mix(in srgb, var(--text) 10%, transparent); outline: none; }
 .r-w i { font-style: normal; color: var(--error); text-decoration: underline 2px var(--error); text-underline-offset: 4px; }

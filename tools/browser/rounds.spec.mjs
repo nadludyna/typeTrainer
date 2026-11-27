@@ -260,3 +260,21 @@ test("under the text: where you stand, a thin strip over the keyboard, and typin
   await expect(page.locator("#tooltip")).toHaveClass(/\bshow\b/);
   expect((await page.locator("#tooltip").boundingBox()).height, "a tooltip under the header stays one line").toBeLessThan(50);
 });
+
+test("the result says what the round was built for, and each word why it came", async ({ page }) => {
+  // The server's reasons: the first word of every portion for a stumble pair, the second for the weak finger.
+  await page.route("**/api/v1/freetype/portion?*", async (route) => {
+    const res = await route.fetch(), body = await res.json();
+    for (const p of body.portions) p.why = p.words.map((_, i) => ["stumble:ou", "finger:lp", ""][Math.min(i, 2)]);
+    return route.fulfill({ response: res, json: body });
+  });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
+  await typeRound(page);
+  await expectResult(page);
+  const why = page.locator("#result .r-why");
+  await expect(why).toContainText("This round was built for:");
+  await expect(why).toContainText("your stumble pair ou");
+  await expect(why).toContainText("your left pinky");
+  await expect(page.locator("#result .r-w").first(), "the word's own reason").toHaveAttribute("data-tip-text", /your stumble pair ou/);
+  await expect(page.locator("#result .r-w").nth(2), "a word that came by itself has none").not.toHaveAttribute("data-tip-text", /your|letter/);
+});

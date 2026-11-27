@@ -33,6 +33,7 @@ test("the stats of the mode you're in: ~ or the Stats button opens them, ~, Esc 
   await waitForText(page);
 
   await page.locator("#tab-freetype").click();
+  await expect(page.locator("body"), "the mode is switched before its stats are asked for").toHaveAttribute("data-mode", "freetype");
   await page.keyboard.press("Backquote");
   await expect(sheet.locator("h1")).toHaveText("Freetype stats");
   await expect(sheet.locator(".tile.hero"), "Freetype leads with consistency").toContainText("Consistency, last 10 rounds");

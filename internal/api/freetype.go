@@ -53,7 +53,7 @@ func (s *Server) listStanding(rounds []storage.Session, lists []int, variant str
 	for i := len(rounds) - 1; i >= 0; i-- {
 		n, v, ok := storage.ParseFreetypeMode(rounds[i].Mode)
 		at := slices.Index(lists, n)
-		if !ok || v != variant || at < 0 {
+		if !ok || v != variant || at < 0 || rounds[i].Kind != "" {
 			continue
 		}
 		rs = append(rs, levels.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency, Cold: cold[len(rounds)-1-i]})
@@ -116,6 +116,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		Words   int      `json:"words"`
 		List    int      `json:"list"`
 		Variant string   `json:"variant"`
+		Kind    string   `json:"kind"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxBodyBytes))).Decode(&req); err != nil {
 		badRequest(w, "invalid JSON")
@@ -144,6 +145,9 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		for _, x := range s.rhythmOf(rounds).Pairs {
 			stumbles = append(stumbles, x.Pair)
 		}
+	}
+	if req.Kind == storage.KindWeak {
+		p.StumbleBoost = s.cfg.WeakBoost
 	}
 	picker := l.Freetype
 	if !storage.Listless(req.Variant) {
@@ -207,6 +211,7 @@ func (s *Server) handleFreetypeResults(w http.ResponseWriter, r *http.Request, u
 		Keys:    req.Keys,
 		Length:  req.Length,
 		Device:  req.Device,
+		Kind:    req.Kind,
 		Round:   req.Round,
 		Seconds: s.typedSeconds(req.Seconds),
 	})
@@ -253,7 +258,8 @@ func (s *Server) handleFreetypeStats(w http.ResponseWriter, r *http.Request, use
 		serverError(w, err)
 		return
 	}
-	out["rhythm"] = s.rhythmOf(rounds)
+	rhythm := s.rhythmOf(rounds)
+	out["rhythm"], out["weakSpots"] = rhythm, len(rhythm.Pairs)
 	oldest := slices.Clone(rounds)
 	slices.Reverse(oldest)
 	out["tired"] = s.tired(oldest)

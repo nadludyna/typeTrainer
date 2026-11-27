@@ -792,3 +792,45 @@ func TestApp_Tired(t *testing.T) {
 		t.Fatal("a better round clears it")
 	}
 }
+
+// A round of a kind is kept and counted, but moves no level: three
+// weak-spots rounds at the goal leave Reinforce's level where it was, and
+// Learn has only the usual round.
+func TestApp_RoundKinds(t *testing.T) {
+	h, _, _ := newApp()
+	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
+	goal := st["targetWpm"].(float64)
+	send := func(kind string, level int) (int, map[string]any) {
+		body := fmt.Sprintf(`{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"accuracy":99,"wpm":%v,"level":%d,"kind":%q}`, goal+5, level, kind)
+		return call(t, h, "POST", "/api/v1/results?lang=en", body)
+	}
+	for range 3 {
+		if code, out := send("weak", 3); code != 200 {
+			t.Fatalf("a weak-spots round: %d %v", code, out)
+		}
+	}
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en&part=reinforce", "")
+	if s := st["standing"].(map[string]any); s["passes"] != 0.0 || s["moved"] != 0.0 || st["sessionCount"] != 3.0 {
+		t.Fatalf("three weak-spots rounds are shown and judge nothing: %v, %v rounds", s, st["sessionCount"])
+	}
+	if st["sessions"].([]any)[0].(map[string]any)["kind"] != "weak" || st["weakSpots"] == nil {
+		t.Fatalf("the round keeps its kind, and the stats count the weak spots: %v", st["weakSpots"])
+	}
+	if code, _ := send("sprint", 3); code != 400 {
+		t.Fatalf("an unknown kind: %d, want 400", code)
+	}
+	if code, _ := send("weak", 0); code != 400 {
+		t.Fatalf("Learn has only the usual round: %d, want 400", code)
+	}
+	if code, out := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true,"level":3,"kind":"weak","round":"r1","portionIndex":0}`); code != 200 || len(out["portions"].([]any)) == 0 {
+		t.Fatalf("a weak-spots portion with no weak spots yet is a usual one: %d %v", code, out)
+	}
+	if code, _ := call(t, h, "POST", "/api/v1/freetype/portion?lang=en", `{"start":true,"list":200,"words":10,"kind":"weak"}`); code != 200 {
+		t.Fatalf("Freetype's weak-spots portion: %d", code)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, guestRequest("GET", "/api/v1/export?lang=en", ""))
+	if file := rec.Body.String(); !strings.Contains(file, `"kind":"weak"`) {
+		t.Fatalf("the export keeps the kind: %.200s", file)
+	}
+}

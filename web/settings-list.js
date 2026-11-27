@@ -4,7 +4,7 @@ import { S, store } from "./state.js";
 
 export const CATEGORIES = ["text", "caret", "typing", "keyboard", "goals", "data"];
 
-export const LENGTHS = ["words-10", "words-20", "words-30", "words-40", "words-50", "time-15", "time-30", "time-60", "time-90"];
+export const LENGTHS = ["words-10", "words-15", "words-20", "words-30", "words-50", "words-100", "time-15", "time-30", "time-60", "time-90"];
 export const DAILY = [0, 5, 10, 15, 20, 30, 45, 60];
 
 const kbKey = () => "tt.kb." + S.mode;

@@ -83,6 +83,7 @@ body[data-ws="none"] .text span[data-sp] { background: none; }
 .mode-bar[hidden] { display: none; }
 .bar-title { font-size: var(--fs-s); font-weight: 600; color: var(--accent-text); }
 .mode-bar .ring button:disabled { opacity: .35; cursor: default; }
+.mode-bar .ring button { padding-inline: 7px; }
 
 
 @media (min-width: 900px) and (pointer: fine) {

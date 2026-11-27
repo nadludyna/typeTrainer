@@ -23,6 +23,7 @@ type Session struct {
 	Level    float64         `json:"level,omitempty"`
 	Lap      int             `json:"lap,omitempty"`
 	Device   string          `json:"device,omitempty"`
+	Kind     string          `json:"kind,omitempty"` // "" the usual round, or KindWeak, KindClean
 	Epoch    int             `json:"epoch"`
 	Aborted  bool            `json:"aborted,omitempty"`
 	Seconds  float64         `json:"seconds,omitempty"`
@@ -107,6 +108,26 @@ func RoundSeconds(wpm, accuracy float64, chars int) float64 {
 		return 0
 	}
 	return float64(chars) * accuracy / 100 / 5 / wpm * 60
+}
+
+// The kinds of round besides the usual one. A round of a kind is kept and
+// shown but moves no word level or list.
+const (
+	KindWeak  = "weak"  // built from the typist's weak spots
+	KindClean = "clean" // ends at the third mistake
+)
+
+func ValidKind(k string) bool { return k == "" || k == KindWeak || k == KindClean }
+
+// Usual is the rounds of no special kind: the ones a level is judged by.
+func Usual(rounds []Session) []Session {
+	out := make([]Session, 0, len(rounds))
+	for _, r := range rounds {
+		if r.Kind == "" {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 const (

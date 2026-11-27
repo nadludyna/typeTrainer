@@ -47,6 +47,7 @@ type Config struct {
 	Words                 engine.WordParams
 	Freetype              freetype.Params
 	Levels                levels.Params
+	WeakBoost             float64 // in a weak-spots round a word with a weak spot weighs 1 + this
 	Profile               profile.Params
 	Owned                 profile.WordParams // the words a typist owns
 	Time                  profile.TimeParams // forgetting, warm-up, tiredness
@@ -179,7 +180,7 @@ func Default() Config {
 		},
 		Freetype: freetype.Params{
 			PortionWords:  6,
-			MaxStartWords: 60,
+			MaxStartWords: 100,
 			RecentWords:   20,
 			RepeatPenalty: 0.3,
 			OwnedPenalty:  0.3,
@@ -211,6 +212,7 @@ func Default() Config {
 			Sitting: 30 * time.Minute, TiredRuns: 3, TiredDrop: 3,
 			ColdAfter: 6 * time.Hour,
 		},
+		WeakBoost: 50,
 		Levels: levels.Params{
 			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 			LevelStart:   1,

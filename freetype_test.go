@@ -229,4 +229,30 @@ func TestApp_OwnedWords(t *testing.T) {
 	if code, _ := call(t, h, "POST", "/api/v1/freetype/portion?lang=en", `{"start":true,"list":200,"words":10}`); code != 200 {
 		t.Fatalf("portion with owned words: %d", code)
 	}
+	// A sprint brings the owned words far more often, each saying why it
+	// came. Two owned words are not repeated next to each other, so they
+	// cannot be the whole round; of 200 words they are 1 % of a usual draw.
+	ownedShare := func(kind string) float64 {
+		mine, all := 0, 0
+		for range 5 {
+			_, out := call(t, h, "POST", "/api/v1/freetype/portion?lang=en", fmt.Sprintf(`{"start":true,"list":200,"words":40,"kind":%q}`, kind))
+			for _, p := range out["portions"].([]any) {
+				p := p.(map[string]any)
+				for i, w := range p["words"].([]any) {
+					all++
+					if w != "the" && w != "and" {
+						continue
+					}
+					mine++
+					if kind == "sprint" && p["why"].([]any)[i] != "owned:" {
+						t.Fatalf("an owned word in a sprint: why %v", p["why"].([]any)[i])
+					}
+				}
+			}
+		}
+		return float64(mine) / float64(max(all, 1))
+	}
+	if sprint, usual := ownedShare("sprint"), ownedShare(""); sprint < 0.1 || sprint < 5*usual {
+		t.Fatalf("owned words: %.2f in a sprint, %.2f in a usual round", sprint, usual)
+	}
 }

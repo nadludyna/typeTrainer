@@ -540,8 +540,8 @@ func testRoundKind(t *testing.T, m Store) {
 	if last, _ := m.LastFreetypeRounds(u, "en", 10); len(last) != 1 || last[0].Kind != KindClean {
 		t.Fatalf("the last Freetype rounds: %+v", last)
 	}
-	if !ValidKind("") || !ValidKind(KindWeak) || !ValidKind(KindClean) || ValidKind("sprint") {
-		t.Fatal("the kinds are the usual round, weak and clean")
+	if !ValidKind("") || !ValidKind(KindWeak) || !ValidKind(KindClean) || !ValidKind(KindSprint) || ValidKind("race") {
+		t.Fatal("the kinds are the usual round, weak, clean and sprint")
 	}
 }
 
@@ -671,6 +671,22 @@ func testBestRounds(t *testing.T, m Store) {
 	f, _ := m.BestFreetypeRounds(u, "en", otherMode)
 	if len(f) != 1 || f["words-10"].WPM != 99 {
 		t.Fatalf("free practice bests %+v, want words-10 99 wpm", f)
+	}
+
+	// A sprint's best is its own, not the best of its length.
+	sprints := "sprints"
+	if f, _ := m.BestFreetypeRounds(u, "en", sprints); len(f) != 0 {
+		t.Fatalf("no rounds: %v; want no best", f)
+	}
+	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 50, Length: "time-15"})
+	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 70, Length: "time-15", Kind: KindSprint})
+	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 65, Length: "time-15", Kind: KindSprint})
+	f, _ = m.BestFreetypeRounds(u, "en", sprints)
+	if len(f) != 2 || f["time-15"].WPM != 50 || f[KindSprint].WPM != 70 {
+		t.Fatalf("bests with sprints %+v, want time-15 50 wpm and sprint 70 wpm", f)
+	}
+	if b := BestOf([]Session{{WPM: 70, Length: "time-15", Kind: KindSprint}}); len(b) != 1 || b[KindSprint].WPM != 70 {
+		t.Fatalf("BestOf one sprint: %+v", b)
 	}
 }
 

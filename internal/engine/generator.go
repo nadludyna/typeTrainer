@@ -394,7 +394,11 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 			}
 		}
 		if g.owned[w] {
-			pl.diffW[i] *= p.OwnedPenalty
+			if p.OwnedBoost > 0 {
+				pl.diffW[i] *= 1 + p.OwnedBoost
+			} else {
+				pl.diffW[i] *= p.OwnedPenalty
+			}
 		}
 		if g.weak != "" && len(w) > 0 {
 			on := 0

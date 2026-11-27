@@ -255,6 +255,15 @@ test("Freetype: a round of 100 words starts, and the lengths are 10, 15, 20, 30,
   expect(await page.evaluate(() => document.getElementById("text").textContent.trim().split(/\s+/).length), "the whole round is loaded").toBeGreaterThanOrEqual(100);
 });
 
+// The kind of round is one button on the bar that opens the kinds next to it.
+const kindButton = (page) => page.locator("#mode-bar button[data-kindpop]");
+const kindIn = (page, kind) => page.locator(`#mini-pop button[data-key="kind"][data-value="${kind}"]`);
+async function pickKind(page, kind) {
+  await kindButton(page).click();
+  await kindIn(page, kind).click();
+  await expect(page.locator("#mini-pop"), "the kinds close after a pick").not.toBeVisible();
+}
+
 test("a weak-spots round: off with no weak spots, asked for and saved as its kind with them", async ({ page }) => {
   let spots = 0;
   await page.route("**/api/v1/freetype/stats?*", async (route) => {
@@ -263,28 +272,31 @@ test("a weak-spots round: off with no weak spots, asked for and saved as its kin
     return route.fulfill({ response: res, json: body });
   });
   await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
-  const weak = page.locator("#mode-bar button[data-weak]");
-  await expect(weak, "no weak spots yet").toBeDisabled();
+  await kindButton(page).click();
+  await expect(kindIn(page, "weak"), "no weak spots yet").toBeDisabled();
+  await page.keyboard.press("Escape");
   spots = 2;
   await page.reload();
   await waitForText(page);
-  await expect(weak).toBeEnabled();
+  await kindButton(page).click();
+  await expect(kindIn(page, "weak")).toBeEnabled();
+  await page.keyboard.press("Escape");
   const asked = page.waitForRequest((r) => r.url().includes("/freetype/portion") && r.postDataJSON()?.kind === "weak");
-  await weak.click();
+  await pickKind(page, "weak");
   await asked;
-  await expect(weak).toHaveAttribute("aria-pressed", "true");
+  await expect(kindButton(page), "the button names the kind").toHaveText("Round: Weak spots");
   await waitForText(page);
   const saved = page.waitForRequest((r) => r.url().includes("/freetype/results"));
   await typeRound(page);
   expect((await saved).postDataJSON().kind, "the round is saved as a weak-spots round").toBe("weak");
   await page.locator('#mode-bar button[data-variant="sentences"]').click();
-  await expect(page.locator("#mode-bar button[data-kind]"), "sentences have no kinds of round").toHaveCount(0);
+  await expect(kindButton(page), "sentences have no kinds of round").toHaveCount(0);
 });
 
 test("a clean round ends at the third mistake and is saved as its kind", async ({ page }) => {
   await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-30" });
-  await page.locator("#mode-bar button[data-clean]").click();
-  await expect(page.locator("#mode-bar button[data-clean]")).toHaveAttribute("aria-pressed", "true");
+  await pickKind(page, "clean");
+  await expect(kindButton(page)).toHaveText("Round: Clean");
   await waitForText(page);
   const saved = page.waitForRequest((r) => r.url().includes("/freetype/results"));
   await page.locator("#text-box").click();
@@ -300,7 +312,8 @@ test("a clean round ends at the third mistake and is saved as its kind", async (
   await expect(page.locator("#result"), "how far the round went").toContainText("words before the third mistake");
   // the usual round goes on after three mistakes
   await page.keyboard.press("Enter");
-  await page.locator("#mode-bar button[data-clean]").click();
+  await pickKind(page, "");
+  await expect(kindButton(page)).toHaveText("Round: Usual");
   await waitForText(page);
   await page.locator("#text-box").click();
   await wrong();
@@ -309,6 +322,31 @@ test("a clean round ends at the third mistake and is saved as its kind", async (
   await wrong();
   await expect(page.locator("body")).not.toHaveClass(/tb-resulting/);
 });
+
+// A sprint is 15 seconds whatever length is picked, saved as its kind.
+for (const mode of ["freetype", "reinforce"]) {
+  test(`${mode}: a sprint is 15 seconds and says how it went against the best`, async ({ page }) => {
+    test.setTimeout(60_000);
+    const results = mode === "freetype" ? "/freetype/results" : "/api/v1/results";
+    const portion = mode === "freetype" ? "/freetype/portion" : "/api/v1/portion";
+    await openApp(page, { "tt.mode.en": mode, "tt.length.freetype": "words-30", "tt.wordLevel.en": "1" });
+    const asked = page.waitForRequest((r) => r.url().includes(portion) && r.postDataJSON()?.kind === "sprint");
+    await pickKind(page, "sprint");
+    await asked;
+    await expect(kindButton(page)).toHaveText("Round: Sprint");
+    await expect(page.locator("#mode-bar button[data-length]"), "a sprint has no length switches").toHaveCount(0);
+    await waitForText(page);
+    const saved = page.waitForRequest((r) => r.url().includes(results) && r.method() === "POST");
+    let body = null;
+    saved.then((r) => { body = r.postDataJSON(); });
+    const started = Date.now();
+    await typeRound(page, { done: async () => body !== null });
+    expect(Date.now() - started, "it ends at 15 seconds, not after 30 words").toBeLessThan(25_000);
+    expect(body.kind).toBe("sprint");
+    expect(body.length).toBe("time-15");
+    await expect(page.locator("#toasts")).toContainText(/Sprint: \d+ wpm/);
+  });
+}
 
 test("Freetype: the word list follows the rounds' rhythm, and the stats say how close the next move is", async ({ page }) => {
   let saved = false;

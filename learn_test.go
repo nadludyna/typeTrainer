@@ -816,8 +816,24 @@ func TestApp_RoundKinds(t *testing.T) {
 	if st["sessions"].([]any)[0].(map[string]any)["kind"] != "weak" || st["weakSpots"] == nil {
 		t.Fatalf("the round keeps its kind, and the stats count the weak spots: %v", st["weakSpots"])
 	}
-	if code, _ := send("sprint", 3); code != 400 {
+	if code, _ := send("race", 3); code != 400 {
 		t.Fatalf("an unknown kind: %d, want 400", code)
+	}
+	// Three sprints at the goal judge nothing either, and have a best of their own.
+	for range 3 {
+		if code, out := send("sprint", 3); code != 200 {
+			t.Fatalf("a sprint: %d %v", code, out)
+		}
+	}
+	_, st = call(t, h, "GET", "/api/v1/stats?lang=en&part=reinforce", "")
+	if s := st["standing"].(map[string]any); s["passes"] != 0.0 || s["moved"] != 0.0 {
+		t.Fatalf("three sprints judge nothing: %v", s)
+	}
+	if b := st["bests"].(map[string]any); b["sprint"] == nil {
+		t.Fatalf("the stats have the best sprint: %v", b)
+	}
+	if code, _ := call(t, h, "POST", "/api/v1/portion?lang=en", `{"start":true,"level":3,"kind":"sprint","round":"r2","portionIndex":0}`); code != 200 {
+		t.Fatalf("a sprint portion with nothing owned is a usual one: %d", code)
 	}
 	if code, _ := send("weak", 0); code != 400 {
 		t.Fatalf("Learn has only the usual round: %d, want 400", code)

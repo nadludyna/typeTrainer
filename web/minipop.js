@@ -28,6 +28,8 @@ export function openPop(anchor, label, drawFn, pickFn) {
   anchor.setAttribute("aria-expanded", "true");
 }
 
+export function closePop() { if (pop.open) pop.close(); }
+
 pop.addEventListener("click", (e) => {
   if (e.target === pop) { pop.close(); return; }
   const b = e.target.closest("button[data-key]");

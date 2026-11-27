@@ -110,6 +110,9 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	if reinforce && req.Kind == storage.KindWeak {
 		p.PairBoost, p.FingerBoost = s.cfg.WeakBoost, s.cfg.WeakBoost
 	}
+	if reinforce && req.Kind == storage.KindSprint {
+		p.OwnedBoost = s.cfg.WeakBoost
+	}
 	typed := 0
 	if all := len(gen.Order()); reinforce {
 		gen = l.Levels[req.Level-1]
@@ -134,6 +137,9 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	}
 	if reinforce {
 		gen = gen.WithOwned(owned.Owned)
+		if req.Kind == storage.KindSprint {
+			weak.owned = owned.Owned
+		}
 	}
 	recent := append([]string{}, req.Recent...)
 	count := 1

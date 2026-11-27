@@ -4,7 +4,7 @@ import { t } from "./i18n.js";
 import { $, S, listLabel, listless, reinforcing, learnDone, wordLevel, roundKind } from "./state.js";
 import { LENGTHS, lengthOf, lengthLabel } from "./settings.js";
 import { hasCustomText } from "./customtext.js";
-import { ring, ringBtn } from "./minipop.js";
+import { ring, ringBtn, openPop, closePop } from "./minipop.js";
 
 const bar = $("mode-bar"), stand = $("stand");
 
@@ -36,22 +36,40 @@ export function renderModeBar() {
   }
   const kind = lengthOf(cur).kind;
   const end = [];
-  end.push(ring(t("bar.kind"), ["words", "time"].map((k) =>
-    ringBtn(`data-length="${k}-30"`, t(k === "words" ? "settings.words" : "settings.time"), k === kind))));
-  end.push(ring(t("bar.length"), LENGTHS.filter((id) => lengthOf(id).kind === kind).map((id) =>
-    ringBtn(`data-length="${id}"`, String(lengthOf(id).n), id === cur, lengthLabel(id)))));
+  // A sprint has its own length: the length switches are not shown with it.
+  if (roundKind() !== "sprint") {
+    end.push(ring(t("bar.kind"), ["words", "time"].map((k) =>
+      ringBtn(`data-length="${k}-30"`, t(k === "words" ? "settings.words" : "settings.time"), k === kind))));
+    end.push(ring(t("bar.length"), LENGTHS.filter((id) => lengthOf(id).kind === kind).map((id) =>
+      ringBtn(`data-length="${id}"`, String(lengthOf(id).n), id === cur, lengthLabel(id)))));
+  }
   bar.innerHTML = `<span class="bar-side">${parts.join("")}</span><span class="bar-side">${end.join("")}</span>`;
 }
 
-// The kind of round: the usual one, or one built from your weak spots
-// (spots: how many the server found; with none the choice is off).
+// The kind of round: one button naming it, which opens the kinds next to it
+// (spots: how many weak spots the server found; with none that kind is off).
+const KINDS = ["", "weak", "clean", "sprint"];
+let weakSpots = 0;
 function kindRing(spots) {
-  const kind = roundKind(), none = !spots && kind !== "weak";
-  // Each kind is one button that is on or off: the bar has no room for a button of the usual round.
-  return ring(t("kind.label"), [
-    ringBtn(`data-kind="${kind === "weak" ? "" : "weak"}" data-weak${none ? " disabled" : ""}`, t("kind.weak"), kind === "weak", t(none ? "kind.noWeak" : "kind.weakTip")),
-    ringBtn(`data-kind="${kind === "clean" ? "" : "clean"}" data-clean`, t("kind.clean"), kind === "clean", t("kind.cleanTip")),
-  ]);
+  weakSpots = spots ?? 0;
+  const kind = roundKind();
+  return ring(t("kind.label"), [ringBtn(`data-kindpop aria-haspopup="dialog" aria-expanded="false"`,
+    t("kind.button", { kind: t(`kind.${kind || "usual"}`) }), kind !== "")]);
+}
+function openKinds(anchor) {
+  const draw = () => {
+    const kind = roundKind();
+    const buttons = KINDS.map((k) => {
+      const off = k === "weak" && !weakSpots && kind !== "weak";
+      return ringBtn(`data-key="kind" data-value="${k}"${off ? " disabled" : ""}`, t(`kind.${k || "usual"}`), k === kind,
+        t(off ? "kind.noWeak" : `kind.${k || "usual"}Tip`));
+    });
+    return `<div class="mp-row"><span class="mp-name">${t("kind.label")}</span>${ring(t("kind.label"), buttons)}</div>`;
+  };
+  openPop(anchor, t("kind.label"), draw, (_, v) => {
+    closePop();
+    if (v !== roundKind()) pickListener({ kind: v });
+  });
 }
 
 // ---------- Reinforce: the word level and the speed goal ----------
@@ -93,6 +111,7 @@ const onClick = (e) => {
   if (!b) return;
   b.blur();
   if (b.dataset.edit) return pickListener({ edit: true });
+  if (b.dataset.kindpop !== undefined) return openKinds(b);
   if (b.getAttribute("aria-pressed") === "true") return;
   if (b.dataset.variant !== undefined) pickListener({ variant: b.dataset.variant });
   else if (b.dataset.list) pickListener({ list: Number(b.dataset.list) });

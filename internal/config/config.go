@@ -47,7 +47,7 @@ type Config struct {
 	Words                 engine.WordParams
 	Freetype              freetype.Params
 	Levels                levels.Params
-	WeakBoost             float64 // in a weak-spots round a word with a weak spot weighs 1 + this
+	WeakBoost             float64 // in a weak-spots round a word with a weak spot, in a sprint an owned word, weighs 1 + this
 	Profile               profile.Params
 	Owned                 profile.WordParams // the words a typist owns
 	Time                  profile.TimeParams // forgetting, warm-up, tiredness

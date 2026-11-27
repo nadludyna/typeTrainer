@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 type Key struct {
@@ -43,6 +44,54 @@ func Parse(data []byte) (*Layout, error) {
 		}
 	}
 	return &l, nil
+}
+
+// Place is where a key stands: its finger, its row and how far from the
+// left edge of the letter block, in key widths (the row's offset counted).
+type Place struct {
+	Finger string
+	Row    int
+	X      float64
+}
+
+// Places is the place of every one-character key that is not a modifier.
+func (l *Layout) Places() map[string]Place {
+	out := map[string]Place{}
+	for r, row := range l.Rows {
+		x := 0.0
+		if r < len(l.Offsets) {
+			x = l.Offsets[r]
+		}
+		for _, k := range row {
+			w := k.Width
+			if w == 0 {
+				w = 1
+			}
+			if !k.Modifier && utf8.RuneCountInString(k.Char) == 1 && k.Char != " " {
+				out[k.Char] = Place{Finger: k.Finger, Row: r, X: x + w/2}
+			}
+			x += w
+		}
+	}
+	return out
+}
+
+// FingerOrder is the fingers from the left little finger to the right one,
+// as the layout lists them.
+func (l *Layout) FingerOrder() []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, row := range l.Rows {
+		for _, k := range row {
+			seen[k.Finger] = true
+		}
+	}
+	for _, f := range []string{"lp", "lr", "lm", "li", "ri", "rm", "rr", "rp"} {
+		if seen[f] {
+			out = append(out, f)
+		}
+	}
+	return out
 }
 
 func (l *Layout) RestingKeys() []string {

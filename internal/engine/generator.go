@@ -20,6 +20,7 @@ type Generator struct {
 	floor map[string]int
 	rng   *rand.Rand
 	pairs []string
+	weak  string // the letters of the typist's weak finger
 	bases *bases
 }
 
@@ -169,6 +170,18 @@ func (g *Generator) WithPairs(pairs []string) *Generator {
 	}
 	out := *g
 	out.pairs = pairs
+	return &out
+}
+
+// WithFinger is this generator with the letters of the learner's weak
+// finger: words made of them by FingerShare or more come more often
+// (FingerBoost).
+func (g *Generator) WithFinger(letters []string) *Generator {
+	if len(letters) == 0 {
+		return g
+	}
+	out := *g
+	out.weak = strings.Join(letters, "")
 	return &out
 }
 
@@ -366,6 +379,17 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 		for _, pair := range g.pairs {
 			if strings.Contains(w, pair) {
 				pl.diffW[i] *= 1 + p.PairBoost
+			}
+		}
+		if g.weak != "" && len(w) > 0 {
+			on := 0
+			for _, c := range w {
+				if strings.ContainsRune(g.weak, c) {
+					on++
+				}
+			}
+			if float64(on) >= p.FingerShare*float64(utf8.RuneCountInString(w)) {
+				pl.diffW[i] *= 1 + p.FingerBoost
 			}
 		}
 	}

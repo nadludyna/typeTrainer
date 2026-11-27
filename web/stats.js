@@ -125,6 +125,19 @@ const panel = (title, note, body, cls = "") =>
   `<div class="panel${cls}"><div class="panel-head"><h2>${title}</h2><span class="panel-note">${note}</span></div>${body}</div>`;
 const chartPanel = (title, note) => panel(title, note, `<div class="chart st-chart"></div>`);
 
+// ---------- the hands: each finger against your own average, and why presses go wrong (internal/profile) ----------
+function hands(pr) {
+  const fingers = pr?.fingers ?? [];
+  if (!fingers.length) return panel(t("st.hands"), "", `<p class="st-none">${t("st.noSlow")}</p>`);
+  const name = (f) => S.layout?.fingers?.[f]?.name ?? f, color = (f) => S.layout?.fingers?.[f]?.color ?? "var(--sub)";
+  const chips = fingers.map((f) => `<span class="st-chip st-finger${f.weak ? " weak" : ""}" style="--fc:${color(f.finger)}">` +
+    `<b>${Math.round((1 - f.rate) * 100)}%</b><small>${name(f.finger)}</small></span>`).join("");
+  const weak = pr.weak ? t("st.weakFinger", { finger: name(pr.weak).toLowerCase(), letters: pr.letters.join(" ").toUpperCase() }) : t("st.noWeakFinger");
+  const kind = pr.kinds?.[0];
+  const why = kind ? `<p class="st-why"><b>${t(`st.kind.${kind.kind}`, { p: Math.round(kind.share * 100) })}</b> ${t(`st.advice.${kind.kind}`)}</p>` : "";
+  return panel(t("st.hands"), weak, `<div class="st-chips">${chips}</div>${why}`);
+}
+
 // ---------- Learn: accuracy ----------
 function learn(s, rounds) {
   const acc = last10(rounds, (x) => x.accuracy);
@@ -146,7 +159,7 @@ function learn(s, rounds) {
     grid = panel(t("ls.grid"), t("st.gridNote", { scope: g.scope }), g.html);
   }
   const panels = `<div class="st-two">${chartPanel(t("st.accChart"), t("st.accLine", { p: Math.round(s.masteryLevel) }))}` +
-    panel(t("ls.mix"), t("ls.mixNote"), mixUps(h?.confusions ?? [])) + `</div>` + grid;
+    panel(t("ls.mix"), t("ls.mixNote"), mixUps(h?.confusions ?? [])) + `</div>` + hands(s.profile) + grid;
   return { tiles, panels, chart: { value: (x) => x.accuracy, unit: "%", line: s.masteryLevel, percent: true, order: s.order } };
 }
 
@@ -169,7 +182,7 @@ function reinforce(s, rounds) {
     `<span class="st-chip"><b>${c}</b><small class="${w < goal ? "bad" : ""}">${Math.round(w)} wpm</small></span>`).join("")}</div>` : `<p class="st-none">${t("st.noSlow")}</p>`;
   const slow = panel(t("st.slowKeys"), t("st.goalIs", { w: goal }), chips(slowKeys) +
     `<div class="panel-head st-sub"><h2>${t("st.slowPairs")}</h2></div>` + chips(slowPairs));
-  const panels = `<div class="st-two">${chartPanel(t("stats.speed"), t("st.goalLine"))}${slow}</div>`;
+  const panels = `<div class="st-two">${chartPanel(t("stats.speed"), t("st.goalLine"))}${slow}</div>` + hands(s.profile);
   return { tiles, panels, chart: { value: (x) => x.wpm, unit: "wpm", line: goal } };
 }
 

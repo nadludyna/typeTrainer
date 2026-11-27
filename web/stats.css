@@ -57,6 +57,12 @@
 .st-chip b { font-size: var(--fs-m); font-weight: 500; }
 .st-chip small { font-size: var(--fs-min); color: var(--label); white-space: nowrap; }
 .st-chip small.bad { color: var(--error); }
+.st-finger { flex: 1; min-width: 88px; padding-inline: 6px; box-shadow: inset 0 -3px 0 var(--fc); }
+.st-finger small { white-space: normal; text-align: center; }
+.st-finger.weak { box-shadow: inset 0 0 0 1px var(--error), inset 0 -3px 0 var(--fc); }
+.st-finger.weak b { color: var(--error); }
+.st-why { margin: 12px 0 0; color: var(--label); font-size: var(--fs-min); }
+.st-why b { color: var(--text); font-weight: 500; }
 
 /* ---------- the chart: one bar per round ---------- */
 .chart { height: clamp(180px, 32vh, 320px); }

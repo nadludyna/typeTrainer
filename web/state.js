@@ -68,6 +68,12 @@ export const shownMode = (m) => SHOWN_MODES.includes(m);
 // Reinforce: Learn once every letter is open. The word level is this
 // browser's choice per language.
 export const reinforcing = () => S.mode === "reinforce";
+
+// The kind of round picked in Reinforce and Freetype: "" the usual one,
+// "weak" a round from your weak spots. It is not kept between visits.
+const kinds = { reinforce: "", freetype: "" };
+export const roundKind = () => (S.mode === "freetype" && listless(S.freetypeVariant) ? "" : kinds[S.mode] ?? "");
+export function setRoundKind(kind) { if (S.mode in kinds) kinds[S.mode] = kind; }
 export const learnDone = () => !!S.lastStats?.keys?.length && S.lastStats.keys.every((k) => k.unlocked);
 export const wordLevel = () => Math.min(Math.max(Number(store.get(`tt.wordLevel.${S.lang}`)) || 1, 1), S.lastStats?.wordLevels?.length || 1);
 export const setWordLevel = (n) => store.set(`tt.wordLevel.${S.lang}`, String(n));

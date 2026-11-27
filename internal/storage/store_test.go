@@ -31,6 +31,7 @@ var storeTests = map[string]func(*testing.T, Store){
 	"Lengths":                   testLengths,
 	"LettersTyped":              testLettersTyped,
 	"RecentFreetype":            testRecentFreetype,
+	"RoundKind":                 testRoundKind,
 	"Lap":                       testLap,
 	"Device":                    testDevice,
 	"PracticeDays":              testPracticeDays,
@@ -518,6 +519,29 @@ func testRecentFreetype(t *testing.T, m Store) {
 	add(FreetypeMode(1000, ""), 6, 9)
 	if got, _ := m.LastFreetypeRounds(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
 		t.Fatalf("two rounds ending at once: the one saved last comes first, got %v", got)
+	}
+}
+
+// A round's kind is kept in every history.
+func testRoundKind(t *testing.T, m Store) {
+	m.AddSession(u, "en", Session{WPM: 1, Level: 2, Kind: KindWeak, FinishedAt: time.Now()})
+	m.AddSession(u, "en", Session{WPM: 2, Level: 2, FinishedAt: time.Now()})
+	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 3, Kind: KindClean, FinishedAt: time.Now()})
+	got, _ := m.RecentSessions(u, "en", "", 10)
+	if len(got) != 2 || got[0].Kind != "" || got[1].Kind != KindWeak {
+		t.Fatalf("learning rounds: %+v", got)
+	}
+	if usual := Usual(got); len(usual) != 1 || usual[0].WPM != 2 {
+		t.Fatalf("the usual rounds: %+v", usual)
+	}
+	if free, _ := m.RecentFreetypeSessions(u, "en", FreetypeMode(200, ""), "", 10); len(free) != 1 || free[0].Kind != KindClean {
+		t.Fatalf("Freetype rounds: %+v", free)
+	}
+	if last, _ := m.LastFreetypeRounds(u, "en", 10); len(last) != 1 || last[0].Kind != KindClean {
+		t.Fatalf("the last Freetype rounds: %+v", last)
+	}
+	if !ValidKind("") || !ValidKind(KindWeak) || !ValidKind(KindClean) || ValidKind("sprint") {
+		t.Fatal("the kinds are the usual round, weak and clean")
 	}
 }
 

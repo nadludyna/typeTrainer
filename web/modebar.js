@@ -1,7 +1,7 @@
 // The round bar above the text.
 
 import { t } from "./i18n.js";
-import { $, S, listLabel, listless, reinforcing, learnDone, wordLevel } from "./state.js";
+import { $, S, listLabel, listless, reinforcing, learnDone, wordLevel, roundKind } from "./state.js";
 import { LENGTHS, lengthOf, lengthLabel } from "./settings.js";
 import { hasCustomText } from "./customtext.js";
 import { ring, ringBtn } from "./minipop.js";
@@ -30,6 +30,7 @@ export function renderModeBar() {
       ringBtn(`data-variant="${k}"`, t(k ? `ft.${k}` : "ft.words"), v === k, k && k !== "custom" ? t(`ft.${k}Tip`) : ""));
     if (v === "custom" && hasCustomText()) kinds.push(ringBtn(`data-edit="1"`, t("ft.edit"), false));
     parts.push(ring(t("ft.kind"), kinds));
+    if (!listless(v)) parts.push(kindRing(S.freetype?.weakSpots));
     if (!listless(v)) parts.push(ring(t("freetype.list"), (S.freetype?.lists ?? []).map((n) =>
       ringBtn(`data-list="${n}"`, listLabel(n), n === S.freetypeList, t("freetype.listN", { n })))));
   }
@@ -40,6 +41,16 @@ export function renderModeBar() {
   end.push(ring(t("bar.length"), LENGTHS.filter((id) => lengthOf(id).kind === kind).map((id) =>
     ringBtn(`data-length="${id}"`, String(lengthOf(id).n), id === cur, lengthLabel(id)))));
   bar.innerHTML = `<span class="bar-side">${parts.join("")}</span><span class="bar-side">${end.join("")}</span>`;
+}
+
+// The kind of round: the usual one, or one built from your weak spots
+// (spots: how many the server found; with none the choice is off).
+function kindRing(spots) {
+  const kind = roundKind(), none = !spots && kind !== "weak";
+  // One button that is on or off: the bar has no room for a second one.
+  return ring(t("kind.label"), [
+    ringBtn(`data-kind="${kind === "weak" ? "" : "weak"}" data-weak${none ? " disabled" : ""}`, t("kind.weak"), kind === "weak", t(none ? "kind.noWeak" : "kind.weakTip")),
+  ]);
 }
 
 // ---------- Reinforce: the word level and the speed goal ----------
@@ -55,7 +66,7 @@ function reinforceBar() {
     `<button type="button" data-step="${step + 1}" aria-label="${t("re.up")}"${step < last ? "" : " disabled"}>+</button></span>`;
   const left = s.keys.filter((k) => !k.unlocked).length;
   const note = learnDone() ? "" : `<p class="re-note">${t("re.learnLeft", { n: left })}</p>`;
-  return `<span class="bar-side"><b class="bar-title">${t("re.title")}</b>${levels}</span><span class="bar-side">${goal}</span>${note}`;
+  return `<span class="bar-side"><b class="bar-title">${t("re.title")}</b>${levels}</span><span class="bar-side">${kindRing(s.weakSpots)}${goal}</span>${note}`;
 }
 
 const kLabel = (n) => n >= 1000 ? `${Math.round(n / 500) / 2}k` : String(n);
@@ -85,6 +96,7 @@ const onClick = (e) => {
   if (b.dataset.variant !== undefined) pickListener({ variant: b.dataset.variant });
   else if (b.dataset.list) pickListener({ list: Number(b.dataset.list) });
   else if (b.dataset.wlevel) pickListener({ wordLevel: Number(b.dataset.wlevel) });
+  else if (b.dataset.kind !== undefined) pickListener({ kind: b.dataset.kind });
   else if (b.dataset.step !== undefined) pickListener({ step: Number(b.dataset.step) });
   else if (b.dataset.length) pickListener({ length: b.dataset.length });
 };

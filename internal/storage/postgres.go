@@ -242,10 +242,10 @@ func addSession(db execer, user, lang, mode string, s Session) error {
 	}
 	s = s.WithLength()
 	_, err := db.Exec(`INSERT INTO sessions
-		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, round_id, epoch, aborted, seconds)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULLIF($15, ''), $16, $17, NULLIF($18::double precision, 0))
+		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, round_id, epoch, aborted, seconds, kind)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULLIF($15, ''), $16, $17, NULLIF($18::double precision, 0), $19)
 		ON CONFLICT DO NOTHING`,
-		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds)
+		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds, s.Kind)
 	return err
 }
 
@@ -260,7 +260,7 @@ func (p *PostgresStore) HasRound(user, lang, round string) (bool, error) {
 }
 
 func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, epoch, aborted, COALESCE(seconds, 0)
+	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, epoch, aborted, COALESCE(seconds, 0), kind
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND ($4 = '' OR length = $4)
 		ORDER BY id DESC LIMIT $5`, user, lang, mode, length, limit)
 	if err != nil {
@@ -272,7 +272,7 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 		var s Session
 		var consistency sql.NullFloat64
 		var keys []byte
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds); err != nil {
+		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds, &s.Kind); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {
@@ -289,7 +289,7 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 }
 
 func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session, error) {
-	rows, err := p.db.Query(`SELECT DISTINCT ON (length) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted
+	rows, err := p.db.Query(`SELECT DISTINCT ON (length) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted, kind
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted
 		ORDER BY length, wpm DESC, id`, user, lang, mode)
 	if err != nil {
@@ -300,7 +300,7 @@ func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session,
 	for rows.Next() {
 		var s Session
 		var consistency sql.NullFloat64
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted); err != nil {
+		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Kind); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {
@@ -389,7 +389,7 @@ func (p *PostgresStore) RecentFreetypeSessions(user, lang, mode, length string, 
 	return p.recentSessions(user, lang, mode, length, limit)
 }
 func (p *PostgresStore) LastFreetypeRounds(user, lang string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT mode, wpm, accuracy, chars, consistency, keys, finished_at, length, device, epoch
+	rows, err := p.db.Query(`SELECT mode, wpm, accuracy, chars, consistency, keys, finished_at, length, device, epoch, kind
 		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode LIKE 'freetype-%' AND NOT aborted
 		ORDER BY finished_at DESC, id DESC LIMIT $3`, user, lang, limit)
 	if err != nil {
@@ -401,7 +401,7 @@ func (p *PostgresStore) LastFreetypeRounds(user, lang string, limit int) ([]Sess
 		var s Session
 		var consistency sql.NullFloat64
 		var keys []byte
-		if err := rows.Scan(&s.Mode, &s.WPM, &s.Accuracy, &s.Chars, &consistency, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Epoch); err != nil {
+		if err := rows.Scan(&s.Mode, &s.WPM, &s.Accuracy, &s.Chars, &consistency, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Epoch, &s.Kind); err != nil {
 			return nil, err
 		}
 		if consistency.Valid {

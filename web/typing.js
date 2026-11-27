@@ -2,7 +2,7 @@
 
 import { t } from "./i18n.js";
 import { FX, fade } from "./fx.js";
-import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel, setWordLevel, listLabel, listless } from "./state.js";
+import { el, S, introOpen, isTouch, roundList, boxState, reinforcing, wordLevel, setWordLevel, listLabel, listless, roundKind } from "./state.js";
 import { postJSON, saveRound, retryable } from "./api.js";
 import { highlightNextKey, requestFit, autoKb } from "./keyboard.js";
 import { refreshStats } from "./stats.js";
@@ -178,7 +178,7 @@ function portionDone(k) {
   const samples = records.slice(sentUpTo, por.end + 1).filter(Boolean);
   sentUpTo = por.end + 1;
   showPortion(k + 1);
-  const body = { samples, retry: mistypedWords(por), last: !needMore(), round, portionIndex: k + 1, ack: portions.length, level: learnLevel() };
+  const body = { samples, retry: mistypedWords(por), last: !needMore(), round, portionIndex: k + 1, ack: portions.length, level: learnLevel(), kind: kindNow() };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -199,7 +199,7 @@ function freePortionDone(k) {
   sentUpTo = por.end + 1;
   showPortion(k + 1);
   if (!needMore()) return;
-  const how = probe ? { list: probe.list, variant: "" } : { list: roundList(), variant: S.freetypeVariant };
+  const how = probe ? { list: probe.list, variant: "" } : { list: roundList(), variant: S.freetypeVariant, kind: kindNow() };
   const id = streamId;
   queue = queue.then(async () => {
     if (id !== streamId) return;
@@ -223,6 +223,8 @@ function newLetter(l) {
   if (ex?.locked?.includes(l)) S.exercise = { ...ex, unlocked: [...ex.unlocked, l], locked: ex.locked.filter((c) => c !== l) };
 }
 
+// A check-in sample is always a usual round.
+const kindNow = () => (probe ? "" : roundKind());
 let whys = [];   // why each word of the round came, by word number (the server's "why")
 function resetStream() {
   streamId++;
@@ -291,7 +293,7 @@ export async function loadExercise() {
   round = roundId();
   const body = probe
     ? { start: true, words, recent: [], list: probe.list, variant: "" }
-    : { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: learnLevel(), round, portionIndex: 0, ack: 0 };
+    : { start: true, words, recent: [], list: roundList(), variant: S.freetypeVariant, level: learnLevel(), kind: kindNow(), round, portionIndex: 0, ack: 0 };
   const res = await getPortions(body);
   if (id !== streamId) return;
   roundBefore = S.lastStats;
@@ -610,7 +612,7 @@ async function finishRound() {
     streamId++;
     if (!typed.length) { await loadExercise(); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
-    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel() };
+    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel(), kind: kindNow() };
     learnRound++;
     let res;
     try {
@@ -623,7 +625,7 @@ async function finishRound() {
     await refreshStats();
     if (res.newLetter) newLetter(res.newLetter);
     if (res.newLap) roundNewLap = res.newLap;
-    if (body.level) followLevel(body.level);
+    if (body.level && !body.kind) followLevel(body.level);
     if (S.lastStats?.tired) FX.toast(t("tired"));
 
     const r = compareStats(roundBefore, S.lastStats);
@@ -706,7 +708,7 @@ async function trySave(path, body, saved) {
 async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const variant = S.freetypeVariant, list = roundList();
   const before = S.freetype?.sessions ?? [];
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, round, seconds: typedSeconds(lastTime) };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, kind: kindNow(), round, seconds: typedSeconds(lastTime) };
   const done = wordsTyped;
   const saved = async () => {
     if (variant === "custom") customRoundDone(done);
@@ -718,7 +720,7 @@ async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const { res, unsaved } = await trySave("/freetype/results", body, saved);
   if (res) {
     await saved();
-    await followList(list, variant);
+    if (!body.kind) await followList(list, variant);
     if (S.freetype?.tired) FX.toast(t("tired"));
     const best = before.length > 0 && wpm > Math.max(...before.map((x) => x.wpm));
     await showResult({ ...shown, consistency: res.consistency, best });

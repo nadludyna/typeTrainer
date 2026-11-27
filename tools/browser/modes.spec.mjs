@@ -255,6 +255,32 @@ test("Freetype: a round of 100 words starts, and the lengths are 10, 15, 20, 30,
   expect(await page.evaluate(() => document.getElementById("text").textContent.trim().split(/\s+/).length), "the whole round is loaded").toBeGreaterThanOrEqual(100);
 });
 
+test("a weak-spots round: off with no weak spots, asked for and saved as its kind with them", async ({ page }) => {
+  let spots = 0;
+  await page.route("**/api/v1/freetype/stats?*", async (route) => {
+    const res = await route.fetch(), body = await res.json();
+    body.weakSpots = spots;
+    return route.fulfill({ response: res, json: body });
+  });
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-10" });
+  const weak = page.locator("#mode-bar button[data-weak]");
+  await expect(weak, "no weak spots yet").toBeDisabled();
+  spots = 2;
+  await page.reload();
+  await waitForText(page);
+  await expect(weak).toBeEnabled();
+  const asked = page.waitForRequest((r) => r.url().includes("/freetype/portion") && r.postDataJSON()?.kind === "weak");
+  await weak.click();
+  await asked;
+  await expect(weak).toHaveAttribute("aria-pressed", "true");
+  await waitForText(page);
+  const saved = page.waitForRequest((r) => r.url().includes("/freetype/results"));
+  await typeRound(page);
+  expect((await saved).postDataJSON().kind, "the round is saved as a weak-spots round").toBe("weak");
+  await page.locator('#mode-bar button[data-variant="sentences"]').click();
+  await expect(page.locator("#mode-bar button[data-kind]"), "sentences have no kinds of round").toHaveCount(0);
+});
+
 test("Freetype: the word list follows the rounds' rhythm, and the stats say how close the next move is", async ({ page }) => {
   let saved = false;
   await page.route("**/api/v1/freetype/results?*", async (route) => {

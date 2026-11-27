@@ -1,6 +1,6 @@
 // Keys and buttons, routed to the modules that handle them.
 
-import { $, el, S, isTouch, focusText, setWordLevel } from "./state.js";
+import { $, el, S, isTouch, focusText, setWordLevel, setRoundKind } from "./state.js";
 import { requestFit, highlightNextKey, toggleKb, autoKb } from "./keyboard.js";
 import { refreshStats, renderStats, resetStatsView } from "./stats.js";
 import { postJSON } from "./api.js";
@@ -97,6 +97,7 @@ async function barPick(pick) {
   if (pick.variant !== undefined) await setFreetypeVariant(pick.variant);
   if (pick.list) await setFreetypeList(pick.list);
   if (pick.wordLevel) setWordLevel(pick.wordLevel);
+  if (pick.kind !== undefined) setRoundKind(pick.kind);
   if (pick.step !== undefined) {
     await postJSON("/learn/step", { step: pick.step });
     await refreshStats();

@@ -25,6 +25,7 @@ type portionRequest struct {
 	Start   bool            `json:"start"`
 	Last    bool            `json:"last"`
 	Level   int             `json:"level"` // Reinforce's word level, 1..; 0 = Learn's own words
+	Kind    string          `json:"kind"`  // storage.KindWeak: a Reinforce round from the weak spots
 
 	Round        string `json:"round"`
 	PortionIndex int    `json:"portionIndex"`
@@ -106,6 +107,9 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		unlocked = len(gen.Order())
 	}
 	p := done.who.base.ForLap(done.lapAfter, s.cfg.Laps).ForStage(unlocked, len(done.who.gen.Order()))
+	if reinforce && req.Kind == storage.KindWeak {
+		p.PairBoost, p.FingerBoost = s.cfg.WeakBoost, s.cfg.WeakBoost
+	}
 	typed := 0
 	if all := len(gen.Order()); reinforce {
 		gen = l.Levels[req.Level-1]
@@ -333,6 +337,7 @@ type resultsRequest struct {
 	PerSecond []int           `json:"perSecond"`
 	Length    string          `json:"length"`
 	Device    string          `json:"device"`
+	Kind      string          `json:"kind"`
 	Level     float64         `json:"level"`
 	List      int             `json:"list"`
 	Variant   string          `json:"variant"`
@@ -374,6 +379,10 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	if req.Device == storage.DeviceTouch {
 		learnt = nil
 	}
+	if req.Kind != "" && !reinforce {
+		badRequest(w, "kind: Learn has only the usual round")
+		return
+	}
 	done, err := s.learn(user, l, learnt, reinforce)
 	if err != nil {
 		serverError(w, err)
@@ -385,7 +394,7 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	}
 	err = s.store.SaveLearned(user, l.Info.ID, done.record(&storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Device: req.Device,
+		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Device: req.Device, Kind: req.Kind,
 		Lap:     done.lap,
 		Level:   reinforceLevel(req.Level, len(l.Levels)),
 		Round:   req.Round,
@@ -499,12 +508,19 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 		"wordLevels":  s.wordLevels(l),
 	}
 	if part != storage.PartLearn {
-		out["standing"] = s.standing(roundsOf(keyboard, storage.PartReinforce), who.base, len(l.Levels))
+		out["standing"] = s.standing(storage.Usual(roundsOf(keyboard, storage.PartReinforce)), who.base, len(l.Levels))
 	}
 	out["tired"] = s.tired(roundsOf(keyboard, part))
 	newest := slices.Clone(keyboard)
 	slices.Reverse(newest)
-	out["profile"] = s.profileOf(newest, l)
+	pr := s.profileOf(newest, l)
+	out["profile"] = pr
+	// How many weak spots a weak-spots round would be built from.
+	spots := len(s.pairsOf(newest[:min(len(newest), s.cfg.Levels.WeakRounds)]))
+	if pr.Weak != "" {
+		spots++
+	}
+	out["weakSpots"] = spots
 	if part == storage.PartReinforce {
 		v, _, err := s.vocabulary(user, id, true)
 		if err != nil {

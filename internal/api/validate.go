@@ -37,6 +37,9 @@ func validate(req resultsRequest, maxChars, maxEvents int, alphabet string) stri
 	if !validDevice(req.Device) {
 		return "device: unknown device"
 	}
+	if !storage.ValidKind(req.Kind) {
+		return "kind: unknown kind of round"
+	}
 	if len(req.Round) > 64 || !validRoundID(req.Round) {
 		return "round: at most 64 letters, digits and -"
 	}
@@ -153,6 +156,9 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		}
 		if !validDevice(sess.Device) {
 			return "sessions: unknown device " + sess.Device
+		}
+		if !storage.ValidKind(sess.Kind) {
+			return "sessions: unknown kind " + sess.Kind
 		}
 		if sess.FinishedAt.After(time.Now().Add(futureTolerance)) {
 			return "sessions: finishedAt is in the future"

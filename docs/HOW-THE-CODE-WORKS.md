@@ -56,7 +56,7 @@ its own. Every number they use is in `internal/config`.
 
 - `.github/workflows/pages.yml`: On every push to `main`: test, build WebAssembly, publish to Pages.
 
-- `.github/workflows/tests.yml`: On every pull request: gofmt, vet, tests, WebAssembly build.
+- `.github/workflows/tests.yml`: On every pull request that changes more than the docs, and on `main` every night: gofmt, vet, tests, WebAssembly build, the browser checks.
 
 - `build_server.go`, `build_wasm.go`: What differs between the normal server and GitHub Pages (picked by build tags): `accountsOn` (accounts only on the server) and `openStore` (PostgreSQL when `DATABASE_URL` is set, else memory; always memory on Pages).
 
@@ -81,7 +81,7 @@ its own. Every number they use is in `internal/config`.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (the level of a round; now Reinforce's word level), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql` (a mode that is gone), `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_letter_hits.sql` (a letter's last presses and its slip under the lower threshold, for Learn's accuracy rules), `016_learn_and_freetype_only.sql` (Climb's rounds, the study group and the old typing test's flag go)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (the level of a round; now Reinforce's word level), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql` (a mode that is gone), `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_letter_hits.sql` (a letter's last presses and its slip under the lower threshold, for Learn's accuracy rules), `016_learn_and_freetype_only.sql` (Climb's rounds, the study group and the old typing test's flag go), `017_round_kind.sql` (a round's `kind`: the usual one, `weak`, `clean` or `sprint`)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
@@ -115,7 +115,7 @@ its own. Every number they use is in `internal/config`.
 
 - `data/langs/en/sentences.txt`: Freetype's real sentences, one per line (from Tatoeba, CC BY 2.0 FR, `tools/sentences/build.py`).
 
-- `internal/sim`: Simulation: a made-up typist and three word-choice strategies (docs/HOW-THE-MODES-WORK.md, section 10). Not used by the app.
+- `internal/sim`: Simulation: a made-up typist and four word-choice strategies (docs/HOW-THE-MODES-WORK.md, section 10). Not used by the app.
 
 - `tools/sim/`: `go run ./tools/sim`: runs the simulation on the real word lists and prints the table. Its test checks that Learn's stream beats random words (docs/HOW-THE-MODES-WORK.md, section 10).
 
@@ -186,7 +186,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 - `result.js`: The result screen in the text window: `showResult(r)` shows the result of Freetype; Learn has none (its rounds follow one another; `learnpanel.js` shows the last one). Speed and accuracy carry their unit instead of a label; beside them, each word's speed on a line chart (a dot's tooltip gives its speed); under them, the words coloured by speed (five bands, slow to fast; red is for mistakes only), then one line of facts (consistency, time, correct characters, and wrong, extra and missed only when not zero). The words of the round with their own speed come from `typedWords()` in `typing.js`, the characters and the time from `roundFacts()`. A small ↻ button (and Enter / Tab, shown in the hint line) starts the next round. A new best shows "New best" under the speed.
 
 
-- `modes.js`: The modes (learn / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreetype()` (`S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
+- `modes.js`: The modes (learn / reinforce / freetype), the navigation tabs that show them (`renderNav`: the shown modes, then stats; see "Modes"), `refreshFreetype()` (`S.freetype`: the chosen list's history and the lists offered), `setFreetypeList()`, the mode and the list remembered per language.
 
 
 - `settings-list.js`: Every setting as one entry of `SETTINGS`, in `CATEGORIES` (text, caret, typing, keyboard, goals, data), plus `LENGTHS` and `DAILY`. The fields of an entry: `docs/CODE-RULES.md`, "Settings".
@@ -197,7 +197,7 @@ The frontend is plain JavaScript split into native ES modules (`import` /
 
 **Top layer**
 
-- `input.js`: Keydown and phone input (with the one-space sentinel that makes Backspace work on phone keyboards), the navigation (learn · freetype · stats), window resize: sends each action to the module that handles it. Hides the mouse pointer from the first typed key until the mouse moves (`no-pointer`).
+- `input.js`: Keydown and phone input (with the one-space sentinel that makes Backspace work on phone keyboards), the navigation (learn · reinforce · freetype · stats), window resize: sends each action to the module that handles it. Hides the mouse pointer from the first typed key until the mouse moves (`no-pointer`).
 
 - `app.js`: Entry point: `init()`.
 
@@ -339,7 +339,7 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | POST | `/api/v1/reset` | | `{ok: true}`; deletes all progress (the reset button) |
 | POST | `/api/v1/learn/step` | `{step}` | `{step, targetWpm}`: Reinforce's speed goal step by hand, 0 to the last, at any time |
 | POST | `/api/v1/checkin` | `{mode, answer, wpm, accuracy}` | Learn (`answer` no / little / yes): `{unlocked}`, the start letters, changed only while Learn has no rounds; Reinforce: `{step, targetWpm, wordLevel}`, the speed goal step is set; Freetype: `{list}`. The rules: docs/HOW-THE-MODES-WORK.md section 0.6 |
-| POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters, rounds and test go, the other modes stay |
+| POST | `/api/v1/learn/reset` | | `{ok: true}`; Start Learn over: Learn's letters and rounds go, the other modes stay |
 | GET | `/api/v1/export` | | `{unlocked, lap, keys: {char: {count, mistakes, errEma, timeEma, timedCount, held}}, sessions: [all, OLDEST first, each with its raw keys and its `epoch`], freetype: {"1000": {sessions}, "1000-long": ..., "sentences": ..., "custom": ...}}`; everything stored for the language (`freetype` is missing in older files; an older file's `freeplay`, `climbLevels` and `group` are ignored on import) |
 | POST | `/api/v1/import` | the same JSON as `/export` | `{unlocked, sessions}`; REPLACES the data, or changes nothing if the data is invalid |
 | GET | `/api/v1/stats?length=&part=` | | `{keys: [{char, count, errorRate, avgMs, difficulty, level, mastered, unlocked}], sessions: [last 50 of that length, newest first, without raw keys], order: [the unlock order, for the letters a round opened], streaks (as in `/freetype/stats`), sessionCount (of that length), learnRounds (Learn rounds of every length), lengths: [every length in the history], bests: {length: the fastest round of it}, targetWpm (the goal of the current lap), lap (0 = the first), lastLap, forecast: {known, rounds, more, letter, few} (about how many rounds to the next letter, `history.NextForecast`, HOW-THE-MODES-WORK.md 6.2), masteryMin, masteryLevel (the mastery rule: level masteryLevel after masteryMin presses, for the texts), wordLevels (Reinforce's levels, in words), pairs (only for `part=reinforce`: the letter pairs that slow its last rounds down, `[{pair, cost (ms per press of the second letter), count}]`), standing (not for `part=learn`: where Reinforce's rounds leave its word level, `{level, passes, fails, moved (what the last round did: 1, 0, -1), passesUp, failsDown}`)}`; no `length` = every length. `part`: none = every round of Learn's stream (what the typing screen needs); `learn` = Learn's own rounds, `reinforce` = Reinforce's (those with a word level): `sessions`, `sessionCount`, `streaks`, `lengths` and `bests` count only those |
@@ -347,7 +347,7 @@ All responses are JSON. Every route except `/languages` and `/auth/*` takes `?la
 | GET | `/api/v1/activity?tz=&part=` | | `{days: [{date, rounds, seconds, chars}]}`: every day with a finished round, every mode together (no `part`) or one mode's (`learn`, `reinforce`, `freetype`), oldest first; `tz` = the browser's minutes from UTC (east positive), so days end at the user's midnight. `seconds` = the rounds' `seconds` as the browser measured them, from the first key to the last with pauses left out, Tab-dropped Learn rounds included (`Session.TypedSeconds`; kept in 0..`MaxTypedSeconds`; a round saved before it was sent counts right letters / 5 / WPM, `storage.RoundSeconds`). The same clock as the live daily goal, so the number never jumps back. The daily goal counts every mode; each mode's stats build their time typing, days in a row and calendar from their own part |
 | POST | `/api/v1/freetype/portion` | `{recent: [words], start: bool, words, list, variant}` (variant: "" or "long" with a list; "sentences" with none) | `{portions: [{words}]}`; with `start`, enough portions for `words` (0..`MaxStartWords`), otherwise one; Freetype: words drawn evenly from the `list` most common ones (`freetype.Picker.Freetype`); a list not offered is a 400 |
 | POST | `/api/v1/freetype/results` | `{chars, wpm, accuracy, perSecond, keys, length, list, variant, seconds}` (your own text: list 0, variant "custom") | `{consistency}`; one entry in the history of that list (`storage.FreetypeMode`) |
-| GET | `/api/v1/freetype/stats?list=&variant=&length=` | | `{lists (offered: those of `Freetype.Lists` the long list has words for), list (no `list` = the first), sessions, sessionCount, lengths, bests, streaks}` of that list, as in `/freetype/stats` without the level |
+| GET | `/api/v1/freetype/stats?list=&variant=&length=` | | `{lists (offered: those of `Freetype.Lists` the long list has words for), list (no `list` = the first), variant, sentences, sessions, sessionCount, lengths, bests, streaks, rhythm, weakSpots, tired, standing, owned}` of that list: `sessions` to `streaks` as in `/stats`; `rhythm` and `weakSpots` from Freetype's rhythm (HOW-THE-MODES-WORK.md 0.3); `standing` and `owned` only for a list, not for sentences or your own text |
 
 Validation on `/portion` and `/results`: at most 5000 samples (zero is fine:
 nothing new to learn), each with exactly one character that is a letter of the
@@ -355,8 +355,7 @@ language or a space, `errors >= 0`, `ms >= 0`; `keys` follows the same rules. `/
 `chars >= 1` (something was typed; 0 means "the number of samples"), WPM 0–400,
 accuracy 0–100, and `perSecond` with at most 5000 entries, each between 0 and 5000. `recent` and `retry` hold at most 5000 words; a word that
 is not in the list or has a locked letter is simply ignored. Body limit 1 MB.
-The page sends the end of a round (`/results`, `/freetype/results`,
-`/freetype/results`) again twice when the server was not reached or
+The page sends the end of a round (`/results`, `/freetype/results`) again twice when the server was not reached or
 answered 5xx, never after a 4xx (`web/api.js` `saveRound`, issue #149).
 Each try carries the same `round` id (up to 64 letters, digits and `-`),
 so a round whose first answer was lost is stored once and, in Learn, its
@@ -364,8 +363,13 @@ samples are learned once (`Store.HasRound`, migration 011). A try that
 failed with a 5xx stored nothing (`Store.SaveLearned`), so the next try
 learns it once. A request without `round` is always stored.
 
-**Round length** (`length` on `/results`, `/freetype/results` and
-`/freetype/results`, and
+**Kind of round** (`kind` on `/portion`, `/results`, `/freetype/portion`
+and `/freetype/results`): empty for the usual round, `weak` for one built
+from the typist's weak spots, `clean` for one that ends at the third
+mistake, `sprint` for 15 seconds of the words the typist owns. Learn has only the usual round (any other is a 400). A round of a
+kind is kept and shown but moves no level (migration 017).
+
+**Round length** (`length` on `/results` and `/freetype/results`, and
 `?length=` on the stats routes): `words-N` or `time-N`, the length chosen in
 the round bar of its mode (`web/modebar.js`, `web/settings.js`). Missing = `words-30`, the only length
 before the settings existed (`storage.DefaultLength`); every stored round
@@ -477,11 +481,11 @@ a mode: `FreetypeMode(n, variant)` for each list and kind of text).
 
 - **Learn**, for beginners, is the adaptive trainer described in
   docs/HOW-THE-MODES-WORK.md: the `/portion` and `/results` routes, the letter model,
-  unlocking from the home row. It has no stats screen: its progress is the
-  letters row (a colour and a bar per letter, tooltips with what each still
-  needs, the mastered letters fading from the keyboard) and the line over
-  the text (`web/learnpanel.js`); its rounds follow one another with no
-  result screen. The round that opens the last letter ends on the finish
+  unlocking from the home row. Its progress shows on the letters row (a
+  colour and a bar per letter, tooltips with what each still needs, the
+  mastered letters fading from the keyboard) and the line over the text
+  (`web/learnpanel.js`), and in its own stats on `~`; its rounds follow one
+  another with no result screen. The round that opens the last letter ends on the finish
   screen (`showFinish` in `web/result.js`): Enter goes to Reinforce, Tab or
   "Keep practising" stays in Learn, "Start Learn over" asks as the settings
   do. With every letter open Learn goes on with its common words.
@@ -491,15 +495,19 @@ a mode: `FreetypeMode(n, variant)` for each list and kind of text).
   word level (`level` 1..10 in `/portion` and `/results`), which marks it as
   Reinforce: its presses count for every letter like Learn's, but it never
   opens a letter (`learn(…, reinforce)` in `internal/api/learning.go`); the
-  speed goal steps over every letter. Its rounds stay in Learn's history,
-  marked by their word level, and its stats are Learn's for now.
+  speed goal steps over every letter, and the word level moves by itself
+  (`levels.Judge`, `levels.Standing`). Its rounds stay in Learn's history,
+  marked by their word level; its stats are its own (`/stats?part=reinforce`).
 - **Freetype**, for just typing (`internal/freetype`, docs/HOW-THE-MODES-WORK.md
   section 13): words drawn evenly from the n most common of the long list
   (`free.txt`), n picked in the row above the text (200 to 25 000;
   remembered in `tt.list.<lang>`), plain or of a kind
   (long words, real sentences from `sentences.txt`, or your own text: `tt.variant.<lang>`;
   your text in `tt.custom.<lang>`, never sent, `web/customtext.js`).
-  Nothing adapts; every list and kind has its own history and bests.
+  Its own loop reads the rhythm of its rounds: the stumble pairs come more
+  often, and the word list moves by itself with the consistency
+  (`freetype.ReadRhythm`, `levels.JudgeRhythm`; docs/HOW-THE-MODES-WORK.md
+  section 0.3). Every list and kind has its own history and bests.
   `/freetype/results` drops any samples.
 
 The chosen mode is interface state: it lives in the browser (`localStorage`,
@@ -617,6 +625,7 @@ erDiagram
     int epoch
     bool aborted
     float seconds
+    text kind
   }
   epochs {
     text user_id PK
@@ -635,7 +644,7 @@ there are no foreign keys: a guest has data and no row in `users`.
 | `logins` | a signed-in browser: the hash of its token and when it ends | sign-in, sign-out |
 | `progress` | per language: how many letters Learn has opened, Reinforce's speed goal step | every Learn or Reinforce round, the check-in, starting Learn over |
 | `key_stats` | per letter: presses, mistakes, the error and time averages, the last 100 presses (`hits`), mastered and slipped | every Learn or Reinforce round |
-| `sessions` | every round of every mode: its numbers, its raw presses (`keys`), its length, Reinforce's word level, Freetype's list (`mode`), whether Tab dropped it | the end of every round |
+| `sessions` | every round of every mode: its numbers, its raw presses (`keys`), its length, Reinforce's word level, Freetype's list (`mode`), whether Tab dropped it, its kind | the end of every round |
 | `epochs` | per language: how many times the data was wiped or replaced, so a round sent from before it is never kept | Reset, Start Learn over, Import |
 | `schema_migrations` | which migration files are applied | the server, at start |
 
@@ -673,7 +682,7 @@ On 2026-11-26, on `main`, on a 2018 laptop (Intel i5-8300H, 4 cores) in
 Edge. Measure again before quoting: the commands are next to each table.
 
 **Typing latency** (`node tools/browser/perf.mjs --mode … --runs 3`, nothing
-else running; the goal is in AGENTS.md, "How we work"):
+else running; the goal is in AGENTS.md, "Measure"):
 
 | Screen | Style recalc per key | Key → caret start, CPU 6× slower | Slow frames (> 25 ms), CPU 6× slower |
 |---|---|---|---|

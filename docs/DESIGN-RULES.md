@@ -41,7 +41,7 @@ there is a reason not to).
   the left, the control on the right.
 - Boxes size to their content rather than to a fixed height (the result
   card, the panels).
-- Rare actions (Export, Import, Reset all progress) live in Settings, not on the main screen.
+- Rare actions (Export, Import, Reset progress) live in Settings, not on the main screen.
 - Every setting is in the settings window: a search at the top that has the
   focus, the categories under it as one row of buttons, then the rows with
   their switches right in them (one press changes a value). A setting of one
@@ -128,7 +128,7 @@ consequences, the same word for the same thing. All text lives in
 **Established**
 - Typing feels instant: the rules for the keypress path and how to measure
   it are in `docs/CODE-RULES.md` ("Architecture rules") and `AGENTS.md`
-  ("How we work"). Feel numbers live in `web/feel.js`.
+  ("Measure"). Feel numbers live in `web/feel.js`.
 - A state changes at once. Only the caret, the line scroll and the keyboard's
   lit key move (`docs/PRODUCT.md`, "Motion").
 - No `:has()` over a big part of the page (`body`, `#view-type`): any text
@@ -143,7 +143,7 @@ consequences, the same word for the same thing. All text lives in
 - Selected states use `aria-pressed` / `aria-selected`; a chosen value in a
   `.ring` group is a light accent tint. A `.ring` group is a row of cells
   side by side, with a thin line between them, so it reads as one switch.
-- A destructive action asks first in a confirm window (Reset all progress:
+- A destructive action asks first in a confirm window (Reset progress:
   "Reset all progress? This can't be undone.", Cancel has the focus).
 - `~` or the Stats button opens the stats of the mode you're in, full
   screen; `~`, Esc, Tab (back to a new round) or the button close them.

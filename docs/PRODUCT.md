@@ -40,7 +40,7 @@ speed and builds the next words around your weak letters.
   |---|---|---|---|
   | **Learn** | letters, from the home row, one at a time | accuracy | a letter opens when the newest is typed right 90 % of the time and none is under 85 %; the words bring your weak letters |
   | **Reinforce** | real words of a level, the 200 to the 25 000 most common, every letter | speed, with accuracy as the gate | the words bring your slow letters and letter pairs; the word level moves by itself (three rounds at your goal speed up, two far under it down); the speed goal grows in steps of 10 wpm, 30 to 200 |
-  | **Freetype** | a list of common words, long words, sentences or your own text, by words or by seconds | rhythm: how even your keys are | its own loop is the plan's task 10: the letter pairs where your rhythm stumbles come more often |
+  | **Freetype** | a list of common words, long words, sentences or your own text, by words or by seconds | rhythm: how even your keys are | the letter pairs where your rhythm stumbles come more often; the word list moves by itself with your consistency (three rounds at 80 % up, two under 70 % down) |
 
   Learn's last letter ends on a finish screen that offers Reinforce;
   Reinforce is open before that too, with every letter. Each mode has its
@@ -89,7 +89,7 @@ and can be explained in a sentence, and a calm screen.
 | TypeGG | quotes rated by difficulty | the quotes' difficulty to the typist's level | speed corrected for difficulty | made for competing, not learning |
 | Entertrained | books | nothing | the wish to finish the book | no adaptation, no stats per key |
 | Klavarog | word lists by speed level | the level is picked by hand | the finger shown for each key, Russian and Ukrainian | no stats, nothing adapts by itself |
-| **typeTrainer** | real words of the most common 200 to 25 000 | Learn: letters open by accuracy; Reinforce: the slow letters and pairs, the word level and the speed goal; Freetype: the rhythm (task 10) | every mode adapts, by rules written as formulas and checked in a simulation; stats per mode | English only; letters and pairs, not whole transitions; no study with people |
+| **typeTrainer** | real words of the most common 200 to 25 000 | Learn: letters open by accuracy; Reinforce: the slow letters and pairs, the word level and the speed goal; Freetype: the stumble pairs and the word list, by rhythm | every mode adapts, by rules written as formulas and checked in a simulation; stats per mode | English only; letters and pairs, not whole transitions; no study with people |
 
 ## Use cases
 
@@ -108,7 +108,7 @@ through HTTP; the step-by-step path of a round is in
 | U6 | Look at a mode's stats | `~` or the Stats button; `~`, Esc or Tab back | the mode's own measure, its chart, its panel, its days |
 | U7 | Keep progress across devices | sign up (the guest's progress moves into the account), sign in elsewhere | the same letters, rounds and stats |
 | U8 | Save or move progress | Settings, Data: Export to a file, Import from one | the whole language's progress written or replaced, all or nothing |
-| U9 | Start over | Settings, Data: Start Learn over, or Reset everything | Learn's letters and rounds, or everything, gone after a confirmation |
+| U9 | Start over | Settings, Data: Start Learn over, or Reset progress | Learn's letters and rounds, or everything, gone after a confirmation |
 
 ## Requirements
 
@@ -146,6 +146,4 @@ A light theme and designed motion with the redesign, more languages,
 typing with digits and symbols, the mascot as a quiet companion, other
 layouts (QWERTZ, Dvorak and more); the order is the plan's (issue #305).
 Not planned: leaderboards and public profiles (this is for practice, not a
-contest), sounds. Accounts exist (sign up / log
-in / log out on the normal server, kept in PostgreSQL when it is
-configured).
+contest), sounds.

@@ -149,9 +149,9 @@ sentence (a description, tooltip, message, news line, guide step) ends with a fu
 |---|---|
 | one typing run (10–50 words or 15–90 s) | round |
 | the learning mode, the main one | Learn |
-| the part after Learn, when every letter is open | Reinforce |
+| the mode for speed on real words, open from the start with every letter | Reinforce |
 | how many common words Reinforce draws from (200 ... 25k) | Words ("200", "1k" ... "25k" on the buttons) |
-| the second mode, plain typing | Freetype |
+| the third mode, typing freely for rhythm | Freetype |
 | the n most common words Freetype draws from | word list ("200", "1k" ... "25k" on the buttons) |
 | the letter the trainer is drilling now | focus |
 | a letter that meets the goal | mastered |

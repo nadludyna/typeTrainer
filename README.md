@@ -13,9 +13,13 @@ the next words from your own weak letters.
   letter opens when the newest one is at 90 % accuracy and no open letter
   is under 85 %. Only real English words, built around your weakest
   letter.
-- **Reinforce:** once every letter is open, you pick how many common words
-  to type (200 up to 25 000) and a speed goal from 30 to 200 wpm. Slow
-  letters and weak letter pairs come more often.
+- **Reinforce:** open from the start, with every letter. Real words from
+  the 200 up to the 25 000 most common, and a speed goal from 30 to 200 wpm.
+  Slow letters and weak letter pairs come more often, and the word level
+  moves by itself with your rounds.
+- **Freetype:** common words, long words, real sentences or your own text,
+  by words or by seconds. The letter pairs where your rhythm stumbles come
+  more often, and the word list moves by itself with your consistency.
 - **Settings:** text, caret, keyboard, round length, data export, import
   and reset.
 

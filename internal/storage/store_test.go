@@ -674,7 +674,7 @@ func testBestRounds(t *testing.T, m Store) {
 	}
 
 	// A sprint's best is its own, not the best of its length.
-	sprints := "sprints"
+	sprints := FreetypeMode(10000, VariantLong) // a mode no other round of this test uses
 	if f, _ := m.BestFreetypeRounds(u, "en", sprints); len(f) != 0 {
 		t.Fatalf("no rounds: %v; want no best", f)
 	}

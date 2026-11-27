@@ -46,8 +46,9 @@ type Params struct {
 
 	PairBoost float64 // a word's weight grows by this for each weak pair in it (Reinforce)
 	// A word with at least FingerShare of its letters on the weak finger weighs 1 + FingerBoost.
-	FingerShare float64
-	FingerBoost float64
+	FingerShare  float64
+	FingerBoost  float64
+	OwnedPenalty float64 // a word the typist owns weighs this much of its weight (Reinforce)
 
 	// Accuracy rules of Learn (HOW-THE-MODES-WORK section 14); off while AccWindow is 0.
 	AccWindow int     // presses of a letter the accuracy looks at

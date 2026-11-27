@@ -139,6 +139,15 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 			stumbles = append(stumbles, x.Pair)
 		}
 	}
+	picker := l.Freetype
+	if !storage.Listless(req.Variant) {
+		v, err := s.vocabulary(user, l.Info.ID, req.Start)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		picker = picker.WithOwned(v.Owned)
+	}
 	count := s.startPortions(req.Start, req.Words)
 	type portion struct {
 		Words []string `json:"words"`
@@ -150,7 +159,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 		if req.Variant == storage.VariantSentences {
 			out[i].Words = l.Sentences.Portion(recent, p.PortionWords, p)
 		} else {
-			out[i].Words = l.Freetype.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, stumbles, p)
+			out[i].Words = picker.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, stumbles, p)
 		}
 		recent = append(recent, out[i].Words...)
 	}
@@ -237,6 +246,12 @@ func (s *Server) handleFreetypeStats(w http.ResponseWriter, r *http.Request, use
 	out["rhythm"] = s.rhythmOf(rounds)
 	if !storage.Listless(variant) {
 		out["standing"] = s.listStanding(rounds, lists, variant)
+		v, err := s.vocabulary(user, l.Info.ID, true)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		out["owned"] = ownedPerList(v, l, lists)
 	}
 	writeJSON(w, http.StatusOK, out)
 }

@@ -172,6 +172,7 @@ function reinforce(s, rounds) {
     tile(t("st.wpm10"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + t("st.goalIs", { w: goal }), { hero: true, part: wpm === null ? 0 : wpm / goal }),
     tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
     words ? tile(t("re.words"), listLabel(words), levelNote(s.standing, s.wordLevels)) : null,
+    words ? ownedTile(s.owned?.[wordLevel() - 1], words) : null,
     tile(t("tile.best"), best ? num(best.wpm, "wpm") : "—", best ? t("st.bestAcc", { p: Math.round(best.accuracy) }) : ""),
     roundsTile(s.sessionCount),
   ];
@@ -185,6 +186,9 @@ function reinforce(s, rounds) {
   const panels = `<div class="st-two">${chartPanel(t("stats.speed"), t("st.goalLine"))}${slow}</div>` + hands(s.profile);
   return { tiles, panels, chart: { value: (x) => x.wpm, unit: "wpm", line: goal } };
 }
+
+// The words of the list you own: typed clean and no slower than your usual word in 3 rounds (profile.ReadWords).
+const ownedTile = (n, of) => tile(t("st.owned"), `${n ?? 0}<i>/ ${listLabel(of)}</i>`, t("st.ownedHow"), { part: (n ?? 0) / of });
 
 // How close the next move of the word level is (levels.Standing on the server).
 function levelNote(st, levels) {
@@ -213,6 +217,7 @@ function freetype(s, rounds) {
     tile(t("tile.wpm"), num(wpm, "wpm"), trendTag(rounds, (x) => x.wpm) + (goal ? t("st.goalIs", { w: goal }) : t("tile.last10")), goal ? { part: wpm === null ? 0 : wpm / goal } : {}),
     tile(t("tile.acc"), num(acc, "%"), trendTag(rounds, (x) => x.accuracy) + t("tile.last10")),
     tile(t("re.words"), listless(v) ? t(`ft.${v}`) : listLabel(S.freetypeList), listless(v) ? "" : listNote(s.standing, s.lists)),
+    listless(v) ? null : ownedTile(s.owned?.[(s.lists ?? []).indexOf(S.freetypeList)], S.freetypeList),
     roundsTile(s.sessionCount),
   ];
   const rh = s.rhythm, pairs = rh?.pairs ?? [];

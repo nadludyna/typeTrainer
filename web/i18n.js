@@ -134,6 +134,7 @@ const I18N = {
     "st.toUp": "{n} of {of} rounds to {next}", "st.toDown": "{n} of {of} slips back to {prev}", "st.bestAcc": "{p}% accuracy",
     "st.slowKeys": "Slowest letters", "st.slowPairs": "Slowest pairs", "st.noSlow": "Not enough rounds yet.",
     "st.stumbles": "Where your rhythm stumbles", "st.stumbleNote": "A gap over {ms} ms inside a word", "st.noStumbles": "Your rhythm is even: no pair stumbles more than the rest.",
+    "st.owned": "Words you own", "st.ownedHow": "clean and fast in 3 rounds",
     "st.hands": "Your fingers", "st.weakFinger": "Your {finger} misses most: {letters} come more often", "st.noWeakFinger": "No finger misses more than the rest",
     "st.kind.slip": "{p}% of your misses land on a neighbouring key.", "st.advice.slip": "The finger knows the way but overshoots: slow down a little on these keys.",
     "st.kind.place": "{p}% of your misses land far from the key.", "st.advice.place": "The place of the letter is not learned yet: look at the keyboard picture, not at your hands.",

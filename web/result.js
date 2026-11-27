@@ -1,7 +1,7 @@
 // The result screen.
 
 import { t } from "./i18n.js";
-import { $, el, isTouch, boxState } from "./state.js";
+import { $, el, S, isTouch, boxState } from "./state.js";
 import { showTip, askReset } from "./tools.js";
 
 const box = $("result");
@@ -13,6 +13,21 @@ let done = null;
 
 export const resultOpen = () => done !== null;
 
+// Why a word came ("kind:what" from the server, internal/api/why.go), in words.
+function whyText(why) {
+  const [kind, what] = (why ?? "").split(":");
+  if (!kind) return "";
+  return t(`why.${kind}`, { x: kind === "finger" ? (S.layout?.fingers?.[what]?.name ?? what).toLowerCase() : what });
+}
+
+// One line under the words: what this round was built for, the most common reason first.
+function builtFor(words) {
+  const count = new Map();
+  for (const w of words) if (w.why) count.set(w.why, (count.get(w.why) ?? 0) + 1);
+  const top = [...count].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([why]) => whyText(why));
+  return top.length ? `<p class="r-why">${t("why.built")} <b>${top.join("</b> · <b>")}</b></p>` : "";
+}
+
 export function showResult(r) {
 
   const hero = `<div class="r-hero${r.best ? " best" : ""}">${num(Math.round(r.wpm), t("result.wpm"), "big hero")}` +
@@ -21,13 +36,14 @@ export function showResult(r) {
   if (r.words?.length) {
     const bands = speedBands(r.words.map((w) => w.wpm).filter((v) => v != null));
     const word = (w) => {
-      const sp = w.wpm != null ? ` s${bands.level(w.wpm)}" tabindex="0" data-tip-text="${t("result.wordWpm", { wpm: w.wpm })}` : "";
+      const tip = [w.wpm != null ? t("result.wordWpm", { wpm: w.wpm }) : "", whyText(w.why)].filter(Boolean).join(" · ");
+      const sp = w.wpm != null ? ` s${bands.level(w.wpm)}" tabindex="0" data-tip-text="${tip}` : "";
       return `<span class="r-w${sp}">` + w.letters.map((x) => x.bad ? `<i>${x.c}</i>` : x.c).join("") + `</span>`;
     };
     const legend = bands.labels.length
       ? `<span class="r-legend" aria-hidden="true">${bands.labels.map((l, i) => `<span class="s${i + 1}">${l}</span>`).join("")}</span>` : "";
     graph = `<div class="r-graph">${legend}${speedChart(r.words, bands)}</div>`;
-    list = `<p class="r-wordlist">${r.words.map(word).join(" ")}</p>`;
+    list = `<p class="r-wordlist">${r.words.map(word).join(" ")}</p>` + builtFor(r.words);
   }
 
   const facts = [];

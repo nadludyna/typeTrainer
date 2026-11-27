@@ -123,7 +123,8 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		return
 	}
 	returning := profile.Returning(seen, gen.Order()[:min(unlocked, len(gen.Order()))], time.Now(), s.cfg.Time)
-	if gen, err = s.withWeakPairs(user, l, gen, returning); err != nil {
+	gen, weak, err := s.withWeakPairs(user, l, gen, returning)
+	if err != nil {
 		serverError(w, err)
 		return
 	}
@@ -141,6 +142,7 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 	s.genMu.Lock()
 	for i := range out {
 		out[i] = gen.Portion(stats, unlocked, typed, recent, req.Retry, p)
+		out[i].Why = weak.whys(out[i].Words, out[i].Focus)
 		recent = append(recent, out[i].Words...)
 		req.Retry = nil
 	}

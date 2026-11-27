@@ -157,6 +157,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 	count := s.startPortions(req.Start, req.Words)
 	type portion struct {
 		Words []string `json:"words"`
+		Why   []string `json:"why,omitempty"`
 	}
 	out := make([]portion, count)
 	recent := append([]string{}, req.Recent...)
@@ -168,6 +169,9 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 			out[i].Words = picker.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, stumbles, p)
 		}
 		recent = append(recent, out[i].Words...)
+		if len(stumbles) > 0 {
+			out[i].Why = weakSpots{stumbles: stumbles}.whys(out[i].Words, "")
+		}
 	}
 	s.genMu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{"portions": out})

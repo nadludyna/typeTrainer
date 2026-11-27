@@ -89,6 +89,8 @@ const I18N = {
     "result.wpm": "wpm", "result.acc": "% acc", "result.cons": "consistency", "result.sec": "s",
     "result.nextBtn": "Next round", "result.newBest": "New best", "result.axisWord": "word",
     "result.wordWpm": "{wpm} wpm",
+    "why.built": "This round was built for:", "why.pair": "your slow pair {x}", "why.stumble": "your stumble pair {x}", "why.finger": "your {x}",
+    "why.back": "{x}, not typed for days", "why.focus": "the letter {x}",
     "result.chartLabel": "Speed of each word",
     "result.correct": "correct", "result.wrong": "wrong", "result.extra": "extra", "result.missed": "missed",
     "result.extraTip": "Letters typed past the end of a word.", "result.missedTip": "Letters skipped by pressing space too early.",

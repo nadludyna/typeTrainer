@@ -81,7 +81,7 @@ its own. Every number they use is in `internal/config`.
 
 - `internal/storage/postgres.go`: PostgreSQL `Store` through the standard `database/sql`; the pgx driver is only registered. Applies `migrations/*.sql` at start. Not in the WebAssembly build.
 
-- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (the level of a round; now Reinforce's word level), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql` (a mode that is gone), `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_letter_hits.sql` (a letter's last presses and its slip under the lower threshold, for Learn's accuracy rules), `016_learn_and_freetype_only.sql` (Climb's rounds, the study group and the old typing test's flag go), `017_round_kind.sql` (a round's `kind`: the usual one, `weak` or `clean`)).
+- `internal/storage/migrations/`: The database tables, one numbered SQL file per change (`001_init.sql` ... `005_letter_held.sql` (a letter's mastery is remembered), `006_round_level.sql` (the level of a round; now Reinforce's word level), `007_freetype_modes.sql` (a history per Freetype list), `008_climb_ten_levels.sql` (a mode that is gone), `009_freetype_variants.sql` (a history per Freetype kind of text), `010_learn_laps.sql` (Learn's lap per user and per round), `011_round_id.sql` (a round sent twice is kept once), `012_epoch.sql` (an `epoch` counter per user and language, bumped by every reset and import and stamped on every saved session, so records from before a wipe can be told apart from records after it), `013_aborted.sql` (an `aborted` flag: a round dropped by Tab is kept raw but shown nowhere and never learned), `014_round_seconds.sql` (a round's measured seconds, for the daily goal), `015_letter_hits.sql` (a letter's last presses and its slip under the lower threshold, for Learn's accuracy rules), `016_learn_and_freetype_only.sql` (Climb's rounds, the study group and the old typing test's flag go), `017_round_kind.sql` (a round's `kind`: the usual one, `weak`, `clean` or `sprint`)).
 
 - `internal/storage/store_test.go`: The tests every `Store` must pass; run on memory always and on PostgreSQL when `TT_TEST_DATABASE_URL` is set (`postgres_test.go`).
 
@@ -366,7 +366,7 @@ learns it once. A request without `round` is always stored.
 **Kind of round** (`kind` on `/portion`, `/results`, `/freetype/portion`
 and `/freetype/results`): empty for the usual round, `weak` for one built
 from the typist's weak spots, `clean` for one that ends at the third
-mistake. Learn has only the usual round (any other is a 400). A round of a
+mistake, `sprint` for 15 seconds of the words the typist owns. Learn has only the usual round (any other is a 400). A round of a
 kind is kept and shown but moves no level (migration 017).
 
 **Round length** (`length` on `/results` and `/freetype/results`, and

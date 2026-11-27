@@ -622,6 +622,7 @@ async function finishRound() {
     if (res.newLetter) newLetter(res.newLetter);
     if (res.newLap) roundNewLap = res.newLap;
     if (body.level) followLevel(body.level);
+    if (S.lastStats?.tired) FX.toast(t("tired"));
 
     const r = compareStats(roundBefore, S.lastStats);
     roundMilestone({ ...r, wpm, newLetter: roundNewLetter, newLap: roundNewLap });
@@ -716,6 +717,7 @@ async function finishFreetype(wpm, accuracy, keys, perSecond) {
   if (res) {
     await saved();
     await followList(list, variant);
+    if (S.freetype?.tired) FX.toast(t("tired"));
     const best = before.length > 0 && wpm > Math.max(...before.map((x) => x.wpm));
     await showResult({ ...shown, consistency: res.consistency, best });
   } else {

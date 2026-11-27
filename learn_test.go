@@ -758,3 +758,37 @@ func TestApp_ProfileFingersAndMistakes(t *testing.T) {
 		t.Fatalf("kinds %v, want slip only", kinds)
 	}
 }
+
+// Accuracy that falls three rounds in a row in one sitting: /stats says the
+// typist is tired; a round that holds its accuracy clears it.
+func TestApp_Tired(t *testing.T) {
+	h, _, _ := newApp()
+	tired := func() any {
+		_, st := call(t, h, "GET", "/api/v1/stats?lang=en&part=learn", "")
+		return st["tired"]
+	}
+	send := func(acc float64) {
+		t.Helper()
+		body := fmt.Sprintf(`{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"accuracy":%v,"wpm":30}`, acc)
+		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+	}
+	if tired() != false {
+		t.Fatal("no rounds: not tired")
+	}
+	for _, acc := range []float64{98, 97, 96} {
+		send(acc)
+	}
+	if tired() != false {
+		t.Fatal("two falls are not three")
+	}
+	send(93)
+	if tired() != true {
+		t.Fatal("three falls in a row, five points in all: tired")
+	}
+	send(95)
+	if tired() != false {
+		t.Fatal("a better round clears it")
+	}
+}

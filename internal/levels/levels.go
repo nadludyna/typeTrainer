@@ -52,6 +52,7 @@ type Round struct {
 	WPM         float64
 	Goal        float64  // the speed goal the round was typed at, wpm
 	Consistency *float64 // Freetype's; none in a round under ConsistencyMinSeconds
+	Cold        bool     // a warm-up round: it can pass, but a fail only holds
 }
 
 type Place struct {
@@ -76,7 +77,11 @@ func Standing(rounds []Round, judge func(Round, Params) Verdict, p Params) Place
 	var at Place
 	for _, r := range rounds[first:] {
 		at.Moved = 0
-		switch judge(r, p) {
+		verdict := judge(r, p)
+		if r.Cold && verdict == Fail {
+			verdict = Hold
+		}
+		switch verdict {
 		case Pass:
 			at.Passes, at.Fails = at.Passes+1, 0
 			if at.Passes >= p.PassesUp {

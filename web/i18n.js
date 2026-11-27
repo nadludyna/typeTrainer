@@ -101,6 +101,7 @@ const I18N = {
     "re.title": "Reinforce", "re.words": "Words", "re.wordsTip": "The {n} most common words.",
     "re.levelUp": "Three rounds at your goal: now the {n} most common words.",
     "re.levelDown": "Back to the {n} most common words until the goal comes easier.",
+    "tired": "Less accurate three rounds in a row: you are getting tired. A break now helps more than one more round.",
     "ft.listUp": "Three even rounds: now the {n} most common words.",
     "ft.listDown": "Back to the {n} most common words until your rhythm settles.",
     "re.goal": "Speed goal", "re.goalTip": "Step {n} of {all}. The next step opens when every letter reaches level 80 here.",

@@ -49,6 +49,7 @@ type Config struct {
 	Levels                levels.Params
 	Profile               profile.Params
 	Owned                 profile.WordParams // the words a typist owns
+	Time                  profile.TimeParams // forgetting, warm-up, tiredness
 	Checkin               Checkin
 	Sim                   sim.Params
 }
@@ -205,6 +206,11 @@ func Default() Config {
 			MinMistakes: 10, NeighbourDist: 1.1,
 		},
 		Owned: profile.WordParams{Rounds: 60, OwnHits: 3, Slack: 1.1},
+		Time: profile.TimeParams{
+			Forget: 5 * 24 * time.Hour, Returning: 2,
+			Sitting: 30 * time.Minute, TiredRuns: 3, TiredDrop: 3,
+			ColdAfter: 6 * time.Hour,
+		},
 		Levels: levels.Params{
 			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 			LevelStart:   1,

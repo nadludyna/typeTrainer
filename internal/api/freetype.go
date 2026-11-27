@@ -13,6 +13,7 @@ import (
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/levels"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/storage"
 )
 
@@ -44,13 +45,18 @@ func (s *Server) listStanding(rounds []storage.Session, lists []int, variant str
 	p := s.cfg.Levels
 	p.Words = lists
 	var rs []levels.Round
+	var ends []time.Time
+	for i := len(rounds) - 1; i >= 0; i-- {
+		ends = append(ends, rounds[i].FinishedAt)
+	}
+	cold := profile.Cold(ends, s.cfg.Time)
 	for i := len(rounds) - 1; i >= 0; i-- {
 		n, v, ok := storage.ParseFreetypeMode(rounds[i].Mode)
 		at := slices.Index(lists, n)
 		if !ok || v != variant || at < 0 {
 			continue
 		}
-		rs = append(rs, levels.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency})
+		rs = append(rs, levels.Round{Level: at + 1, Accuracy: rounds[i].Accuracy, WPM: rounds[i].WPM, Consistency: rounds[i].Consistency, Cold: cold[len(rounds)-1-i]})
 	}
 	return standing{Place: levels.Standing(rs, levels.JudgeRhythm, p), PassesUp: p.PassesUp, FailsDown: p.FailsDown}
 }
@@ -141,7 +147,7 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 	}
 	picker := l.Freetype
 	if !storage.Listless(req.Variant) {
-		v, err := s.vocabulary(user, l.Info.ID, req.Start)
+		v, _, err := s.vocabulary(user, l.Info.ID, req.Start)
 		if err != nil {
 			serverError(w, err)
 			return
@@ -244,9 +250,12 @@ func (s *Server) handleFreetypeStats(w http.ResponseWriter, r *http.Request, use
 		return
 	}
 	out["rhythm"] = s.rhythmOf(rounds)
+	oldest := slices.Clone(rounds)
+	slices.Reverse(oldest)
+	out["tired"] = s.tired(oldest)
 	if !storage.Listless(variant) {
 		out["standing"] = s.listStanding(rounds, lists, variant)
-		v, err := s.vocabulary(user, l.Info.ID, true)
+		v, _, err := s.vocabulary(user, l.Info.ID, true)
 		if err != nil {
 			serverError(w, err)
 			return

@@ -230,6 +230,9 @@ const cleanOver = () => clean && mistakes >= CLEAN_MISTAKES;
 
 // A check-in sample is always a usual round.
 const kindNow = () => (probe ? "" : roundKind());
+// A sprint is always SPRINT_LENGTH, whatever length is picked.
+const SPRINT_LENGTH = "time-15";
+const roundLength = () => (kindNow() === "sprint" ? SPRINT_LENGTH : S.settings.length);
 let whys = [];   // why each word of the round came, by word number (the server's "why")
 function resetStream() {
   streamId++;
@@ -293,7 +296,7 @@ export async function loadExercise() {
   clean = kindNow() === "clean";
   const id = streamId;
   renderModeBar();
-  const next = probe ? { kind: "time", n: probe.seconds } : lengthOf(S.settings.length);
+  const next = probe ? { kind: "time", n: probe.seconds } : lengthOf(roundLength());
   if (S.view === "type") renderNav();
   const words = learnStream() ? 0 : next.kind === "words" ? next.n : TIME_AHEAD_WORDS;
   round = roundId();
@@ -525,7 +528,7 @@ function abortRound() {
   const keys = records.filter(Boolean);
   if (!keys.length) return;
   roundEnded(typedSeconds(lastTime));
-  postJSON("/abort", { round, keys, chars: keys.length, length: S.settings.length, seconds: typedSeconds(lastTime) })
+  postJSON("/abort", { round, keys, chars: keys.length, length: roundLength(), seconds: typedSeconds(lastTime) })
     .then(refreshActivity, console.error);
 }
 
@@ -620,7 +623,7 @@ async function finishRound() {
     streamId++;
     if (!typed.length) { await loadExercise(); return; }
     if (S.mode === "freetype") { await finishFreetype(wpm, accuracy, typed, fullSeconds(end)); return; }
-    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: S.settings.length, device: device(), round, seconds: typedSeconds(end), level: learnLevel(), kind: kindNow() };
+    const body = { samples, keys: typed, chars: typed.length, wpm, accuracy, perSecond: fullSeconds(end), length: roundLength(), device: device(), round, seconds: typedSeconds(end), level: learnLevel(), kind: kindNow() };
     learnRound++;
     let res;
     try {
@@ -635,6 +638,7 @@ async function finishRound() {
     if (res.newLap) roundNewLap = res.newLap;
     if (body.level && !body.kind) followLevel(body.level);
     if (clean) FX.toast(t(cleanOver() ? "clean.over" : "clean.whole", { n: wordsTyped }));
+    if (body.kind === "sprint") FX.toast(sprintNote(wpm, roundBefore?.bests?.sprint?.wpm));
     if (S.lastStats?.tired) FX.toast(t("tired"));
 
     const r = compareStats(roundBefore, S.lastStats);
@@ -695,6 +699,13 @@ function learnUnsaved(err, body) {
   });
 }
 
+// After a sprint: its speed against the best sprint before it (none before: the first).
+function sprintNote(wpm, best) {
+  const n = Math.round(wpm);
+  if (best == null) return t("sprint.first", { n });
+  return t(wpm > best ? "sprint.best" : "sprint.note", { n, best: Math.round(best) });
+}
+
 const device = () => (isTouch() ? "touch" : "keyboard");
 const roundId = () => Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -717,7 +728,8 @@ async function trySave(path, body, saved) {
 async function finishFreetype(wpm, accuracy, keys, perSecond) {
   const variant = S.freetypeVariant, list = roundList();
   const before = S.freetype?.sessions ?? [];
-  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: S.settings.length, device: device(), list, variant, kind: kindNow(), round, seconds: typedSeconds(lastTime) };
+  const body = { wpm, accuracy, chars: keys.length, perSecond, keys, length: roundLength(), device: device(), list, variant, kind: kindNow(), round, seconds: typedSeconds(lastTime) };
+  const sprintBest = S.freetype?.bests?.sprint?.wpm;
   const done = wordsTyped;
   const saved = async () => {
     if (variant === "custom") customRoundDone(done);
@@ -730,6 +742,7 @@ async function finishFreetype(wpm, accuracy, keys, perSecond) {
   if (res) {
     await saved();
     if (!body.kind) await followList(list, variant);
+    if (body.kind === "sprint") FX.toast(sprintNote(wpm, sprintBest));
     if (S.freetype?.tired) FX.toast(t("tired"));
     const best = before.length > 0 && wpm > Math.max(...before.map((x) => x.wpm));
     await showResult({ ...shown, consistency: res.consistency, best });

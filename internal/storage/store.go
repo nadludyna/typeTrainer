@@ -113,11 +113,23 @@ func RoundSeconds(wpm, accuracy float64, chars int) float64 {
 // The kinds of round besides the usual one. A round of a kind is kept and
 // shown but moves no word level or list.
 const (
-	KindWeak  = "weak"  // built from the typist's weak spots
-	KindClean = "clean" // ends at the third mistake
+	KindWeak   = "weak"   // built from the typist's weak spots
+	KindClean  = "clean"  // ends at the third mistake
+	KindSprint = "sprint" // 15 seconds of the words the typist owns
 )
 
-func ValidKind(k string) bool { return k == "" || k == KindWeak || k == KindClean }
+func ValidKind(k string) bool {
+	return k == "" || k == KindWeak || k == KindClean || k == KindSprint
+}
+
+// BestKey is what a round's best is kept under: its length, or KindSprint
+// for a sprint, so a sprint of owned words is no usual round's best.
+func BestKey(s Session) string {
+	if s.Kind == KindSprint {
+		return KindSprint
+	}
+	return s.Length
+}
 
 // Usual is the rounds of no special kind: the ones a level is judged by.
 func Usual(rounds []Session) []Session {

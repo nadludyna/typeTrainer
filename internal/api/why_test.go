@@ -23,4 +23,9 @@ func TestWhy(t *testing.T) {
 	if got := (weakSpots{}).whys([]string{"lazy", "house"}, ""); !slices.Equal(got, []string{"", ""}) {
 		t.Errorf("no weak spots, no focus: %v", got)
 	}
+	// In a sprint an owned word came for being owned, before any weak spot.
+	w.owned = map[string]bool{"house": true}
+	if got := w.whys([]string{"house", "quit"}, ""); !slices.Equal(got, []string{"owned:", "stumble:qu"}) {
+		t.Errorf("a sprint: %v", got)
+	}
 }

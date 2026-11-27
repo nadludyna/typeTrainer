@@ -221,6 +221,29 @@ func TestFreetype_OwnedWordsComeLessOften(t *testing.T) {
 	if plain < 0.17 || plain > 0.23 || owned < 0.05 || owned > 0.10 {
 		t.Fatalf("owned words: %.2f plain, %.2f owned; want about 0.20 and 0.07", plain, owned)
 	}
+	// A sprint: owned 51 times a word not owned, 102 / 110 ≈ 93 %; with
+	// nothing owned it is the plain draw.
+	sprint := func(owned map[string]bool) float64 {
+		pk := NewPicker(words, rand.New(rand.NewSource(8))).WithOwned(owned)
+		p := testParams
+		p.RepeatPenalty, p.OwnedPenalty, p.OwnedBoost = 1, 0.3, 50
+		with, all := 0, 0
+		for range 400 {
+			for _, w := range pk.Freetype(nil, 6, len(words), false, nil, p) {
+				all++
+				if w == "quiz" || w == "lazy" {
+					with++
+				}
+			}
+		}
+		return float64(with) / float64(all)
+	}
+	if s := sprint(map[string]bool{"quiz": true, "lazy": true}); s < 0.85 {
+		t.Fatalf("a sprint: %.2f owned words, want about 0.93", s)
+	}
+	if s := sprint(nil); s < 0.17 || s > 0.23 {
+		t.Fatalf("a sprint with nothing owned: %.2f, want the plain 0.20", s)
+	}
 	pk := NewPicker(words, rand.New(rand.NewSource(1)))
 	if pk.WithOwned(nil) != pk || len(pk.Top(3)) != 3 || len(pk.Top(99)) != 10 || len(pk.Top(-1)) != 0 {
 		t.Fatal("nothing owned is the same picker; Top is the first n words")

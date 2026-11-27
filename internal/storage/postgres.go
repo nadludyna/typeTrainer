@@ -289,9 +289,11 @@ func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit in
 }
 
 func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session, error) {
-	rows, err := p.db.Query(`SELECT DISTINCT ON (length) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted, kind
-		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted
-		ORDER BY length, wpm DESC, id`, user, lang, mode)
+	// The key is BestKey's: the length, or 'sprint' for a sprint.
+	rows, err := p.db.Query(`SELECT DISTINCT ON (best_key) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted, kind
+		FROM (SELECT *, CASE WHEN kind = 'sprint' THEN 'sprint' ELSE length END AS best_key FROM sessions
+			WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted) s
+		ORDER BY best_key, wpm DESC, id`, user, lang, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +308,7 @@ func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session,
 		if consistency.Valid {
 			s.Consistency = &consistency.Float64
 		}
-		out[s.Length] = s
+		out[BestKey(s)] = s
 	}
 	return out, rows.Err()
 }

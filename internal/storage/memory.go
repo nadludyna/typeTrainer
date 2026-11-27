@@ -236,8 +236,9 @@ func BestOf(all []Session) map[string]Session {
 		if s.Aborted {
 			continue
 		}
-		if b, ok := out[s.Length]; !ok || s.WPM > b.WPM {
-			out[s.Length] = s.Summary()
+		k := BestKey(s)
+		if b, ok := out[k]; !ok || s.WPM > b.WPM {
+			out[k] = s.Summary()
 		}
 	}
 	return out

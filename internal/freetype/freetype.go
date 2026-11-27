@@ -17,6 +17,7 @@ type Params struct {
 	RecentWords   int
 	RepeatPenalty float64
 	OwnedPenalty  float64 // a word the typist owns weighs this much of its weight
+	OwnedBoost    float64 // in a sprint an owned word weighs 1 + this times a word not owned; 0 outside a sprint
 
 	Lists         []int // the word lists: the N most common words
 	LongMin       int
@@ -129,6 +130,10 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 	if len(pairs) > 0 {
 		plain = 1 / (1 + p.StumbleBoost)
 	}
+	owned, notOwned := p.OwnedPenalty, 1.0
+	if p.OwnedBoost > 0 && len(pk.owned) > 0 {
+		owned, notOwned = 1, 1/(1+p.OwnedBoost)
+	}
 	weight := func(w string) float64 {
 		if w == last && size > 1 {
 			return 0
@@ -138,7 +143,9 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 			x *= plain
 		}
 		if pk.owned[w] {
-			x *= p.OwnedPenalty
+			x *= owned
+		} else {
+			x *= notOwned
 		}
 		return x
 	}

@@ -49,6 +49,7 @@ type Params struct {
 	FingerShare  float64
 	FingerBoost  float64
 	OwnedPenalty float64 // a word the typist owns weighs this much of its weight (Reinforce)
+	OwnedBoost   float64 // in a sprint an owned word weighs 1 + this instead; 0 outside a sprint
 
 	// Accuracy rules of Learn (HOW-THE-MODES-WORK section 14); off while AccWindow is 0.
 	AccWindow int     // presses of a letter the accuracy looks at

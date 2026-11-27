@@ -409,3 +409,30 @@ func TestWithOwned_OwnedWordsComeLessOften(t *testing.T) {
 		t.Error("nothing owned: the same generator")
 	}
 }
+
+func TestWithOwned_SprintBringsOwnedWords(t *testing.T) {
+	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
+	p := testParams
+	p.OwnedPenalty, p.OwnedBoost, p.PortionWords = 0.1, 50, 2
+	share := func(gen *Generator) float64 {
+		with, all := 0, 0
+		for i := 0; i < 200; i++ {
+			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
+				all++
+				if w == "they" || w == "them" {
+					with++
+				}
+			}
+		}
+		return float64(with) / float64(all)
+	}
+	// A word is not repeated in a portion, so of 2 owned words a sprint
+	// can be at most all; the usual round has them less often than none owned.
+	owned := g.WithOwned(map[string]bool{"they": true, "them": true})
+	sprint, plain := share(owned), share(g)
+	p.OwnedBoost = 0
+	usual := share(owned)
+	if sprint < 2*plain || usual >= plain {
+		t.Errorf("owned words: %.2f in a sprint, %.2f with none owned, %.2f in a usual round", sprint, plain, usual)
+	}
+}

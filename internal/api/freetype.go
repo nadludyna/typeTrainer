@@ -149,7 +149,11 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 	if req.Kind == storage.KindWeak {
 		p.StumbleBoost = s.cfg.WeakBoost
 	}
+	if req.Kind == storage.KindSprint {
+		p.OwnedBoost = s.cfg.WeakBoost
+	}
 	picker := l.Freetype
+	spots := weakSpots{stumbles: stumbles}
 	if !storage.Listless(req.Variant) {
 		v, _, err := s.vocabulary(user, l.Info.ID, req.Start)
 		if err != nil {
@@ -157,6 +161,9 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 			return
 		}
 		picker = picker.WithOwned(v.Owned)
+		if req.Kind == storage.KindSprint {
+			spots.owned = v.Owned
+		}
 	}
 	count := s.startPortions(req.Start, req.Words)
 	type portion struct {
@@ -173,8 +180,8 @@ func (s *Server) handleFreetypePortion(w http.ResponseWriter, r *http.Request, u
 			out[i].Words = picker.Freetype(recent, p.PortionWords, req.List, req.Variant == storage.VariantLong, stumbles, p)
 		}
 		recent = append(recent, out[i].Words...)
-		if len(stumbles) > 0 {
-			out[i].Why = weakSpots{stumbles: stumbles}.whys(out[i].Words, "")
+		if len(stumbles) > 0 || len(spots.owned) > 0 {
+			out[i].Why = spots.whys(out[i].Words, "")
 		}
 	}
 	s.genMu.Unlock()

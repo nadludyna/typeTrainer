@@ -15,21 +15,26 @@ const (
 	whyStumble = "stumble" // a pair the rhythm stumbles on
 	whyFinger  = "finger"  // the weak finger
 	whyFocus   = "focus"   // the letter in focus
+	whyOwned   = "owned"   // a word the typist owns, in a sprint
 )
 
 // weakSpots is what the words of a round are weighed toward.
 type weakSpots struct {
-	back     []string // letters coming back
-	pairs    []string // slow pairs
-	stumbles []string // stumble pairs
-	finger   string   // the weak finger, "" with none
-	letters  string   // its letters
-	share    float64  // the share of a word's letters that makes it the finger's word
+	back     []string        // letters coming back
+	pairs    []string        // slow pairs
+	stumbles []string        // stumble pairs
+	finger   string          // the weak finger, "" with none
+	letters  string          // its letters
+	share    float64         // the share of a word's letters that makes it the finger's word
+	owned    map[string]bool // a sprint's owned words; nil outside a sprint
 }
 
-// why is the first reason that holds for the word, the rarest kind first;
-// "" for a word that came by itself.
+// why is the first reason that holds for the word: in a sprint the word
+// being owned, else the rarest kind first; "" for a word that came by itself.
 func (w weakSpots) why(word, focus string) string {
+	if w.owned[word] {
+		return whyOwned + ":"
+	}
 	for _, c := range w.back {
 		if strings.Contains(word, c) {
 			return whyBack + ":" + c

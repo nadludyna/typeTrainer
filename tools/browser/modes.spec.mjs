@@ -1,6 +1,6 @@
 // Browser checks: the tabs, Welcome, the check-ins, the settings, Learn's finish screen.
 import { test, expect } from "@playwright/test";
-import { openApp, typeRound, waitForText, nextChar } from "./app.mjs";
+import { openApp, typeRound, waitForText, nextChar, nextWord } from "./app.mjs";
 import { watchPage, expectResult, withHistory, withFreetypeHistory, expectedOnly } from "./checks.mjs";
 
 watchPage(test);
@@ -279,6 +279,35 @@ test("a weak-spots round: off with no weak spots, asked for and saved as its kin
   expect((await saved).postDataJSON().kind, "the round is saved as a weak-spots round").toBe("weak");
   await page.locator('#mode-bar button[data-variant="sentences"]').click();
   await expect(page.locator("#mode-bar button[data-kind]"), "sentences have no kinds of round").toHaveCount(0);
+});
+
+test("a clean round ends at the third mistake and is saved as its kind", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype", "tt.length.freetype": "words-30" });
+  await page.locator("#mode-bar button[data-clean]").click();
+  await expect(page.locator("#mode-bar button[data-clean]")).toHaveAttribute("aria-pressed", "true");
+  await waitForText(page);
+  const saved = page.waitForRequest((r) => r.url().includes("/freetype/results"));
+  await page.locator("#text-box").click();
+  // two words right, then three wrong letters: the round ends there
+  for (let i = 0; i < 2; i++) await page.keyboard.type(await nextWord(page), { delay: 40 });
+  const wrong = async () => page.keyboard.type((await nextChar(page)) === "x" ? "z" : "x", { delay: 40 });
+  await wrong();
+  await wrong();
+  await expect(page.locator("body"), "two mistakes do not end it").not.toHaveClass(/tb-resulting/);
+  await wrong();
+  await expectResult(page);
+  expect((await saved).postDataJSON().kind).toBe("clean");
+  await expect(page.locator("#result"), "how far the round went").toContainText("words before the third mistake");
+  // the usual round goes on after three mistakes
+  await page.keyboard.press("Enter");
+  await page.locator("#mode-bar button[data-clean]").click();
+  await waitForText(page);
+  await page.locator("#text-box").click();
+  await wrong();
+  await wrong();
+  await wrong();
+  await wrong();
+  await expect(page.locator("body")).not.toHaveClass(/tb-resulting/);
 });
 
 test("Freetype: the word list follows the rounds' rhythm, and the stats say how close the next move is", async ({ page }) => {

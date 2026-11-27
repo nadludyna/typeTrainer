@@ -47,6 +47,7 @@ export function showResult(r) {
   }
 
   const facts = [];
+  if (r.clean) facts.push(fact(`<b>${r.clean.words}</b> ${t(r.clean.whole ? "clean.factWhole" : "clean.fact")}`));
   if (r.consistency != null) facts.push(fact(`<b>${Math.round(r.consistency)}%</b> ${t("result.cons")}`, "", "result.consTip"));
   if (r.seconds != null) facts.push(fact(`<b>${Math.round(r.seconds)}</b>${t("result.sec")}`));
   if (r.raw != null) facts.push(fact(`<b>${r.raw}</b> ${t("result.raw")}`, "", "tip.raw"));

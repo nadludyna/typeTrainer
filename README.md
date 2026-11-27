@@ -5,8 +5,6 @@
 An adaptive touch-typing trainer. It measures every key you press and picks
 the next words from your own weak letters.
 
-**Demo:** <https://nadludyna.github.io/typeTrainer/>
-
 ## What is in it
 
 - **Learn:** letters open one at a time, starting from the home row. A new
@@ -31,7 +29,7 @@ How the trainer decides what you type:
 - Go (standard library) for the server
 - PostgreSQL for storage, optional (without it, progress lives in memory)
 - Plain HTML, CSS and JavaScript, with no build step
-- A WebAssembly build of the same Go code for GitHub Pages, the demo above
+- A WebAssembly build of the same Go code for GitHub Pages, the demo linked at the top of the repository page
 
 ## Run it
 

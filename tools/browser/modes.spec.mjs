@@ -245,6 +245,16 @@ test("check-in, Freetype: Skip starts the round at once; Welcome brings the chec
   expect(await page.evaluate(() => ["learn", "reinforce", "freetype"].map((m) => localStorage.getItem(`tt.checkin.${m}`)))).toEqual(["", "", ""]);
 });
 
+test("Freetype: a round of 100 words starts, and the lengths are 10, 15, 20, 30, 50, 100", async ({ page }) => {
+  await openApp(page, { "tt.mode.en": "freetype" });
+  const lengths = await page.locator('#mode-bar .bar-side').nth(1).locator("button[data-length]").evaluateAll((bs) => bs.map((b) => b.textContent).filter((x) => /^\d+$/.test(x)));
+  expect(lengths).toEqual(["10", "15", "20", "30", "50", "100"]);
+  await page.locator('#mode-bar button[data-length="words-100"]').click();
+  await waitForText(page);
+  await expect(page.locator("#round-count")).toHaveText("0 / 100");
+  expect(await page.evaluate(() => document.getElementById("text").textContent.trim().split(/\s+/).length), "the whole round is loaded").toBeGreaterThanOrEqual(100);
+});
+
 test("Freetype: the word list follows the rounds' rhythm, and the stats say how close the next move is", async ({ page }) => {
   let saved = false;
   await page.route("**/api/v1/freetype/results?*", async (route) => {

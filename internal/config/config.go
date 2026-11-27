@@ -179,7 +179,7 @@ func Default() Config {
 		},
 		Freetype: freetype.Params{
 			PortionWords:  6,
-			MaxStartWords: 60,
+			MaxStartWords: 100,
 			RecentWords:   20,
 			RepeatPenalty: 0.3,
 			OwnedPenalty:  0.3,

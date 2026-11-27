@@ -27,7 +27,7 @@ func TestApp_Freetype(t *testing.T) {
 			}
 		}
 	}
-	for _, bad := range []string{`{"start":true,"list":300}`, `{"start":true}`, `{"start":true,"list":200,"words":61}`} {
+	for _, bad := range []string{`{"start":true,"list":300}`, `{"start":true}`, `{"start":true,"list":200,"words":101}`} {
 		if code, _ := call(t, h, "POST", "/api/v1/freetype/portion?lang=en", bad); code != 400 {
 			t.Fatalf("%s: a list not offered must be rejected", bad)
 		}

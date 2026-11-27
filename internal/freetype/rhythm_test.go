@@ -198,3 +198,31 @@ func TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften(t *testing.T) 
 		t.Fatalf("ou: %.3f with the loop, %.3f without; want at least 1.5×", loop, plain)
 	}
 }
+
+func TestFreetype_OwnedWordsComeLessOften(t *testing.T) {
+	words := []string{"quiz", "lazy", "fox", "dog", "the", "box", "pack", "jugs", "five", "over"}
+	share := func(owned map[string]bool) float64 {
+		pk := NewPicker(words, rand.New(rand.NewSource(8))).WithOwned(owned)
+		p := testParams
+		p.RepeatPenalty, p.OwnedPenalty = 1, 0.3
+		with, all := 0, 0
+		for range 400 {
+			for _, w := range pk.Freetype(nil, 6, len(words), false, nil, p) {
+				all++
+				if w == "quiz" || w == "lazy" {
+					with++
+				}
+			}
+		}
+		return float64(with) / float64(all)
+	}
+	// 2 of 10 words: 20 % plain; at 0.3 of their weight, 0.6 / 8.6 ≈ 7 %.
+	plain, owned := share(nil), share(map[string]bool{"quiz": true, "lazy": true})
+	if plain < 0.17 || plain > 0.23 || owned < 0.05 || owned > 0.10 {
+		t.Fatalf("owned words: %.2f plain, %.2f owned; want about 0.20 and 0.07", plain, owned)
+	}
+	pk := NewPicker(words, rand.New(rand.NewSource(1)))
+	if pk.WithOwned(nil) != pk || len(pk.Top(3)) != 3 || len(pk.Top(99)) != 10 || len(pk.Top(-1)) != 0 {
+		t.Fatal("nothing owned is the same picker; Top is the first n words")
+	}
+}

@@ -41,12 +41,16 @@ type Server struct {
 	portionMu    sync.Mutex
 	portionCache map[string]*cachedPortion
 
+	vocabMu sync.Mutex
+	vocab   map[string]vocabAt // the owned words of a learner, read at a round's start
+
 	attempts *auth.Limiter
 }
 
 func NewServer(cfg config.Config, store storage.Store, langs []*Language) *Server {
 	s := &Server{cfg: cfg, store: store, langs: map[string]*Language{}, order: langs,
 		portionCache: map[string]*cachedPortion{},
+		vocab:        map[string]vocabAt{},
 		attempts:     auth.NewLimiter(cfg.Auth.Attempts, time.Duration(cfg.Auth.AttemptWindow)*time.Minute)}
 	for _, l := range langs {
 		s.langs[l.Info.ID] = l

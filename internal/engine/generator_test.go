@@ -386,3 +386,26 @@ func TestWithFinger_ItsWordsComeMoreOften(t *testing.T) {
 		t.Error("no weak finger: the same generator")
 	}
 }
+
+func TestWithOwned_OwnedWordsComeLessOften(t *testing.T) {
+	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
+	p := testParams
+	p.OwnedPenalty, p.PortionWords = 0.1, 2
+	count := func(gen *Generator) (n int) {
+		for i := 0; i < 200; i++ {
+			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
+				if w == "they" || w == "them" {
+					n++
+				}
+			}
+		}
+		return
+	}
+	plain, owned := count(g), count(g.WithOwned(map[string]bool{"they": true, "them": true}))
+	if owned >= plain*2/3 {
+		t.Errorf("owned words: %d when owned, %d when not", owned, plain)
+	}
+	if g.WithOwned(nil) != g {
+		t.Error("nothing owned: the same generator")
+	}
+}

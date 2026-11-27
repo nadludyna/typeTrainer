@@ -16,6 +16,7 @@ type Params struct {
 	MaxStartWords int
 	RecentWords   int
 	RepeatPenalty float64
+	OwnedPenalty  float64 // a word the typist owns weighs this much of its weight
 
 	Lists         []int // the word lists: the N most common words
 	LongMin       int
@@ -39,7 +40,22 @@ type Params struct {
 type Picker struct {
 	words []string
 	rng   *rand.Rand
+	owned map[string]bool
 }
+
+// WithOwned is this picker with the words the typist owns: they come less
+// often (OwnedPenalty). It shares the words and the random source.
+func (pk *Picker) WithOwned(owned map[string]bool) *Picker {
+	if len(owned) == 0 {
+		return pk
+	}
+	out := *pk
+	out.owned = owned
+	return &out
+}
+
+// Top is the n most common words.
+func (pk *Picker) Top(n int) []string { return pk.words[:min(max(n, 0), len(pk.words))] }
 
 func NewPicker(words []string, rng *rand.Rand) *Picker {
 	return &Picker{words: words, rng: rng}
@@ -120,6 +136,9 @@ func (pk *Picker) drawWord(window []string, last string, size int, from []int, p
 		x := math.Pow(p.RepeatPenalty, float64(uses[w]))
 		if !hasPair(w, pairs) {
 			x *= plain
+		}
+		if pk.owned[w] {
+			x *= p.OwnedPenalty
 		}
 		return x
 	}

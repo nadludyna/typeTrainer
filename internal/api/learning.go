@@ -119,6 +119,14 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 		serverError(w, err)
 		return
 	}
+	if reinforce {
+		v, err := s.vocabulary(user, l.Info.ID, req.PortionIndex == 0)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		gen = gen.WithOwned(v.Owned)
+	}
 	recent := append([]string{}, req.Recent...)
 	count := 1
 	if req.Last {
@@ -492,6 +500,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	slices.Reverse(newest)
 	out["profile"] = s.profileOf(newest, l)
 	if part == storage.PartReinforce {
+		v, err := s.vocabulary(user, id, true)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		out["owned"] = ownedPerList(v, l, s.wordLevels(l))
 		typed := roundsOf(keyboard, part)
 		out["pairs"] = s.pairsOf(typed[max(0, len(typed)-s.cfg.Levels.WeakRounds):])
 	}

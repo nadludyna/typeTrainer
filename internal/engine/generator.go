@@ -21,6 +21,7 @@ type Generator struct {
 	rng   *rand.Rand
 	pairs []string
 	weak  string // the letters of the typist's weak finger
+	owned map[string]bool
 	bases *bases
 }
 
@@ -170,6 +171,17 @@ func (g *Generator) WithPairs(pairs []string) *Generator {
 	}
 	out := *g
 	out.pairs = pairs
+	return &out
+}
+
+// WithOwned is this generator with the words the learner owns: they come
+// less often (OwnedPenalty).
+func (g *Generator) WithOwned(owned map[string]bool) *Generator {
+	if len(owned) == 0 {
+		return g
+	}
+	out := *g
+	out.owned = owned
 	return &out
 }
 
@@ -380,6 +392,9 @@ func (g *Generator) newPool(stats map[string]KeyStat, unlocked, typed int, p Par
 			if strings.Contains(w, pair) {
 				pl.diffW[i] *= 1 + p.PairBoost
 			}
+		}
+		if g.owned[w] {
+			pl.diffW[i] *= p.OwnedPenalty
 		}
 		if g.weak != "" && len(w) > 0 {
 			on := 0

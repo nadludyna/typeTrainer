@@ -182,3 +182,51 @@ func TestApp_FreetypeRhythm(t *testing.T) {
 		t.Fatalf("sentences have no list to move: %v", st["standing"])
 	}
 }
+
+// The words a typist owns, through the app: "the" and "and" typed clean and
+// even in three Freetype rounds on a keyboard are owned, in Freetype's
+// stats and in Reinforce's; phone rounds own nothing.
+func TestApp_OwnedWords(t *testing.T) {
+	h, _, _ := newApp()
+	var b strings.Builder
+	for i := range 10 {
+		for j, c := range "the and " {
+			if i > 0 || j > 0 {
+				b.WriteString(",")
+			}
+			fmt.Fprintf(&b, `{"char":%q,"errors":0,"ms":150}`, string(c))
+		}
+	}
+	round := func(device string) {
+		t.Helper()
+		body := fmt.Sprintf(`{"wpm":60,"accuracy":100,"chars":80,"perSecond":[5,5,5,5,5,5],"list":200,"device":%q,"keys":[%s]}`, device, b.String())
+		if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", body); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+	}
+	owned := func(path string) string {
+		_, st := call(t, h, "GET", path, "")
+		return fmt.Sprint(st["owned"])
+	}
+	for range 3 {
+		round("touch")
+	}
+	round("keyboard")
+	round("keyboard")
+	if got := owned("/api/v1/freetype/stats?lang=en&list=200"); got != "[0 0 0 0 0]" {
+		t.Fatalf("two keyboard rounds (and three on a phone) own nothing: %s", got)
+	}
+	round("keyboard")
+	if got := owned("/api/v1/freetype/stats?lang=en&list=200"); got != "[2 2 2 2 2]" {
+		t.Fatalf("the and and are owned in every list: %s", got)
+	}
+	if got := owned("/api/v1/stats?lang=en&part=reinforce"); !strings.HasPrefix(got, "[2 2 ") {
+		t.Fatalf("Reinforce counts the same words: %s", got)
+	}
+	if _, st := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&variant=sentences", ""); st["owned"] != nil {
+		t.Fatalf("sentences have no list to own: %v", st["owned"])
+	}
+	if code, _ := call(t, h, "POST", "/api/v1/freetype/portion?lang=en", `{"start":true,"list":200,"words":10}`); code != 200 {
+		t.Fatalf("portion with owned words: %d", code)
+	}
+}

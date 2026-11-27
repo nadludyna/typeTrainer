@@ -48,6 +48,7 @@ type Config struct {
 	Freetype              freetype.Params
 	Levels                levels.Params
 	Profile               profile.Params
+	Owned                 profile.WordParams // the words a typist owns
 	Checkin               Checkin
 	Sim                   sim.Params
 }
@@ -164,7 +165,7 @@ func Default() Config {
 			RankPenalty: 0.5,
 
 			PairBoost:   2,
-			FingerShare: 0.3, FingerBoost: 2,
+			FingerShare: 0.3, FingerBoost: 2, OwnedPenalty: 0.3,
 
 			AccWindow: 100,
 			AccPrior:  3,
@@ -180,6 +181,7 @@ func Default() Config {
 			MaxStartWords: 60,
 			RecentWords:   20,
 			RepeatPenalty: 0.3,
+			OwnedPenalty:  0.3,
 
 			Lists:         []int{200, 1000, 5000, 10000, 25000},
 			LongMin:       6,
@@ -202,6 +204,7 @@ func Default() Config {
 			Rounds: 20, MinPresses: 50, WeakRatio: 1.5, WeakMargin: 0.02, Prior: 3,
 			MinMistakes: 10, NeighbourDist: 1.1,
 		},
+		Owned: profile.WordParams{Rounds: 60, OwnHits: 3, Slack: 1.1},
 		Levels: levels.Params{
 			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 			LevelStart:   1,

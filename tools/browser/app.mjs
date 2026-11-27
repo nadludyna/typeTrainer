@@ -10,10 +10,19 @@ export async function openApp(page, storage = {}) {
   await waitForText(page);
 }
 
+// The round's text is there and stands still: the keyboard is fitted after
+// the text arrives and moves it, so a check that measures at once reads a
+// screen that is still settling.
 export async function waitForText(page) {
   await page.waitForFunction(
     () => document.querySelectorAll("#text > span").length > 20,
     null, { timeout: 20_000 });
+  await page.waitForFunction(() => {
+    const r = document.getElementById("text").getBoundingClientRect(), now = `${r.top} ${r.left} ${r.width}`;
+    const still = window.__ttStill === now;
+    window.__ttStill = now;
+    return still;
+  }, null, { timeout: 20_000, polling: 120 });
 }
 
 export function nextChar(page) {

@@ -8,6 +8,7 @@ import (
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/levels"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/sim"
 )
 
@@ -46,6 +47,7 @@ type Config struct {
 	Words                 engine.WordParams
 	Freetype              freetype.Params
 	Levels                levels.Params
+	Profile               profile.Params
 	Checkin               Checkin
 	Sim                   sim.Params
 }
@@ -161,7 +163,8 @@ func Default() Config {
 			RankStep:    200,
 			RankPenalty: 0.5,
 
-			PairBoost: 2,
+			PairBoost:   2,
+			FingerShare: 0.3, FingerBoost: 2,
 
 			AccWindow: 100,
 			AccPrior:  3,
@@ -194,6 +197,10 @@ func Default() Config {
 			StumbleRatio:      2,
 			StumblePairs:      3,
 			StumbleBoost:      2,
+		},
+		Profile: profile.Params{
+			Rounds: 20, MinPresses: 50, WeakRatio: 1.5, WeakMargin: 0.02, Prior: 3,
+			MinMistakes: 10, NeighbourDist: 1.1,
 		},
 		Levels: levels.Params{
 			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},

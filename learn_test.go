@@ -711,3 +711,50 @@ func TestDemo_Imports(t *testing.T) {
 		t.Errorf("no keys mixed up: the learn grid and its mix-ups would be empty")
 	}
 }
+
+// The typist's profile in /stats: a left little finger that misses its keys
+// by slipping to the next one is named weak, with its letters and the kind
+// of mistake; phone rounds say nothing.
+func TestApp_ProfileFingersAndMistakes(t *testing.T) {
+	h, _, _ := newApp()
+	var b strings.Builder
+	for i := range 12 {
+		for j, c := range "a sad lass falls as a salad " {
+			if i > 0 || j > 0 {
+				b.WriteString(",")
+			}
+			if c == 'a' {
+				b.WriteString(`{"char":"a","errors":1,"ms":300,"typed":"q"}`)
+			} else {
+				fmt.Fprintf(&b, `{"char":%q,"errors":0,"ms":200}`, string(c))
+			}
+		}
+	}
+	send := func(device string) {
+		t.Helper()
+		body := fmt.Sprintf(`{"keys":[%s],"chars":300,"accuracy":90,"wpm":30,"device":%q}`, b.String(), device)
+		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
+			t.Fatalf("results: %d %v", code, out)
+		}
+	}
+	profile := func() map[string]any {
+		_, st := call(t, h, "GET", "/api/v1/stats?lang=en&part=learn", "")
+		return st["profile"].(map[string]any)
+	}
+	if p := profile(); p["presses"] != 0.0 || p["weak"] != "" {
+		t.Fatalf("no rounds: %v", p)
+	}
+	send("touch")
+	if p := profile(); p["presses"] != 0.0 {
+		t.Fatalf("a phone round says nothing about fingers: %v", p)
+	}
+	send("keyboard")
+	p := profile()
+	if p["weak"] != "lp" || fmt.Sprint(p["letters"]) != "[a q z]" {
+		t.Fatalf("weak finger %v, letters %v", p["weak"], p["letters"])
+	}
+	kinds := p["kinds"].([]any)
+	if len(kinds) != 1 || kinds[0].(map[string]any)["kind"] != "slip" {
+		t.Fatalf("kinds %v, want slip only", kinds)
+	}
+}

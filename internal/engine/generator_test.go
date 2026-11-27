@@ -361,3 +361,28 @@ func TestGenerator_PoolBaseIsKeptAndRenewed(t *testing.T) {
 		}
 	}
 }
+
+// A word mostly typed by the weak finger comes more often; one letter of it
+// in a long word is not enough.
+func TestWithFinger_ItsWordsComeMoreOften(t *testing.T) {
+	g := newTestGen(3).WithWords([]string{"they", "them", "want", "went", "fold", "gold"}, testParams)
+	p := testParams
+	p.FingerShare, p.FingerBoost, p.PortionWords = 0.3, 20, 2
+	count := func(gen *Generator) (n int) {
+		for i := 0; i < 200; i++ {
+			for _, w := range gen.Portion(nil, len(gen.Order()), 1<<30, nil, nil, p).Words {
+				if w == "they" || w == "them" {
+					n++
+				}
+			}
+		}
+		return
+	}
+	plain, weak := count(g), count(g.WithFinger([]string{"t", "h"}))
+	if weak <= plain*3/2 {
+		t.Errorf("words of the weak finger: %d with it, %d without", weak, plain)
+	}
+	if g.WithFinger(nil) != g {
+		t.Error("no weak finger: the same generator")
+	}
+}

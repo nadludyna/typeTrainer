@@ -10,6 +10,7 @@ import (
 
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/levels"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/storage"
 )
 
@@ -20,15 +21,30 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 // withWeakPairs is gen weighted to the letter pairs that slow this learner's
 // last rounds on a keyboard down.
 func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) (*engine.Generator, error) {
-	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", s.cfg.Levels.WeakRounds)
+	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", max(s.cfg.Levels.WeakRounds, s.cfg.Profile.Rounds))
 	if err != nil {
 		return nil, err
 	}
+	rounds = storage.OnKeyboard(rounds)
 	var pairs []string
-	for _, p := range s.pairsOf(storage.OnKeyboard(rounds)) {
+	for _, p := range s.pairsOf(rounds[:min(len(rounds), s.cfg.Levels.WeakRounds)]) {
 		pairs = append(pairs, p.Pair)
 	}
-	return gen.WithPairs(pairs), nil
+	return gen.WithPairs(pairs).WithFinger(s.profileOf(rounds, l).Letters), nil
+}
+
+// profileOf is what the last Profile.Rounds of these rounds (newest first)
+// say about the typist's fingers and kinds of mistakes.
+func (s *Server) profileOf(rounds []storage.Session, l *Language) profile.Profile {
+	rounds = rounds[:min(len(rounds), s.cfg.Profile.Rounds)]
+	keys := make([][]profile.Key, len(rounds))
+	for i, r := range rounds {
+		keys[i] = make([]profile.Key, len(r.Keys))
+		for j, k := range r.Keys {
+			keys[i][j] = profile.Key{Char: k.Char, Errors: k.Errors, Ms: k.Ms, Typed: k.Typed}
+		}
+	}
+	return profile.Read(keys, l.Places, l.Fingers, s.cfg.Profile)
 }
 
 // wordLevels is the levels' names: how many of the most common words each

@@ -488,6 +488,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	if part != storage.PartLearn {
 		out["standing"] = s.standing(roundsOf(keyboard, storage.PartReinforce), who.base, len(l.Levels))
 	}
+	newest := slices.Clone(keyboard)
+	slices.Reverse(newest)
+	out["profile"] = s.profileOf(newest, l)
 	if part == storage.PartReinforce {
 		typed := roundsOf(keyboard, part)
 		out["pairs"] = s.pairsOf(typed[max(0, len(typed)-s.cfg.Levels.WeakRounds):])

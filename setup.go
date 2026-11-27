@@ -15,6 +15,7 @@ import (
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/language"
 	"typingtrainer/internal/layout"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/static"
 	"typingtrainer/internal/storage"
 )
@@ -93,9 +94,13 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	if data, err := files.ReadFile("data/langs/" + info.ID + "/sentences.txt"); err == nil {
 		sentences = freetype.NewSentences(freetype.ParseSentences(string(data)), rand.New(rand.NewSource(seed+3)))
 	}
+	places := map[string]profile.Place{}
+	for c, at := range lay.Places() {
+		places[c] = profile.Place{Finger: at.Finger, Row: at.Row, X: at.X}
+	}
 	var levels []*engine.Generator
 	for _, n := range cfg.Levels.Words {
 		levels = append(levels, gen.WithWords(long[:min(n, len(long))], cfg.Engine))
 	}
-	return &api.Language{Info: info, Gen: gen, Freetype: picker, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON}, nil
+	return &api.Language{Info: info, Gen: gen, Freetype: picker, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON, Places: places, Fingers: lay.FingerOrder()}, nil
 }

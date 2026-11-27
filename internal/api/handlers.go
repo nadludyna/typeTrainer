@@ -14,6 +14,7 @@ import (
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/language"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/storage"
 )
 
@@ -24,6 +25,8 @@ type Language struct {
 	Sentences  *freetype.Sentences
 	Levels     []*engine.Generator // Reinforce's word levels, the most frequent words first
 	LayoutJSON []byte
+	Places     map[string]profile.Place // where each key stands, and its finger
+	Fingers    []string                 // the fingers, left little to right little
 }
 
 type Server struct {

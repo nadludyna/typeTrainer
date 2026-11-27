@@ -16,6 +16,7 @@ test("the stats of the mode you're in: ~ or the Stats button opens them, ~, Esc 
   await expect(sheet.locator(".tile.hero"), "Learn leads with accuracy").toContainText("Accuracy, last 10 rounds");
   await expect(sheet.locator(".st-chart svg")).toBeVisible();
   await expect(sheet.locator(".st-phone"), "a keyboard's rounds teach the trainer: no phone note").toHaveCount(0);
+  await expect(sheet.locator(".panel", { hasText: "Your fingers" }), "the fingers panel").toBeVisible();
   await expect(page.locator("#tab-stats")).toHaveAttribute("aria-selected", "true");
   await page.waitForTimeout(350);
   await page.keyboard.press("Escape");

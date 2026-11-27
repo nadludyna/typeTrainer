@@ -7,6 +7,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
+	"time"
 
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/levels"
@@ -20,17 +22,27 @@ func (s *Server) validWordLevel(l *Language, level int) bool {
 
 // withWeakPairs is gen weighted to the letter pairs that slow this learner's
 // last rounds on a keyboard down.
-func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator) (*engine.Generator, error) {
+func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator, returning []string) (*engine.Generator, error) {
 	rounds, err := s.store.RecentSessions(user, l.Info.ID, "", max(s.cfg.Levels.WeakRounds, s.cfg.Profile.Rounds))
 	if err != nil {
 		return nil, err
 	}
 	rounds = storage.OnKeyboard(rounds)
-	var pairs []string
+	pairs := slices.Clone(returning)
 	for _, p := range s.pairsOf(rounds[:min(len(rounds), s.cfg.Levels.WeakRounds)]) {
 		pairs = append(pairs, p.Pair)
 	}
 	return gen.WithPairs(pairs).WithFinger(s.profileOf(rounds, l).Letters), nil
+}
+
+// tired says whether these rounds (oldest first) end in a sitting where
+// accuracy fell round after round (profile.Tired).
+func (s *Server) tired(rounds []storage.Session) bool {
+	stamps := make([]profile.Stamp, len(rounds))
+	for i, r := range rounds {
+		stamps[i] = profile.Stamp{At: r.FinishedAt, Accuracy: r.Accuracy}
+	}
+	return profile.Tired(stamps, s.cfg.Time)
 }
 
 // profileOf is what the last Profile.Rounds of these rounds (newest first)
@@ -109,9 +121,14 @@ type standing struct {
 
 func (s *Server) standing(rounds []storage.Session, base engine.Params, count int) standing {
 	var rs []levels.Round
-	for _, r := range rounds {
+	ends := make([]time.Time, len(rounds))
+	for i, r := range rounds {
+		ends[i] = r.FinishedAt
+	}
+	cold := profile.Cold(ends, s.cfg.Time)
+	for i, r := range rounds {
 		if r.Level > 0 {
-			rs = append(rs, levels.Round{Level: int(r.Level), Accuracy: r.Accuracy, WPM: r.WPM, Goal: base.ForLap(r.Lap, s.cfg.Laps).TargetWPM})
+			rs = append(rs, levels.Round{Level: int(r.Level), Accuracy: r.Accuracy, WPM: r.WPM, Goal: base.ForLap(r.Lap, s.cfg.Laps).TargetWPM, Cold: cold[i]})
 		}
 	}
 	p := s.cfg.Levels

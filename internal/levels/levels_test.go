@@ -103,3 +103,26 @@ func TestJudgeRhythm(t *testing.T) {
 		t.Fatalf("three even rounds move the list up: %+v", got)
 	}
 }
+
+// A warm-up round can pass, but its fail only holds: it breaks no run of
+// passes and starts no run of fails.
+func TestStanding_AColdRoundDoesNotFail(t *testing.T) {
+	p := testParams
+	bad, good := Round{Level: 2, Accuracy: 80}, Round{Level: 2, Accuracy: 99}
+	cold := bad
+	cold.Cold = true
+	if got := Standing([]Round{bad, bad}, Judge, p); got.Moved != -1 {
+		t.Fatalf("two fails move down: %+v", got)
+	}
+	if got := Standing([]Round{cold, bad}, Judge, p); got.Moved != 0 || got.Fails != 1 || got.Level != 2 {
+		t.Fatalf("a cold fail is not counted: %+v", got)
+	}
+	if got := Standing([]Round{good, good, cold}, Judge, p); got.Passes != 2 {
+		t.Fatalf("a cold fail keeps the passes: %+v", got)
+	}
+	warm := good
+	warm.Cold = true
+	if got := Standing([]Round{warm, good, good}, Judge, p); got.Moved != 1 {
+		t.Fatalf("a cold round can pass: %+v", got)
+	}
+}

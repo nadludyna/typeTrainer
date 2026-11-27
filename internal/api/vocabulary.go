@@ -12,8 +12,9 @@ import (
 )
 
 type vocabAt struct {
-	at time.Time
-	v  profile.Vocabulary
+	at   time.Time
+	v    profile.Vocabulary
+	seen profile.Seen // when each letter was last typed in Learn and Reinforce
 }
 
 // vocabKept is how long a learner's owned words are kept between the
@@ -24,22 +25,33 @@ const vocabKept = time.Hour
 // Learn and Reinforce and as many of Freetype, typed on a keyboard. It is
 // read again when a round starts (fresh) and kept for the round's other
 // portions, so a portion does not read the history again.
-func (s *Server) vocabulary(user, lang string, fresh bool) (profile.Vocabulary, error) {
+func (s *Server) vocabulary(user, lang string, fresh bool) (profile.Vocabulary, profile.Seen, error) {
 	key := user + "\x00" + lang
 	s.vocabMu.Lock()
 	kept, ok := s.vocab[key]
 	s.vocabMu.Unlock()
 	if ok && !fresh && time.Since(kept.at) < vocabKept {
-		return kept.v, nil
+		return kept.v, kept.seen, nil
 	}
 	n := s.cfg.Owned.Rounds
 	learning, err := s.store.RecentSessions(user, lang, "", n)
 	if err != nil {
-		return profile.Vocabulary{}, err
+		return profile.Vocabulary{}, profile.Seen{}, err
+	}
+	seen := profile.Seen{Last: map[string]time.Time{}}
+	for _, r := range storage.OnKeyboard(learning) {
+		if seen.Oldest.IsZero() || r.FinishedAt.Before(seen.Oldest) {
+			seen.Oldest = r.FinishedAt
+		}
+		for _, k := range r.Keys {
+			if r.FinishedAt.After(seen.Last[k.Char]) {
+				seen.Last[k.Char] = r.FinishedAt
+			}
+		}
 	}
 	free, err := s.store.LastFreetypeRounds(user, lang, n)
 	if err != nil {
-		return profile.Vocabulary{}, err
+		return profile.Vocabulary{}, profile.Seen{}, err
 	}
 	rounds := storage.OnKeyboard(append(learning, free...))
 	slices.SortStableFunc(rounds, func(a, b storage.Session) int { return a.FinishedAt.Compare(b.FinishedAt) })
@@ -57,9 +69,9 @@ func (s *Server) vocabulary(user, lang string, fresh bool) (profile.Vocabulary, 
 			delete(s.vocab, k)
 		}
 	}
-	s.vocab[key] = vocabAt{at: time.Now(), v: v}
+	s.vocab[key] = vocabAt{at: time.Now(), v: v, seen: seen}
 	s.vocabMu.Unlock()
-	return v, nil
+	return v, seen, nil
 }
 
 // ownedPerList is how many of the n most common words the learner owns, for each n.

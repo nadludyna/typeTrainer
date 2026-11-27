@@ -14,6 +14,7 @@ import (
 
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/history"
+	"typingtrainer/internal/profile"
 	"typingtrainer/internal/storage"
 )
 
@@ -115,17 +116,19 @@ func (s *Server) handlePortion(w http.ResponseWriter, r *http.Request, user stri
 			return
 		}
 	}
-	if gen, err = s.withWeakPairs(user, l, gen); err != nil {
+	// What the learner owns and has not typed for long is read at the round's start.
+	owned, seen, err := s.vocabulary(user, l.Info.ID, req.PortionIndex == 0)
+	if err != nil {
+		serverError(w, err)
+		return
+	}
+	returning := profile.Returning(seen, gen.Order()[:min(unlocked, len(gen.Order()))], time.Now(), s.cfg.Time)
+	if gen, err = s.withWeakPairs(user, l, gen, returning); err != nil {
 		serverError(w, err)
 		return
 	}
 	if reinforce {
-		v, err := s.vocabulary(user, l.Info.ID, req.PortionIndex == 0)
-		if err != nil {
-			serverError(w, err)
-			return
-		}
-		gen = gen.WithOwned(v.Owned)
+		gen = gen.WithOwned(owned.Owned)
 	}
 	recent := append([]string{}, req.Recent...)
 	count := 1
@@ -496,11 +499,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	if part != storage.PartLearn {
 		out["standing"] = s.standing(roundsOf(keyboard, storage.PartReinforce), who.base, len(l.Levels))
 	}
+	out["tired"] = s.tired(roundsOf(keyboard, part))
 	newest := slices.Clone(keyboard)
 	slices.Reverse(newest)
 	out["profile"] = s.profileOf(newest, l)
 	if part == storage.PartReinforce {
-		v, err := s.vocabulary(user, id, true)
+		v, _, err := s.vocabulary(user, id, true)
 		if err != nil {
 			serverError(w, err)
 			return

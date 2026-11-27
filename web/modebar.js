@@ -47,9 +47,10 @@ export function renderModeBar() {
 // (spots: how many the server found; with none the choice is off).
 function kindRing(spots) {
   const kind = roundKind(), none = !spots && kind !== "weak";
-  // One button that is on or off: the bar has no room for a second one.
+  // Each kind is one button that is on or off: the bar has no room for a button of the usual round.
   return ring(t("kind.label"), [
     ringBtn(`data-kind="${kind === "weak" ? "" : "weak"}" data-weak${none ? " disabled" : ""}`, t("kind.weak"), kind === "weak", t(none ? "kind.noWeak" : "kind.weakTip")),
+    ringBtn(`data-kind="${kind === "clean" ? "" : "clean"}" data-clean`, t("kind.clean"), kind === "clean", t("kind.cleanTip")),
   ]);
 }
 

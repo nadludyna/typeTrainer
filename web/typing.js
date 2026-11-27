@@ -223,6 +223,11 @@ function newLetter(l) {
   if (ex?.locked?.includes(l)) S.exercise = { ...ex, unlocked: [...ex.unlocked, l], locked: ex.locked.filter((c) => c !== l) };
 }
 
+// A clean round ends at its CLEAN_MISTAKES-th wrong press.
+const CLEAN_MISTAKES = 3;
+let clean = false, mistakes = 0;
+const cleanOver = () => clean && mistakes >= CLEAN_MISTAKES;
+
 // A check-in sample is always a usual round.
 const kindNow = () => (probe ? "" : roundKind());
 let whys = [];   // why each word of the round came, by word number (the server's "why")
@@ -231,7 +236,7 @@ function resetStream() {
   queue = Promise.resolve();
   S.text = ""; S.pos = 0; wordsTyped = 0;
   state = new Uint8Array(0); focusMask = new Uint8Array(0); records = []; spans = [];
-  portions = []; whys = []; round = ""; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
+  portions = []; whys = []; mistakes = 0; round = ""; sentUpTo = 0; current = 0; roundNewLetter = ""; roundNewLap = 0; wordsLoaded = 0; endAt = -1;
   wordOf = new Int32Array(0); revealAt = 0; shownWords = 0;
   extras = new Map(); correctChars = 0; afterBackspace = false; afterPause = false;
   pausedAt = null; boxState(false, "paused");
@@ -285,6 +290,7 @@ function finishProbe() {
 
 export async function loadExercise() {
   resetStream();
+  clean = kindNow() === "clean";
   const id = streamId;
   renderModeBar();
   const next = probe ? { kind: "time", n: probe.seconds } : lengthOf(S.settings.length);
@@ -336,6 +342,7 @@ function record(i, wrong, now, typed) {
     r = records[i] = { char: S.text[i], errors: 0, ms };
   }
   if (wrong) {
+    mistakes++;
     r.errors++;
     if (r.typed === undefined) r.typed = typed;
   }
@@ -366,7 +373,7 @@ function roundFacts(end = lastTime) {
   }
   for (const list of extras.values()) chars.extra += list.length;
   const seconds = startTime === null || end === null ? 0 : (end - startTime) / 1000;
-  return { chars, seconds, raw };
+  return { chars, seconds, raw, clean: clean ? { words: wordsTyped, whole: !cleanOver() } : null };
 }
 const wordHasError = (start, end) =>
   state.subarray(start, end).some((s) => s >= 2) || (extras.get(end)?.length ?? 0) > 0;
@@ -402,6 +409,7 @@ export function handleChar(ch) {
     record(S.pos, true, now, ch);
     setState(S.pos, 2);
     lastTime = now; afterBackspace = false; afterPause = false;
+    if (cleanOver()) finishRound();
     return;
   }
 
@@ -436,7 +444,7 @@ export function handleChar(ch) {
     }
   }
   lastTime = now; afterBackspace = false; afterPause = false;
-  if (roundOver) { placeCaret(false, true); finishRound(); return; }
+  if (roundOver || cleanOver()) { placeCaret(false, true); finishRound(); return; }
   highlightNextKey();
   placeCaret(false);
 }
@@ -626,6 +634,7 @@ async function finishRound() {
     if (res.newLetter) newLetter(res.newLetter);
     if (res.newLap) roundNewLap = res.newLap;
     if (body.level && !body.kind) followLevel(body.level);
+    if (clean) FX.toast(t(cleanOver() ? "clean.over" : "clean.whole", { n: wordsTyped }));
     if (S.lastStats?.tired) FX.toast(t("tired"));
 
     const r = compareStats(roundBefore, S.lastStats);

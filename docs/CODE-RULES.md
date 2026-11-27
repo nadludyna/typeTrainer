@@ -36,7 +36,7 @@ comments. How the parts fit together is in `docs/HOW-THE-CODE-WORKS.md`.
   per animation frame (`requestAnimationFrame`). Animations use CSS transitions
   or the Web Animations API (`element.animate`), never JS timers. Typing
   latency is the product: measure it after touching this path (`AGENTS.md`,
-  "How we work").
+  "Measure").
 - The frontend is native ES modules with a three-layer import rule
   (`docs/HOW-THE-CODE-WORKS.md`, checked by `webmodules_test.go`): imports only go down, no
   cycles. State shared by several modules lives in the object `S`.

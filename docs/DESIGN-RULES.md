@@ -128,7 +128,7 @@ consequences, the same word for the same thing. All text lives in
 **Established**
 - Typing feels instant: the rules for the keypress path and how to measure
   it are in `docs/CODE-RULES.md` ("Architecture rules") and `AGENTS.md`
-  ("How we work"). Feel numbers live in `web/feel.js`.
+  ("Measure"). Feel numbers live in `web/feel.js`.
 - A state changes at once. Only the caret, the line scroll and the keyboard's
   lit key move (`docs/PRODUCT.md`, "Motion").
 - No `:has()` over a big part of the page (`body`, `#view-type`): any text

@@ -673,7 +673,7 @@ On 2026-11-26, on `main`, on a 2018 laptop (Intel i5-8300H, 4 cores) in
 Edge. Measure again before quoting: the commands are next to each table.
 
 **Typing latency** (`node tools/browser/perf.mjs --mode … --runs 3`, nothing
-else running; the goal is in AGENTS.md, "How we work"):
+else running; the goal is in AGENTS.md, "Measure"):
 
 | Screen | Style recalc per key | Key → caret start, CPU 6× slower | Slow frames (> 25 ms), CPU 6× slower |
 |---|---|---|---|

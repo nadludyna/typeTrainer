@@ -8,13 +8,13 @@ import (
 
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/sim"
+	"typingtrainer/tools/sim/sim"
 )
 
 var cfg = config.Default()
 
 func newTypist(letters []string, seed int64) *sim.Typist {
-	t := sim.NewTypist(letters, cfg.Sim, rand.New(rand.NewSource(seed)))
+	t := sim.NewTypist(letters, sim.Default(), rand.New(rand.NewSource(seed)))
 	return t.Clone(rand.New(rand.NewSource(seed + 1)))
 }
 
@@ -56,7 +56,7 @@ func TestTypist_NoLetterNoSkill(t *testing.T) {
 func TestBestOfN_PrefersWorstScore(t *testing.T) {
 	words := []string{"ab", "ba", "aa", "bb", "az", "za"}
 	gen := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
-	s := &sim.BestOfN{Gen: gen, Words: 100, Rng: rand.New(rand.NewSource(2)), P: cfg.Sim}
+	s := &sim.BestOfN{Gen: gen, Words: 100, Rng: rand.New(rand.NewSource(2)), P: sim.Default()}
 	var samples []engine.Sample
 	for i := 0; i < 30; i++ {
 		samples = append(samples,
@@ -79,7 +79,7 @@ func TestBestOfN_PrefersWorstScore(t *testing.T) {
 func TestBestOfN_UntimedPressesHaveNoScore(t *testing.T) {
 	words := []string{"ab", "ba"}
 	gen := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
-	s := &sim.BestOfN{Gen: gen, Words: 10, Rng: rand.New(rand.NewSource(2)), P: cfg.Sim}
+	s := &sim.BestOfN{Gen: gen, Words: 10, Rng: rand.New(rand.NewSource(2)), P: sim.Default()}
 	s.Observe([]engine.Sample{{Char: "a", Ms: 0, Errors: 1}})
 	if got := s.Text(nil, 2, 0); len(strings.Fields(got)) != 10 {
 		t.Fatalf("want 10 words, got %q", got)
@@ -89,7 +89,7 @@ func TestBestOfN_UntimedPressesHaveNoScore(t *testing.T) {
 func TestRun_EveryStrategyReachesTheGoal(t *testing.T) {
 	words := strings.Fields(`the then than tan ant net ten hen eat tea ate heat hat that
 		tent neat hate thee teeth near earn tear rate hear art rat tar her here there`)
-	p := cfg.Sim
+	p := sim.Default()
 	p.MaxExercises = 2000
 	for k := 0; k < 4; k++ {
 		gen := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
@@ -111,7 +111,7 @@ func TestRun_EveryStrategyReachesTheGoal(t *testing.T) {
 func TestRun_GivesUp(t *testing.T) {
 	words := []string{"ab", "ba", "abba"}
 	gen := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
-	p := cfg.Sim
+	p := sim.Default()
 	p.MaxExercises = 1
 	res := sim.Run(gen, &sim.Adaptive{Gen: gen, EP: cfg.Engine}, newTypist(gen.Order(), 1), cfg.Engine, p)
 	if res.Reached || res.Exercises != 1 {
@@ -155,7 +155,7 @@ func TestRunOpen_Variety(t *testing.T) {
 
 func TestRun_Letters(t *testing.T) {
 	gen := engine.NewGenerator([]string{"ab", "ba", "abba"}, rand.New(rand.NewSource(1)), cfg.Engine)
-	p := cfg.Sim
+	p := sim.Default()
 	p.MaxExercises = 1
 	ep := cfg.Engine
 	ep.ExerciseWords = 3
@@ -226,7 +226,7 @@ func TestStream_Rounds(t *testing.T) {
 
 func TestNewExpert_StartsNearTheGoal(t *testing.T) {
 	letters := []string{"a", "b", "c", "d", "e"}
-	ty := sim.NewExpert(letters, cfg.Sim, rand.New(rand.NewSource(1))).Clone(rand.New(rand.NewSource(2)))
+	ty := sim.NewExpert(letters, sim.Default(), rand.New(rand.NewSource(1))).Clone(rand.New(rand.NewSource(2)))
 	if !ty.Skilled(cfg.Engine) {
 		t.Fatal("an expert drawn from the expert ranges meets the goal from the start")
 	}

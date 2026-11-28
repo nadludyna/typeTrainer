@@ -13,9 +13,12 @@ import (
 
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/sim"
 	"typingtrainer/internal/trainer"
+	"typingtrainer/tools/sim/sim"
 )
+
+// simp is the simulated typists (sim.Default), with the flags of this run.
+var simp = sim.Default()
 
 func main() {
 	temps := flag.String("temps", "", "comma-separated temperatures to try for the adaptive\n"+
@@ -35,7 +38,7 @@ func main() {
 	}
 	switch *apply {
 	case "portion", "round":
-		cfg.Sim.ApplyPerRound = *apply == "round"
+		simp.ApplyPerRound = *apply == "round"
 	default:
 		fail(fmt.Errorf("bad -apply %q: portion or round", *apply))
 	}
@@ -56,7 +59,7 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	p := cfg.Sim
+	p := simp
 	fmt.Printf("%d simulated typists per strategy, %d words per exercise, give up after %d exercises\n",
 		p.Runs, cfg.Engine.ExerciseWords, p.MaxExercises)
 	fmt.Printf("stream: portions of %d words, %d waiting; counted in exercises of %d words\n",
@@ -78,7 +81,7 @@ func strategy(k int, t float64, gen *engine.Generator, cfg config.Config, rng *r
 	case 0:
 		return &sim.Random{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng}
 	case 1:
-		return &sim.BestOfN{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng, P: cfg.Sim}
+		return &sim.BestOfN{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng, P: simp}
 	}
 	ep := engineParams(k, t, cfg)
 	if k >= 3 {
@@ -99,7 +102,7 @@ func engineParams(k int, t float64, cfg config.Config) engine.Params {
 }
 
 func runLanguage(id string, words, home []string, cfg config.Config, temps []float64) {
-	p := cfg.Sim
+	p := simp
 	fmt.Printf("\n%s (%d words)\n", id, len(words))
 	fmt.Printf("%-22s %6s %6s %7s %5s %4s %5s | %-29s | %-29s\n", "", "", "", "", "", "", "", "beginner, first", "expert")
 	fmt.Printf("%-22s %6s %6s %7s %5s %4s %5s | %5s %5s %5s %5s %5s | %5s %5s %5s %5s %5s\n",
@@ -163,7 +166,7 @@ func runLanguage(id string, words, home []string, cfg config.Config, temps []flo
 func unlockPace(words, home []string, cfg config.Config) {
 	ep := cfg.Engine
 	kind := func(errMin, errMax, timeMin, timeMax, learn float64) sim.Params {
-		q := cfg.Sim
+		q := simp
 		q.ErrMin, q.ErrMax, q.TimeMin, q.TimeMax, q.LearnRate = errMin, errMax, timeMin, timeMax, learn
 		return q
 	}
@@ -171,14 +174,14 @@ func unlockPace(words, home []string, cfg config.Config) {
 		name string
 		p    sim.Params
 	}{
-		{"beginner", cfg.Sim},
-		{"middle", kind(0.04, 0.08, 250, 450, cfg.Sim.LearnRate)},
+		{"beginner", simp},
+		{"middle", kind(0.04, 0.08, 250, 450, simp.LearnRate)},
 		{"fast, steady", kind(0.02, 0.04, 120, 250, 0)},
 	}
-	fmt.Println("unlock pace, rounds of the app (median of", cfg.Sim.Runs, "typists):")
+	fmt.Println("unlock pace, rounds of the app (median of", simp.Runs, "typists):")
 	for _, k := range kinds {
 		var half, all []int
-		for run := 0; run < cfg.Sim.Runs; run++ {
+		for run := 0; run < simp.Runs; run++ {
 			seed := int64(run + 1)
 			gen := engine.NewGenerator(words, rand.New(rand.NewSource(seed)), ep)
 			gen.SetHome(home, ep)
@@ -188,7 +191,7 @@ func unlockPace(words, home []string, cfg config.Config) {
 			stats := map[string]engine.KeyStat{}
 			unlocked, n := gen.Start(), len(gen.Order())
 			h, rounds := 0, 0
-			for rounds < cfg.Sim.MaxExercises && unlocked < n {
+			for rounds < simp.MaxExercises && unlocked < n {
 				var round []engine.Sample
 				for i := 0; i < ep.RoundPortions; i++ {
 					samples := t.Type(s.Text(stats, unlocked, 0))

@@ -8,7 +8,6 @@ import (
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/levels"
 	"typingtrainer/internal/profile"
-	"typingtrainer/internal/sim"
 )
 
 type Config struct {
@@ -47,7 +46,6 @@ type Config struct {
 	Owned                 profile.WordParams // the words a typist owns
 	Time                  profile.TimeParams // forgetting, warm-up, tiredness
 	Checkin               Checkin
-	Sim                   sim.Params
 }
 
 // Checkin is Learn's first visit: one question sets the first letters.
@@ -193,29 +191,6 @@ func Default() Config {
 			WeakMinSamples: 15,
 			WeakMissMs:     1000,
 			WeakPairs:      3,
-		},
-		Sim: sim.Params{
-			ErrMin: 0.03, ErrMax: 0.30,
-			TimeMin: 350, TimeMax: 900,
-			ErrFloor:  0.01,
-			TimeFloor: 200,
-			LearnRate: 0.02,
-			TimeNoise: 0.25,
-
-			GoalErrorRate: 0.05,
-
-			ExpertErrMax:   0.05,
-			ExpertTimeMin:  150,
-			ExpertTimeMax:  350,
-			OpenExercises:  100,
-			FirstExercises: 30,
-
-			Runs:         20,
-			MaxExercises: 3000,
-
-			BestOf:        20,
-			MissPenaltyMs: 5000,
-			ScoreWindow:   50,
 		},
 	}
 }

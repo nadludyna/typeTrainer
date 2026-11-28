@@ -11,6 +11,33 @@ import (
 	"typingtrainer/internal/engine"
 )
 
+// Default is the simulated typists the results are told for.
+func Default() Params {
+	return Params{
+		ErrMin: 0.03, ErrMax: 0.30,
+		TimeMin: 350, TimeMax: 900,
+		ErrFloor:  0.01,
+		TimeFloor: 200,
+		LearnRate: 0.02,
+		TimeNoise: 0.25,
+
+		GoalErrorRate: 0.05,
+
+		ExpertErrMax:   0.05,
+		ExpertTimeMin:  150,
+		ExpertTimeMax:  350,
+		OpenExercises:  100,
+		FirstExercises: 30,
+
+		Runs:         20,
+		MaxExercises: 3000,
+
+		BestOf:        20,
+		MissPenaltyMs: 5000,
+		ScoreWindow:   50,
+	}
+}
+
 type Params struct {
 	ErrMin, ErrMax   float64
 	TimeMin, TimeMax float64

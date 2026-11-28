@@ -120,6 +120,11 @@ func (m mode) stats(w http.ResponseWriter, r *http.Request, user string) {
 	})
 }
 
+// Checkin is the letters open after the answer.
+type Checkin struct {
+	Unlocked int `json:"unlocked"`
+}
+
 // checkin is Learn's first visit: "have you learned touch typing before?"
 // A little or yes opens SomeLetters at once; only while Learn has no rounds,
 // and never fewer letters than now.
@@ -158,7 +163,7 @@ func (m mode) checkin(w http.ResponseWriter, r *http.Request, user string) {
 			return
 		}
 	}
-	trainer.JSON(w, map[string]int{"unlocked": open})
+	trainer.JSON(w, Checkin{Unlocked: open})
 }
 
 // reset starts Learn over: its letters and rounds, and Reinforce's, go;
@@ -170,5 +175,5 @@ func (m mode) reset(w http.ResponseWriter, r *http.Request, user string) {
 		trainer.Fail(w, err)
 		return
 	}
-	trainer.JSON(w, map[string]bool{"ok": true})
+	trainer.Done(w)
 }

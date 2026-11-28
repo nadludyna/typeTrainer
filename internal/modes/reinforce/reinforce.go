@@ -147,6 +147,12 @@ func (m mode) standing(rounds []storage.Round) trainer.Standing {
 	}, levels.Judge)
 }
 
+// Step is the speed goal step picked and its goal, wpm.
+type Step struct {
+	Step int     `json:"step"`
+	Goal float64 `json:"goal"`
+}
+
 // step picks the speed goal step by hand, up or down. Mastery starts over at
 // the new goal, as after a step reached by typing.
 func (m mode) step(w http.ResponseWriter, r *http.Request, user string) {
@@ -174,5 +180,5 @@ func (m mode) step(w http.ResponseWriter, r *http.Request, user string) {
 			return
 		}
 	}
-	trainer.JSON(w, map[string]any{"step": req.Step, "goal": m.t.Params(req.Step).TargetWPM})
+	trainer.JSON(w, Step{Step: req.Step, Goal: m.t.Params(req.Step).TargetWPM})
 }

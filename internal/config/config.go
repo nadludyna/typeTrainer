@@ -88,7 +88,7 @@ func Default() Config {
 		ImportFutureTolerance: 5 * time.Minute,
 
 		Alphabet: "abcdefghijklmnopqrstuvwxyz",
-		Lengths:  []string{"words-30", "words-50", "time-15", "time-30", "time-60"},
+		Lengths:  []string{"words-10", "words-15", "words-20", "words-30", "words-50", "words-100", "time-15", "time-30", "time-60"},
 
 		ConsistencyMinSeconds: 5,
 		ConfusionMin:          3,

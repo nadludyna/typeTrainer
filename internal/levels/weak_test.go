@@ -32,11 +32,12 @@ func slowAt(text, pair string) map[int]bool {
 	}
 }
 
+// No data is an empty list, never nil: the page gets [], not null.
 func TestWeakPairs_NoData(t *testing.T) {
-	if got := WeakPairs(nil, testParams); got != nil {
+	if got := WeakPairs(nil, testParams); got == nil || len(got) != 0 {
 		t.Fatalf("no rounds: %v", got)
 	}
-	if got := WeakPairs([][]Key{keysOf("a b c", 150, 0, nil, nil)}, testParams); got != nil {
+	if got := WeakPairs([][]Key{keysOf("a b c", 150, 0, nil, nil)}, testParams); got == nil || len(got) != 0 {
 		t.Fatalf("no pairs: %v", got)
 	}
 }

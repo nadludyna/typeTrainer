@@ -279,3 +279,59 @@ func TestPageNotBuilt(t *testing.T) {
 		t.Fatalf("no page: %d %s", rec.Code, rec.Body)
 	}
 }
+
+// No answer holds null where the page's types promise a list or an object:
+// a new typist's, and after a round of each mode. Only a consistency may be null.
+func TestNoNulls(t *testing.T) {
+	h := newApp(t)
+	paths := []string{"/api/learn/stats", "/api/reinforce/stats", "/api/freetype/stats", "/api/export"}
+	check := func(when string) {
+		for _, p := range paths {
+			code, out := call(t, h, "GET", p, "")
+			if code != 200 {
+				t.Fatalf("%s %s: %d", when, p, code)
+			}
+			if where := nullIn(out, ""); where != "" {
+				t.Errorf("%s %s: null at %s", when, p, where)
+			}
+		}
+		for _, req := range [][2]string{
+			{"/api/learn/portion", `{"start":true}`},
+			{"/api/reinforce/portion", `{"start":true,"level":1}`},
+			{"/api/freetype/portion", `{"start":true,"list":200,"words":10}`},
+		} {
+			_, out := call(t, h, "POST", req[0], req[1])
+			if where := nullIn(out, ""); where != "" {
+				t.Errorf("%s %s: null at %s", when, req[0], where)
+			}
+		}
+	}
+	check("new")
+	call(t, h, "POST", "/api/learn/results", result(presses("saldfe", 3), ""))
+	call(t, h, "POST", "/api/reinforce/results", result(presses("the", 3), `,"level":1`))
+	call(t, h, "POST", "/api/freetype/results", `{"wpm":60,"accuracy":99,"chars":3,"length":"time-30","list":200,"keys":`+presses("the", 1)+`}`)
+	check("after rounds")
+}
+
+func nullIn(v any, at string) string {
+	switch x := v.(type) {
+	case nil:
+		if strings.HasSuffix(at, ".consistency") {
+			return ""
+		}
+		return at
+	case map[string]any:
+		for k, e := range x {
+			if w := nullIn(e, at+"."+k); w != "" {
+				return w
+			}
+		}
+	case []any:
+		for i, e := range x {
+			if w := nullIn(e, fmt.Sprintf("%s[%d]", at, i)); w != "" {
+				return w
+			}
+		}
+	}
+	return ""
+}

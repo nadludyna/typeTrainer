@@ -42,7 +42,8 @@ func (m mode) rounds(user string) ([]storage.Round, error) {
 	return m.t.Store.Rounds(user, storage.FreetypePrefix, max(m.t.Cfg.Freetype.RhythmRounds, m.t.Cfg.Levels.History))
 }
 
-type portionRequest struct {
+// PortionRequest asks for Freetype's next words.
+type PortionRequest struct {
 	Recent []string `json:"recent"`
 	Start  bool     `json:"start"`
 	Words  int      `json:"words"` // with start: enough portions for this many words
@@ -50,13 +51,14 @@ type portionRequest struct {
 	Kind   string   `json:"kind"`
 }
 
-type portion struct {
+// Portion is a few words, and why each came ("" for none).
+type Portion struct {
 	Words []string `json:"words"`
 	Why   []string `json:"why,omitempty"`
 }
 
 func (m mode) portion(w http.ResponseWriter, r *http.Request, user string) {
-	var req portionRequest
+	var req PortionRequest
 	if !trainer.Read(w, r, m.t.Cfg.MaxBodyBytes, &req) {
 		return
 	}
@@ -100,7 +102,7 @@ func (m mode) portion(w http.ResponseWriter, r *http.Request, user string) {
 		count = (req.Words + p.PortionWords - 1) / p.PortionWords
 	}
 	picker := m.t.Words.Picker.WithOwned(v.Owned)
-	out := make([]portion, count)
+	out := make([]Portion, count)
 	recent := slices.Clone(req.Recent)
 	m.t.Draw(func() {
 		for i := range out {
@@ -111,7 +113,17 @@ func (m mode) portion(w http.ResponseWriter, r *http.Request, user string) {
 			recent = append(recent, out[i].Words...)
 		}
 	})
-	trainer.JSON(w, map[string]any{"portions": out})
+	trainer.JSON(w, Portions{Portions: out})
+}
+
+// Portions is the answer to a PortionRequest.
+type Portions struct {
+	Portions []Portion `json:"portions"`
+}
+
+// Result is the round's consistency, null for a round too short for one.
+type Result struct {
+	Consistency *float64 `json:"consistency"`
 }
 
 func (m mode) results(w http.ResponseWriter, r *http.Request, user string) {
@@ -135,7 +147,7 @@ func (m mode) results(w http.ResponseWriter, r *http.Request, user string) {
 		trainer.Fail(w, err)
 		return
 	}
-	trainer.JSON(w, map[string]any{"consistency": round.Consistency})
+	trainer.JSON(w, Result{Consistency: round.Consistency})
 }
 
 // Stats is Freetype's stats of one word list and what its bar shows.

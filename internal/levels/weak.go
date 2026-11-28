@@ -53,10 +53,10 @@ func WeakPairs(rounds [][]Key, p Params) []Pair {
 		}
 	}
 	if all.n == 0 {
-		return nil
+		return []Pair{}
 	}
 	mean := all.ms / float64(all.n)
-	var out []Pair
+	out := []Pair{}
 	for k, s := range pairs {
 		if s.n < p.WeakMinSamples {
 			continue

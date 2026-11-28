@@ -74,6 +74,13 @@ func Read(w http.ResponseWriter, r *http.Request, limit int, v any) bool {
 
 func JSON(w http.ResponseWriter, v any) { writeJSON(w, http.StatusOK, v) }
 
+// OK is the answer of a route that only does something.
+type OK struct {
+	OK bool `json:"ok"`
+}
+
+func Done(w http.ResponseWriter) { JSON(w, OK{OK: true}) }
+
 func Bad(w http.ResponseWriter, msg string) {
 	writeJSON(w, http.StatusBadRequest, map[string]string{"error": msg})
 }

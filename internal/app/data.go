@@ -19,6 +19,11 @@ type File struct {
 	Rounds   []storage.Round  `json:"rounds"` // oldest first
 }
 
+// Imported is how many rounds an import kept.
+type Imported struct {
+	Rounds int `json:"rounds"`
+}
+
 func registerData(mux *http.ServeMux, t *trainer.Trainer) {
 	mux.HandleFunc("GET /api/export", t.Route(func(w http.ResponseWriter, r *http.Request, user string) {
 		p, err := t.Store.Progress(user)
@@ -49,7 +54,7 @@ func registerData(mux *http.ServeMux, t *trainer.Trainer) {
 			trainer.Fail(w, err)
 			return
 		}
-		trainer.JSON(w, map[string]int{"rounds": len(f.Rounds)})
+		trainer.JSON(w, Imported{Rounds: len(f.Rounds)})
 	}))
 	mux.HandleFunc("POST /api/reset", t.Route(func(w http.ResponseWriter, r *http.Request, user string) {
 		t.Write.Lock()
@@ -58,7 +63,7 @@ func registerData(mux *http.ServeMux, t *trainer.Trainer) {
 			trainer.Fail(w, err)
 			return
 		}
-		trainer.JSON(w, map[string]bool{"ok": true})
+		trainer.Done(w)
 	}))
 }
 

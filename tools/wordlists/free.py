@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds data/langs/<lang>/free.txt."""
+"""Builds data/words.txt, the word list, most common first."""
 import os
 import re
 import sys
@@ -82,7 +82,7 @@ def build_free(src, lang, dic, aff, bad):
         words.append(w)
         if len(words) == FREE_MAX:
             break
-    path = os.path.join(HERE, "..", "..", "data", "langs", lang, "free.txt")
+    path = os.path.join(HERE, "..", "..", "data", "words.txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write("\n".join(words) + "\n")
     print(lang, len(words))

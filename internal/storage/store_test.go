@@ -1,11 +1,7 @@
 package storage
 
-// Tests every Store implementation must pass.
-
 import (
-	"errors"
 	"fmt"
-	"math"
 	"slices"
 	"testing"
 	"time"
@@ -13,117 +9,23 @@ import (
 	"typingtrainer/internal/engine"
 )
 
-const u = LocalUser
-
+// The tests every Store passes: run on memory here and on PostgreSQL in
+// postgres_test.go.
 var storeTests = map[string]func(*testing.T, Store){
-	"LanguagesAreSeparate":      testLanguagesAreSeparate,
-	"KeyStatsIsACopy":           testKeyStatsIsACopy,
-	"RecentSessionsNewestFirst": testRecentSessionsNewestFirst,
-	"Reset":                     testReset,
-	"Freetype":                  testFreetype,
-	"FreetypeModes":             testFreetypeModes,
-	"UsersAreSeparate":          testUsersAreSeparate,
-	"Users":                     testUsers,
-	"SignUpTakesGuest":          testSignUpTakesGuest,
-	"Logins":                    testLogins,
-	"SessionFields":             testSessionFields,
-	"KeyStatsFields":            testKeyStatsFields,
-	"Lengths":                   testLengths,
-	"LettersTyped":              testLettersTyped,
-	"RecentFreetype":            testRecentFreetype,
-	"RoundKind":                 testRoundKind,
-	"Lap":                       testLap,
-	"Device":                    testDevice,
-	"PracticeDays":              testPracticeDays,
-	"ResetLearn":                testResetLearn,
-	"BestRounds":                testBestRounds,
-	"DaysPerMode":               testDaysPerMode,
-	"RoundSentTwice":            testRoundSentTwice,
-	"SaveLearned":               testSaveLearned,
-	"ImportAtomic":              testImportAtomic,
-	"Epoch":                     testEpoch,
-	"AbortedNotShown":           testAbortedNotShown,
+	"NewTypist":      testNewTypist,
+	"Progress":       testProgress,
+	"RoundsOnce":     testRoundsOnce,
+	"RoundsByMode":   testRoundsByMode,
+	"Reset":          testReset,
+	"ResetLearn":     testResetLearn,
+	"Import":         testImport,
+	"TypistsApart":   testTypistsApart,
+	"RoundKeepsKeys": testRoundKeepsKeys,
 }
 
-// otherMode is a mode outside Learn that no test below uses by its own name.
-var otherMode = FreetypeMode(5000)
-
-func testRoundSentTwice(t *testing.T, m Store) {
-	if has, err := m.HasRound(u, "en", "r1"); err != nil || has {
-		t.Fatalf("empty store: HasRound = %v, %v", has, err)
-	}
-	for range 2 {
-		if err := m.AddSession(u, "en", Session{WPM: 40, Round: "r1"}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if n, _ := m.SessionCount(u, "en", ""); n != 1 {
-		t.Fatalf("learning round sent twice: %d rounds, want 1", n)
-	}
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r1"})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "r2"})
-	if n, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); n != 1 {
-		t.Fatalf("Freetype: %d rounds, want 1 (r1 is taken, r2 once)", n)
-	}
-	if has, _ := m.HasRound(u, "en", "r2"); !has {
-		t.Fatal("HasRound(r2) = false after it was saved")
-	}
-	if has, _ := m.HasRound(u, "pl", "r1"); has {
-		t.Fatal("the id leaked into another language")
-	}
-	if has, _ := m.HasRound("someone-else", "en", "r1"); has {
-		t.Fatal("the id leaked to another user")
-	}
-	m.AddSession(u, "en", Session{WPM: 30})
-	m.AddSession(u, "en", Session{WPM: 30})
-	if n, _ := m.SessionCount(u, "en", ""); n != 3 {
-		t.Fatalf("rounds without an id: %d rounds, want 3", n)
-	}
-	if has, _ := m.HasRound(u, "en", ""); has {
-		t.Fatal(`HasRound("") must be false`)
-	}
-}
-
-func testSaveLearned(t *testing.T, m Store) {
-	stats := map[string]engine.KeyStat{"a": {Count: 3, Hits: "101", Slipped: true}, "s": {Count: 1}}
-	round := Session{WPM: 40, Chars: 2, Round: "r1"}
-	if err := m.SaveLearned(u, "en", Learned{Stats: stats, Unlocked: 7, Lap: 1, Session: &round}); err != nil {
-		t.Fatal(err)
-	}
-	stats["a"] = engine.KeyStat{Count: 99}
-	check := func(when string, rounds int) {
-		t.Helper()
-		got, _ := m.KeyStats(u, "en")
-		unlocked, _ := m.Unlocked(u, "en")
-		lap, _ := m.Lap(u, "en")
-		n, _ := m.SessionCount(u, "en", "")
-		if len(got) != 2 || got["a"].Count != 3 || got["a"].Hits != "101" || !got["a"].Slipped || unlocked != 7 || lap != 1 || n != rounds {
-			t.Fatalf("%s: stats %v, unlocked %d, lap %d, %d rounds", when, got, unlocked, lap, n)
-		}
-	}
-	check("after the round", 1)
-	if err := m.SaveLearned(u, "en", Learned{Unlocked: 1, Session: &round}); err != nil {
-		t.Fatal(err)
-	}
-	check("round sent again", 1)
-	m.SaveLearned(u, "en", Learned{Unlocked: 1})
-	check("empty portion", 1)
-	m.SaveLearned(u, "en", Learned{Stats: map[string]engine.KeyStat{"a": {Count: 4}}, Unlocked: 8, Lap: 1})
-	if got, _ := m.KeyStats(u, "en"); len(got) != 1 || got["a"].Count != 4 {
-		t.Fatalf("portion: stats %v", got)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 8 {
-		t.Fatalf("portion: unlocked %d, want 8", n)
-	}
-	if n, _ := m.SessionCount(u, "en", ""); n != 1 {
-		t.Fatalf("portion added a round: %d", n)
-	}
-}
-
-func runStoreTests(t *testing.T, newStore func(t *testing.T) Store) {
+func runStoreTests(t *testing.T, fresh func(*testing.T) Store) {
 	for name, test := range storeTests {
-		t.Run(name, func(t *testing.T) { test(t, newStore(t)) })
+		t.Run(name, func(t *testing.T) { test(t, fresh(t)) })
 	}
 }
 
@@ -131,706 +33,177 @@ func TestMemoryStore(t *testing.T) {
 	runStoreTests(t, func(*testing.T) Store { return NewMemoryStore() })
 }
 
-func testLanguagesAreSeparate(t *testing.T, m Store) {
-	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"e": {Count: 5}})
-	m.SetUnlocked(u, "en", 9)
-	m.AddSession(u, "en", Session{WPM: 40})
+const u = "g1"
 
-	stats, _ := m.KeyStats(u, "uk")
-	unlocked, _ := m.Unlocked(u, "uk")
-	count, _ := m.SessionCount(u, "uk", "")
-	if len(stats) != 0 || unlocked != 0 || count != 0 {
-		t.Fatalf("uk sees en data: stats=%v unlocked=%d sessions=%d", stats, unlocked, count)
+var at = time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
+
+func round(mode string, wpm float64) Round {
+	return Round{Mode: mode, Length: "words-30", WPM: wpm, Accuracy: 97, Chars: 150, FinishedAt: at}
+}
+
+func wpms(rounds []Round) string {
+	out := ""
+	for _, r := range rounds {
+		out += fmt.Sprintf("%v ", r.WPM)
 	}
-	if s, _ := m.KeyStats(u, "en"); s["e"].Count != 5 {
-		t.Fatalf("en stats lost: %v", s)
+	return out
+}
+
+func testNewTypist(t *testing.T, s Store) {
+	p, err := s.Progress(u)
+	if err != nil || p.Unlocked != 0 || p.Lap != 0 || p.Letters == nil || len(p.Letters) != 0 {
+		t.Fatalf("a new typist: %+v %v", p, err)
+	}
+	if rs, err := s.Rounds(u, "", 0); err != nil || len(rs) != 0 {
+		t.Fatalf("a new typist has rounds: %v %v", rs, err)
 	}
 }
 
-func testKeyStatsIsACopy(t *testing.T, m Store) {
-	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 1}})
-	s, _ := m.KeyStats(u, "en")
-	s["a"] = engine.KeyStat{Count: 99}
-	if again, _ := m.KeyStats(u, "en"); again["a"].Count != 1 {
-		t.Fatal("changing the returned map changed the store")
-	}
-}
-
-func testRecentSessionsNewestFirst(t *testing.T, m Store) {
-	for _, w := range []float64{10, 20, 30} {
-		m.AddSession(u, "pl", Session{WPM: w})
-	}
-	got, _ := m.RecentSessions(u, "pl", "", 2)
-	if len(got) != 2 || got[0].WPM != 30 || got[1].WPM != 20 {
-		t.Fatalf("got %+v", got)
-	}
-}
-
-func testReset(t *testing.T, m Store) {
-	for _, l := range []string{"en", "pl"} {
-		m.SaveKeyStats(u, l, map[string]engine.KeyStat{"e": {Count: 5}})
-		m.SetUnlocked(u, l, 9)
-		m.AddSession(u, l, Session{WPM: 40})
-	}
-	if err := m.Reset(u, "en"); err != nil {
+func testProgress(t *testing.T, s Store) {
+	want := Progress{Letters: map[string]engine.KeyStat{"a": {Count: 3, ErrEMA: 0.1, Hits: "101", Held: true}}, Unlocked: 7, Lap: 2}
+	if err := s.Save(u, &want, nil); err != nil {
 		t.Fatal(err)
 	}
-	stats, _ := m.KeyStats(u, "en")
-	unlocked, _ := m.Unlocked(u, "en")
-	count, _ := m.SessionCount(u, "en", "")
-	if len(stats) != 0 || unlocked != 0 || count != 0 {
-		t.Fatalf("en not reset: stats=%v unlocked=%d sessions=%d", stats, unlocked, count)
+	got, _ := s.Progress(u)
+	if got.Unlocked != 7 || got.Lap != 2 || got.Letters["a"] != want.Letters["a"] {
+		t.Fatalf("progress: %+v", got)
 	}
-	if c, _ := m.SessionCount(u, "pl", ""); c != 1 {
-		t.Fatalf("pl lost its data: sessions=%d", c)
+	got.Letters["b"] = engine.KeyStat{Count: 1}
+	if again, _ := s.Progress(u); len(again.Letters) != 1 {
+		t.Fatal("a change to a read progress reached the store")
 	}
-	if err := m.Reset(u, "uk"); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func testFreetype(t *testing.T, m Store) {
-	for _, w := range []float64{50, 60} {
-		m.AddFreetypeSession(u, "en", otherMode, Session{WPM: w, Level: w / 100})
-	}
-	m.AddSession(u, "en", Session{WPM: 20})
-
-	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 2 {
-		t.Fatalf("freetype sessions = %d, want 2", c)
-	}
-	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
-		t.Fatalf("learning sessions = %d, want 1 (freetype must not mix in)", c)
-	}
-	if got, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 5); len(got) != 2 || got[0].WPM != 60 || got[0].Level != 0.6 {
-		t.Fatalf("recent freetype = %+v, want newest first, with its level", got)
-	}
-	if c, _ := m.FreetypeSessionCount(u, "pl", otherMode, ""); c != 0 {
-		t.Fatal("the history leaked into another language")
-	}
-	m.Reset(u, "en")
-	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 0 {
-		t.Fatalf("after reset: sessions=%d", c)
+	r := round(ModeLearn, 30)
+	s.Save(u, nil, &r)
+	if again, _ := s.Progress(u); again.Unlocked != 7 {
+		t.Fatalf("a round alone changed the progress: %+v", again)
 	}
 }
 
-func testFreetypeModes(t *testing.T, m Store) {
-	small, big := FreetypeMode(200), FreetypeMode(25000)
-	if small != "freetype-200" {
-		t.Fatalf("FreetypeMode(200) = %q", small)
+func testRoundsOnce(t *testing.T, s Store) {
+	r := round(ModeLearn, 30)
+	r.ID = "r-1"
+	s.Save(u, nil, &r)
+	r.WPM = 99
+	s.Save(u, nil, &r)
+	rs, _ := s.Rounds(u, "", 0)
+	if len(rs) != 1 || rs[0].WPM != 30 {
+		t.Fatalf("a round sent twice: %v", wpms(rs))
 	}
-	long, sentences := FreetypeMode(7000), FreetypeMode(9000)
-	at := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.AddFreetypeSession(u, "en", small, Session{WPM: 80, Length: "words-30", FinishedAt: at})
-	m.AddFreetypeSession(u, "en", small, Session{WPM: 90, Length: "time-30", FinishedAt: at})
-	m.AddFreetypeSession(u, "en", big, Session{WPM: 50, Length: "words-30", FinishedAt: at})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 60, FinishedAt: at})
-	for _, mode := range []string{long, sentences} {
-		if err := m.AddFreetypeSession(u, "en", mode, Session{WPM: 40, Length: "words-30", FinishedAt: at}); err != nil {
-			t.Fatalf("%s: %v", mode, err)
+	if ok, _ := s.HasRound(u, "r-1"); !ok {
+		t.Fatal("HasRound misses a kept round")
+	}
+	if ok, _ := s.HasRound(u, ""); ok {
+		t.Fatal("no id is no round")
+	}
+	plain := round(ModeLearn, 40)
+	s.Save(u, nil, &plain)
+	s.Save(u, nil, &plain)
+	if rs, _ := s.Rounds(u, "", 0); len(rs) != 3 {
+		t.Fatalf("rounds without an id are each kept: %d", len(rs))
+	}
+}
+
+func testRoundsByMode(t *testing.T, s Store) {
+	for i, mode := range []string{ModeLearn, ModeReinforce, FreetypeMode(200), FreetypeMode(1000), ModeLearn} {
+		r := round(mode, float64(10*(i+1)))
+		s.Save(u, nil, &r)
+	}
+	for prefix, want := range map[string]string{"": "50 40 30 20 10 ", ModeLearn: "50 10 ", ModeReinforce: "20 ", FreetypePrefix: "40 30 ", FreetypeMode(200): "30 "} {
+		if rs, _ := s.Rounds(u, prefix, 0); wpms(rs) != want {
+			t.Errorf("%q: %v, want %v", prefix, wpms(rs), want)
 		}
 	}
+	if rs, _ := s.Rounds(u, "", 2); wpms(rs) != "50 40 " {
+		t.Errorf("the last two: %v", wpms(rs))
+	}
+}
 
-	for mode, want := range map[string]int{small: 2, big: 1, otherMode: 1, FreetypeMode(1000): 0, long: 1, sentences: 1} {
-		if c, _ := m.FreetypeSessionCount(u, "en", mode, ""); c != want {
-			t.Errorf("%s: %d rounds, want %d", mode, c, want)
+func testReset(t *testing.T, s Store) {
+	s.Save(u, &Progress{Unlocked: 9}, &Round{Mode: ModeLearn, Length: "words-30", FinishedAt: at})
+	if err := s.Reset(u); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := s.Progress(u)
+	rs, _ := s.Rounds(u, "", 0)
+	if p.Unlocked != 0 || len(rs) != 0 {
+		t.Fatalf("after a reset: %+v, %d rounds", p, len(rs))
+	}
+}
+
+func testResetLearn(t *testing.T, s Store) {
+	for _, mode := range []string{ModeLearn, ModeReinforce, FreetypeMode(200)} {
+		r := round(mode, 30)
+		s.Save(u, &Progress{Unlocked: 9, Lap: 3}, &r)
+	}
+	s.ResetLearn(u)
+	p, _ := s.Progress(u)
+	rs, _ := s.Rounds(u, "", 0)
+	if p.Unlocked != 0 || p.Lap != 0 || len(rs) != 1 || rs[0].Mode != FreetypeMode(200) {
+		t.Fatalf("Learn starts over, Freetype stays: %+v, %v", p, rs)
+	}
+}
+
+func testImport(t *testing.T, s Store) {
+	old := round(ModeLearn, 1)
+	s.Save(u, &Progress{Unlocked: 3}, &old)
+	in := []Round{round(ModeLearn, 10), round(FreetypeMode(200), 20)}
+	in[0].ID, in[1].ID = "a", "a" // the second is the first sent again
+	if err := s.Import(u, Progress{Unlocked: 12, Letters: map[string]engine.KeyStat{"e": {Count: 5}}}, in); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := s.Progress(u)
+	rs, _ := s.Rounds(u, "", 0)
+	if p.Unlocked != 12 || p.Letters["e"].Count != 5 || wpms(rs) != "10 " {
+		t.Fatalf("import replaces all: %+v, %v", p, wpms(rs))
+	}
+}
+
+func testTypistsApart(t *testing.T, s Store) {
+	r := round(ModeLearn, 30)
+	s.Save(u, &Progress{Unlocked: 8}, &r)
+	if p, _ := s.Progress("g2"); p.Unlocked != 0 {
+		t.Fatal("another typist sees the progress")
+	}
+	if rs, _ := s.Rounds("g2", "", 0); len(rs) != 0 {
+		t.Fatal("another typist sees the rounds")
+	}
+	s.Reset("g2")
+	if rs, _ := s.Rounds(u, "", 0); len(rs) != 1 {
+		t.Fatal("another typist's reset deleted the rounds")
+	}
+}
+
+func testRoundKeepsKeys(t *testing.T, s Store) {
+	cons := 87.5
+	r := Round{ID: "k", Mode: ModeReinforce, Kind: KindWeak, Level: 3, Lap: 2, Length: "words-30", WPM: 55.5, Accuracy: 96,
+		Chars: 3, Consistency: &cons, Unlocked: 26, FinishedAt: at,
+		Keys: []engine.Sample{{Char: "a", Ms: 120}, {Char: "b", Errors: 1, Ms: 300, Typed: "v"}}}
+	s.Save(u, nil, &r)
+	rs, _ := s.Rounds(u, "", 0)
+	got := rs[0]
+	if got.ID != "k" || got.Kind != KindWeak || got.Level != 3 || got.Lap != 2 || got.WPM != 55.5 || *got.Consistency != 87.5 ||
+		got.Unlocked != 26 || !got.FinishedAt.Equal(at) || !slices.Equal(got.Keys, r.Keys) {
+		t.Fatalf("round read back: %+v", got)
+	}
+}
+
+func TestFreetypeList(t *testing.T) {
+	if n, ok := FreetypeList(FreetypeMode(1000)); !ok || n != 1000 {
+		t.Errorf("FreetypeList = %d, %v", n, ok)
+	}
+	for _, bad := range []string{"", ModeLearn, "freetype-", "freetype-0", "freetype-01", "freetype-1000-long"} {
+		if _, ok := FreetypeList(bad); ok {
+			t.Errorf("%q is no Freetype list", bad)
 		}
 	}
-	if got, _ := m.RecentFreetypeSessions(u, "en", big, "", 5); len(got) != 1 || got[0].WPM != 50 {
-		t.Errorf("recent of %s = %+v, want only its own round", big, got)
-	}
-	if l, _ := m.FreetypeSessionLengths(u, "en", small); len(l) != 2 {
-		t.Errorf("lengths of %s = %v, want 2", small, l)
-	}
-	if b, _ := m.BestFreetypeRounds(u, "en", small); b["words-30"].WPM != 80 || b["time-30"].WPM != 90 {
-		t.Errorf("bests of %s = %+v", small, b)
-	}
-	if b, _ := m.BestFreetypeRounds(u, "en", big); b["words-30"].WPM != 50 {
-		t.Errorf("bests of %s = %+v, want its own 50", big, b)
-	}
-	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 1 || days[0].Rounds != 6 {
-		t.Errorf("practice days = %+v, want one day with all 6 rounds", days)
-	}
-	m.Reset(u, "en")
-	if c, _ := m.FreetypeSessionCount(u, "en", small, ""); c != 0 {
-		t.Errorf("after reset: %d rounds", c)
-	}
 }
 
-func testUsersAreSeparate(t *testing.T, m Store) {
-	m.SaveKeyStats("ann", "en", map[string]engine.KeyStat{"e": {Count: 5}})
-	m.SetUnlocked("ann", "en", 9)
-	m.AddSession("ann", "en", Session{WPM: 40})
-	m.AddFreetypeSession("ann", "en", otherMode, Session{WPM: 70})
-
-	stats, _ := m.KeyStats("bob", "en")
-	unlocked, _ := m.Unlocked("bob", "en")
-	count, _ := m.SessionCount("bob", "en", "")
-	free, _ := m.FreetypeSessionCount("bob", "en", otherMode, "")
-	if len(stats) != 0 || unlocked != 0 || count != 0 || free != 0 {
-		t.Fatalf("bob sees ann's data: stats=%v unlocked=%d sessions=%d free=%d",
-			stats, unlocked, count, free)
-	}
-
-	m.SetUnlocked("bob", "en", 3)
-	if err := m.Reset("ann", "en"); err != nil {
-		t.Fatal(err)
-	}
-	if n, _ := m.Unlocked("bob", "en"); n != 3 {
-		t.Fatalf("resetting ann changed bob: unlocked=%d", n)
-	}
-	if n, _ := m.Unlocked("ann", "en"); n != 0 {
-		t.Fatalf("ann not reset: unlocked=%d", n)
-	}
-}
-
-func TestSession_Summary(t *testing.T) {
-	s := Session{WPM: 40, Unlocked: 7, Keys: []engine.Sample{{Char: "a", Ms: 200}}}
-	sum := s.Summary()
-	if sum.Keys != nil || sum.WPM != 40 || sum.Unlocked != 7 {
-		t.Fatalf("summary: %+v", sum)
-	}
-	if len(s.Keys) != 1 {
-		t.Fatal("Summary changed the original session")
-	}
-}
-
-// A round with no device is from before devices were kept: a keyboard's.
-func TestOnKeyboard(t *testing.T) {
-	if got := OnKeyboard(nil); got == nil || len(got) != 0 {
-		t.Fatalf("no rounds: %v, want an empty list", got)
-	}
-	got := OnKeyboard([]Session{{WPM: 1, Device: DeviceKeyboard}, {WPM: 2, Device: DeviceTouch}, {WPM: 3}})
-	if len(got) != 2 || got[0].WPM != 1 || got[1].WPM != 3 {
-		t.Fatalf("kept %+v, want the keyboard's and the one with no device", got)
-	}
-	if got := OnKeyboard([]Session{{Device: DeviceTouch}}); len(got) != 0 {
-		t.Fatalf("only phone rounds: %v, want none", got)
-	}
-}
-
-func testUsers(t *testing.T, m Store) {
-	now := time.Now()
-	a, err := m.CreateUser("ann", "hash-a", now, "")
-	if err != nil || a.ID == "" || a.ID == LocalUser {
-		t.Fatalf("create: %+v %v", a, err)
-	}
-	if _, err := m.CreateUser("ann", "other", now, ""); !errors.Is(err, ErrNameTaken) {
-		t.Fatalf("second ann: %v, want ErrNameTaken", err)
-	}
-	b, _ := m.CreateUser("bob", "hash-b", now, "")
-	if b.ID == a.ID {
-		t.Fatal("two users got the same id")
-	}
-	if got, err := m.UserByName("ann"); err != nil || got.PasswordHash != "hash-a" {
-		t.Fatalf("by name: %+v %v", got, err)
-	}
-	if got, err := m.UserByID(b.ID); err != nil || got.Name != "bob" {
-		t.Fatalf("by id: %+v %v", got, err)
-	}
-	if _, err := m.UserByID(LocalUser); !errors.Is(err, ErrNotFound) {
-		t.Fatal("the guest is not an account")
-	}
-	if _, err := m.UserByName("nobody"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("unknown name: %v, want ErrNotFound", err)
-	}
-}
-
-func testSignUpTakesGuest(t *testing.T, m Store) {
-	const guest, other = GuestPrefix + "1", GuestPrefix + "2"
-	m.SaveKeyStats(guest, "en", map[string]engine.KeyStat{"e": {Count: 5}})
-	m.SetUnlocked(guest, "en", 9)
-	m.SetLap(guest, "en", 2)
-	m.AddSession(guest, "en", Session{WPM: 40})
-	m.AddFreetypeSession(guest, "en", otherMode, Session{WPM: 50, Level: 3})
-	m.AddFreetypeSession(guest, "en", FreetypeMode(200), Session{WPM: 60})
-	m.AddSession(guest, "uk", Session{WPM: 30})
-	m.AddSession(other, "en", Session{WPM: 20})
-
-	a, err := m.CreateUser("ann", "hash", time.Now(), guest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stats, _ := m.KeyStats(a.ID, "en")
-	unlocked, _ := m.Unlocked(a.ID, "en")
-	lap, _ := m.Lap(a.ID, "en")
-	learn, _ := m.SessionCount(a.ID, "en", "")
-	ft5000, _ := m.FreetypeSessionCount(a.ID, "en", otherMode, "")
-	free, _ := m.FreetypeSessionCount(a.ID, "en", FreetypeMode(200), "")
-	uk, _ := m.SessionCount(a.ID, "uk", "")
-	if stats["e"].Count != 5 || unlocked != 9 || lap != 2 || learn != 1 || ft5000 != 1 || free != 1 || uk != 1 {
-		t.Fatalf("account: stats=%v unlocked=%d lap=%d learn=%d freetype 5000=%d freetype 200=%d uk=%d", stats, unlocked, lap, learn, ft5000, free, uk)
-	}
-	left, _ := m.SessionCount(guest, "en", "")
-	leftStats, _ := m.KeyStats(guest, "en")
-	if left != 0 || len(leftStats) != 0 {
-		t.Fatalf("the guest kept a copy: rounds=%d stats=%v", left, leftStats)
-	}
-	if n, _ := m.SessionCount(other, "en", ""); n != 1 {
-		t.Fatal("another guest's rounds moved too")
-	}
-
-	b, _ := m.CreateUser("bob", "hash", time.Now(), guest)
-	if n, _ := m.SessionCount(b.ID, "en", ""); n != 0 {
-		t.Fatal("an empty guest gave the next account rounds")
-	}
-	if _, err := m.CreateUser("ann", "hash", time.Now(), other); !errors.Is(err, ErrNameTaken) {
-		t.Fatalf("taken name: %v", err)
-	}
-	if n, _ := m.SessionCount(other, "en", ""); n != 1 {
-		t.Fatal("a failed sign up moved the guest's rounds")
-	}
-}
-
-func testLogins(t *testing.T, m Store) {
-	now := time.Now()
-	m.AddLogin("t1", "u1", now.Add(time.Hour))
-	if id, err := m.LoginUser("t1", now); err != nil || id != "u1" {
-		t.Fatalf("login: %q %v", id, err)
-	}
-	if _, err := m.LoginUser("t1", now.Add(2*time.Hour)); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("expired login: %v, want ErrNotFound", err)
-	}
-	if _, err := m.LoginUser("t1", now); !errors.Is(err, ErrNotFound) {
-		t.Fatal("an expired login must be forgotten")
-	}
-	m.AddLogin("t2", "u1", now.Add(time.Hour))
-	m.DeleteLogin("t2")
-	if _, err := m.LoginUser("t2", now); !errors.Is(err, ErrNotFound) {
-		t.Fatal("a deleted login still works")
-	}
-	if _, err := m.LoginUser("never", now); !errors.Is(err, ErrNotFound) {
-		t.Fatal("an unknown login works")
-	}
-}
-
-func testSessionFields(t *testing.T, m Store) {
-	c := 81.5
-	when := time.Date(2026, 10, 15, 18, 30, 0, 0, time.UTC)
-	in := Session{WPM: 42.5, Accuracy: 97.25, Chars: 180, Consistency: &c, FinishedAt: when,
-		Keys: []engine.Sample{{Char: "ж", Errors: 1, Ms: 0}, {Char: " ", Errors: 0, Ms: 183}}, Unlocked: 7}
-	m.AddSession(u, "ru", in)
-	m.AddSession(u, "ru", Session{WPM: 10, FinishedAt: when})
-	got, err := m.RecentSessions(u, "ru", "", 5)
-	if err != nil || len(got) != 2 {
-		t.Fatalf("got %+v %v", got, err)
-	}
-	old, s := got[0], got[1]
-	if s.WPM != 42.5 || s.Accuracy != 97.25 || s.Chars != 180 || s.Unlocked != 7 ||
-		s.Consistency == nil || *s.Consistency != 81.5 || !s.FinishedAt.Equal(when) {
-		t.Fatalf("fields changed: %+v", s)
-	}
-	if len(s.Keys) != 2 || s.Keys[0] != in.Keys[0] || s.Keys[1] != in.Keys[1] {
-		t.Fatalf("keys changed: %+v", s.Keys)
-	}
-	if old.Consistency != nil || len(old.Keys) != 0 {
-		t.Fatalf("missing values must stay missing: %+v", old)
-	}
-}
-
-func testKeyStatsFields(t *testing.T, m Store) {
-	k := engine.KeyStat{Count: 25, Mistakes: 3, ErrEMA: 0.0625, TimeEMA: 412.75, TimedCount: 20, Held: true}
-	m.SaveKeyStats(u, "pl", map[string]engine.KeyStat{"ą": k, " ": {Count: 1}})
-	got, _ := m.KeyStats(u, "pl")
-	if len(got) != 2 || got["ą"] != k || got[" "].Count != 1 {
-		t.Fatalf("got %+v", got)
-	}
-	m.SaveKeyStats(u, "pl", map[string]engine.KeyStat{"a": {Count: 2}})
-	got, _ = m.KeyStats(u, "pl")
-	if len(got) != 1 || got["a"].Count != 2 {
-		t.Fatalf("not replaced: %+v", got)
-	}
-}
-
-func testLengths(t *testing.T, m Store) {
-	m.AddSession(u, "en", Session{WPM: 30})
-	m.AddSession(u, "en", Session{WPM: 40, Length: "time-60"})
-	m.AddSession(u, "en", Session{WPM: 50, Length: "words-10"})
-	m.AddSession(u, "en", Session{WPM: 60, Length: "time-60"})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 70, Length: "words-60"})
-
-	if c, _ := m.SessionCount(u, "en", ""); c != 4 {
-		t.Fatalf("all lengths: %d, want 4", c)
-	}
-	if c, _ := m.SessionCount(u, "en", "time-60"); c != 2 {
-		t.Fatalf("time-60: %d, want 2", c)
-	}
-	got, _ := m.RecentSessions(u, "en", "time-60", 5)
-	if len(got) != 2 || got[0].WPM != 60 || got[1].WPM != 40 || got[0].Length != "time-60" {
-		t.Fatalf("time-60 rounds: %+v", got)
-	}
-	if old, _ := m.RecentSessions(u, "en", DefaultLength, 5); len(old) != 1 || old[0].WPM != 30 || old[0].Length != DefaultLength {
-		t.Fatalf("a round without a length must be %s: %+v", DefaultLength, old)
-	}
-	every, _ := m.RecentSessions(u, "en", "", 10)
-	lengths := Lengths(every)
-	if want := []string{"time-60", "words-10", "words-30"}; fmt.Sprint(lengths) != fmt.Sprint(want) {
-		t.Fatalf("lengths = %v, want %v", lengths, want)
-	}
-	free, _ := m.FreetypeSessionLengths(u, "en", otherMode)
-	if fmt.Sprint(free) != "[words-60]" {
-		t.Fatalf("free lengths = %v (learning must not mix in)", free)
-	}
-	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, "words-60"); c != 1 {
-		t.Fatalf("free words-60: %d", c)
-	}
-	none, _ := m.RecentSessions(u, "pl", "", 10)
-	if none := Lengths(none); none == nil || len(none) != 0 {
-		t.Fatalf("no history: lengths must be an empty list, got %#v", none)
-	}
-}
-
-// Every Freetype round of any list or text, newest first, with its mode;
-// other rounds, other users and dropped rounds are not in it.
-func testRecentFreetype(t *testing.T, m Store) {
-	if got, err := m.LastFreetypeRounds(u, "en", 10); err != nil || len(got) != 0 {
-		t.Fatalf("no rounds: %v, %v", got, err)
-	}
-	at := time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)
-	add := func(mode string, wpm float64, sec int) {
-		t.Helper()
-		if err := m.AddFreetypeSession(u, "en", mode, Session{WPM: wpm, Chars: 10, FinishedAt: at.Add(time.Duration(sec) * time.Second), Keys: []engine.Sample{{Char: "a", Ms: 100}}}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	add(FreetypeMode(200), 1, 1)
-	add(FreetypeMode(1000), 2, 2)
-	add(FreetypeMode(10000), 3, 3)
-	add(FreetypeMode(200), 4, 4)
-	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
-	m.AddFreetypeSession(u, "pl", FreetypeMode(200), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
-	m.AddFreetypeSession("someone-else", "en", FreetypeMode(200), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
-	m.AddSession(u, "en", Session{WPM: 96, FinishedAt: at.Add(8 * time.Second)})
-	got, err := m.LastFreetypeRounds(u, "en", 3)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var seen []string
-	for _, s := range got {
-		seen = append(seen, fmt.Sprintf("%v %s %d", s.WPM, s.Mode, len(s.Keys)))
-	}
-	want := []string{"4 freetype-200 1", "3 freetype-10000 1", "2 freetype-1000 1"}
-	if !slices.Equal(seen, want) {
-		t.Fatalf("got %v, want %v", seen, want)
-	}
-	add(FreetypeMode(5000), 5, 9)
-	add(FreetypeMode(1000), 6, 9)
-	if got, _ := m.LastFreetypeRounds(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
-		t.Fatalf("two rounds ending at once: the one saved last comes first, got %v", got)
-	}
-}
-
-// A round's kind is kept in every history.
-func testRoundKind(t *testing.T, m Store) {
-	m.AddSession(u, "en", Session{WPM: 1, Level: 2, Kind: KindWeak, FinishedAt: time.Now()})
-	m.AddSession(u, "en", Session{WPM: 2, Level: 2, FinishedAt: time.Now()})
-	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 3, Kind: KindClean, FinishedAt: time.Now()})
-	got, _ := m.RecentSessions(u, "en", "", 10)
-	if len(got) != 2 || got[0].Kind != "" || got[1].Kind != KindWeak {
-		t.Fatalf("learning rounds: %+v", got)
-	}
-	if usual := Usual(got); len(usual) != 1 || usual[0].WPM != 2 {
-		t.Fatalf("the usual rounds: %+v", usual)
-	}
-	if free, _ := m.RecentFreetypeSessions(u, "en", FreetypeMode(200), "", 10); len(free) != 1 || free[0].Kind != KindClean {
-		t.Fatalf("Freetype rounds: %+v", free)
-	}
-	if last, _ := m.LastFreetypeRounds(u, "en", 10); len(last) != 1 || last[0].Kind != KindClean {
-		t.Fatalf("the last Freetype rounds: %+v", last)
-	}
-	if !ValidKind("") || !ValidKind(KindWeak) || !ValidKind(KindClean) || !ValidKind(KindSprint) || ValidKind("race") {
-		t.Fatal("the kinds are the usual round, weak, clean and sprint")
-	}
-}
-
-func testLettersTyped(t *testing.T, m Store) {
-	if n, err := m.LettersTyped(u, "en", 26); err != nil || n != 0 {
-		t.Fatalf("no history: %d, %v; want 0", n, err)
-	}
-	m.AddSession(u, "en", Session{Chars: 100, Unlocked: 20})
-	m.AddSession(u, "en", Session{Chars: 150, Unlocked: 26})
-	m.AddSession(u, "en", Session{Chars: 50, Unlocked: 26, Device: DeviceKeyboard})
-	m.AddSession(u, "en", Session{Chars: 999, Unlocked: 26, Device: DeviceTouch})
-	m.AddSession(u, "pl", Session{Chars: 999, Unlocked: 32})
-	m.AddSession("someone-else", "en", Session{Chars: 999, Unlocked: 26})
-	m.AddFreetypeSession(u, "en", otherMode, Session{Chars: 999})
-	if n, _ := m.LettersTyped(u, "en", 26); n != 200 {
-		t.Fatalf("all letters open: %d, want 200", n)
-	}
-	if n, _ := m.LettersTyped(u, "en", 20); n != 300 {
-		t.Fatalf("at least 20 open: %d, want 300", n)
-	}
-	m.Reset(u, "en")
-	if n, _ := m.LettersTyped(u, "en", 0); n != 0 {
-		t.Fatalf("after reset: %d, want 0", n)
-	}
-}
-
-func testLap(t *testing.T, m Store) {
-	if n, err := m.Lap(u, "en"); err != nil || n != 0 {
-		t.Fatalf("new user: lap %d, %v", n, err)
-	}
-	m.SetUnlocked(u, "en", 26)
-	if err := m.SetLap(u, "en", 2); err != nil {
-		t.Fatal(err)
-	}
-	if n, _ := m.Lap(u, "en"); n != 2 {
-		t.Fatalf("lap = %d, want 2", n)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 26 {
-		t.Fatalf("the lap changed unlocked to %d", n)
-	}
-	if n, _ := m.Lap(u, "pl"); n != 0 {
-		t.Fatalf("another language: lap %d", n)
-	}
-	m.AddSession(u, "en", Session{WPM: 40, Lap: 2})
-	if got, _ := m.RecentSessions(u, "en", "", 1); len(got) != 1 || got[0].Lap != 2 {
-		t.Fatalf("session lap lost: %+v", got)
-	}
-	m.Reset(u, "en")
-	if n, _ := m.Lap(u, "en"); n != 0 {
-		t.Fatalf("after reset: lap %d", n)
-	}
-}
-
-func testDevice(t *testing.T, m Store) {
-	m.AddSession(u, "en", Session{WPM: 30, Device: DeviceTouch})
-	m.AddSession(u, "en", Session{WPM: 31})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 40, Device: DeviceKeyboard})
-	got, _ := m.RecentSessions(u, "en", "", 2)
-	if len(got) != 2 || got[0].Device != "" || got[1].Device != DeviceTouch {
-		t.Fatalf("learning devices: %+v", got)
-	}
-	free, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 1)
-	if len(free) != 1 || free[0].Device != DeviceKeyboard {
-		t.Fatalf("free practice device: %+v", free)
-	}
-}
-
-func testPracticeDays(t *testing.T, m Store) {
-	if days, err := m.PracticeDays(u, "en", "", 0); err != nil || len(days) != 0 {
-		t.Fatalf("no history: %v, %v; want none", days, err)
-	}
-	at := func(s string) time.Time { v, _ := time.Parse(time.RFC3339, s); return v }
-	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, Accuracy: 100, Chars: 150, FinishedAt: at("2026-10-17T22:30:00Z")})
-	m.AddSession(u, "en", Session{WPM: 0, Accuracy: 0, Chars: 0, FinishedAt: at("2026-10-18T09:00:00Z")})
-	m.AddSession(u, "pl", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
-	m.AddSession("someone-else", "en", Session{WPM: 60, Accuracy: 100, Chars: 300, FinishedAt: at("2026-10-17T10:00:00Z")})
-
-	days, err := m.PracticeDays(u, "en", "", 0)
-	if err != nil || len(days) != 2 {
-		t.Fatalf("UTC: %v, %v; want 2 days", days, err)
-	}
-	if d := days[0]; d.Date != "2026-10-17" || d.Rounds != 2 || d.Chars != 450 || math.Abs(d.Seconds-120) > 0.01 {
-		t.Fatalf("first day %+v, want 2026-10-17, 2 rounds, 450 letters, 120 s", d)
-	}
-	if d := days[1]; d.Date != "2026-10-18" || d.Rounds != 1 || d.Seconds != 0 {
-		t.Fatalf("second day %+v, want 2026-10-18, 1 round, 0 s", d)
-	}
-	days, _ = m.PracticeDays(u, "en", "", 2*time.Hour)
-	if len(days) != 2 || days[0].Rounds != 1 || days[1].Date != "2026-10-18" || days[1].Rounds != 2 {
-		t.Fatalf("UTC+2: %+v, want 1 round on the 17th and 2 on the 18th", days)
-	}
-	m.AddSession(u, "en", Session{WPM: 60, Accuracy: 50, Chars: 300, Seconds: 95.5, FinishedAt: at("2026-10-18T10:00:00Z")})
-	m.AddSession(u, "en", Session{Chars: 40, Seconds: 19, Aborted: true, Round: "tab", FinishedAt: at("2026-10-18T10:05:00Z")})
-	m.AddSession(u, "en", Session{Chars: 40, Aborted: true, Round: "old-tab", FinishedAt: at("2026-10-18T10:06:00Z")})
-	days, _ = m.PracticeDays(u, "en", "", 0)
-	if d := days[1]; d.Rounds != 2 || d.Chars != 300 || math.Abs(d.Seconds-114.5) > 0.01 {
-		t.Fatalf("measured seconds: %+v, want 2 rounds, 300 letters, 95.5 + 19 s (a Tab-dropped round counts its time only)", d)
-	}
-	m.Reset(u, "en")
-	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 0 {
-		t.Fatalf("after reset: %v, want none", days)
-	}
-}
-
-func testBestRounds(t *testing.T, m Store) {
-	if b := BestOf(nil); len(b) != 0 {
-		t.Fatalf("no history: %v; want none", b)
-	}
-	keys := []engine.Sample{{Char: "e", Ms: 100}}
-	m.AddSession(u, "en", Session{WPM: 40, Accuracy: 90, Length: "words-10"})
-	m.AddSession(u, "en", Session{WPM: 55, Accuracy: 97, Length: "words-10", Keys: keys})
-	m.AddSession(u, "en", Session{WPM: 55, Accuracy: 80, Length: "words-10"})
-	m.AddSession(u, "en", Session{WPM: 30, Accuracy: 99, Length: "time-30"})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 99, Accuracy: 100, Length: "words-10"})
-	m.AddSession("someone-else", "en", Session{WPM: 99, Length: "words-10"})
-
-	mine, _ := m.RecentSessions(u, "en", "", 10)
-	slices.Reverse(mine) // oldest first, as /stats passes them
-	b := BestOf(mine)
-	if len(b) != 2 || b["words-10"].WPM != 55 || b["words-10"].Accuracy != 97 || b["time-30"].WPM != 30 {
-		t.Fatalf("bests %+v, want words-10 55 wpm 97%% and time-30 30 wpm", b)
-	}
-	if b["words-10"].Keys != nil {
-		t.Fatalf("a best round keeps its raw keys: %v", b["words-10"].Keys)
-	}
-	f, _ := m.BestFreetypeRounds(u, "en", otherMode)
-	if len(f) != 1 || f["words-10"].WPM != 99 {
-		t.Fatalf("free practice bests %+v, want words-10 99 wpm", f)
-	}
-
-	// A sprint's best is its own, not the best of its length.
-	sprints := FreetypeMode(15000) // a mode no other round of this test uses
-	if f, _ := m.BestFreetypeRounds(u, "en", sprints); len(f) != 0 {
-		t.Fatalf("no rounds: %v; want no best", f)
-	}
-	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 50, Length: "time-15"})
-	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 70, Length: "time-15", Kind: KindSprint})
-	m.AddFreetypeSession(u, "en", sprints, Session{WPM: 65, Length: "time-15", Kind: KindSprint})
-	f, _ = m.BestFreetypeRounds(u, "en", sprints)
-	if len(f) != 2 || f["time-15"].WPM != 50 || f[KindSprint].WPM != 70 {
-		t.Fatalf("bests with sprints %+v, want time-15 50 wpm and sprint 70 wpm", f)
-	}
-	if b := BestOf([]Session{{WPM: 70, Length: "time-15", Kind: KindSprint}}); len(b) != 1 || b[KindSprint].WPM != 70 {
-		t.Fatalf("BestOf one sprint: %+v", b)
-	}
-}
-
-func testImportAtomic(t *testing.T, m Store) {
-	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"e": {Count: 5}})
-	m.SetUnlocked(u, "en", 4)
-	m.AddSession(u, "en", Session{WPM: 40, FinishedAt: when})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, FinishedAt: when})
-
-	bad := ImportData{
-		Keys: map[string]engine.KeyStat{"a": {Count: 1}}, Unlocked: 2,
-		Sessions: []Session{{WPM: 10, FinishedAt: when}},
-		Freetype: map[string][]Session{"": {{WPM: 20, FinishedAt: when}}},
-	}
-	if err := m.Import(u, "en", bad); err == nil {
-		t.Fatal("an import with an empty freetype mode must fail")
-	}
-	if s, _ := m.KeyStats(u, "en"); len(s) != 1 || s["e"].Count != 5 {
-		t.Fatalf("a failed import changed the key stats: %v", s)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 4 {
-		t.Fatalf("a failed import changed unlocked: %d", n)
-	}
-	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
-		t.Fatalf("a failed import changed the sessions: %d", c)
-	}
-	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 1 {
-		t.Fatalf("a failed import changed the freetype sessions: %d", c)
-	}
-	m.AddSession(u, "en", Session{WPM: 45, FinishedAt: when})
-	if got, _ := m.RecentSessions(u, "en", "", 5); got[0].Epoch != 0 {
-		t.Fatalf("a failed import bumped the epoch: %+v", got[0])
-	}
-
-	good := ImportData{
-		Keys: map[string]engine.KeyStat{"q": {Count: 2}}, Unlocked: 7, Lap: 1,
-		Sessions: []Session{{WPM: 12, FinishedAt: when}},
-		Freetype: map[string][]Session{otherMode: {{WPM: 30, FinishedAt: when}}},
-	}
-	if err := m.Import(u, "en", good); err != nil {
-		t.Fatal(err)
-	}
-	if s, _ := m.KeyStats(u, "en"); len(s) != 1 || s["q"].Count != 2 {
-		t.Fatalf("import did not replace the key stats: %v", s)
-	}
-	if n, _ := m.Unlocked(u, "en"); n != 7 {
-		t.Fatalf("import did not replace unlocked: %d", n)
-	}
-	if n, _ := m.Lap(u, "en"); n != 1 {
-		t.Fatalf("import did not replace the lap: %d", n)
-	}
-	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 12 {
-		t.Fatalf("import did not replace the sessions: %+v", got)
-	}
-	if c, _ := m.FreetypeSessionCount(u, "en", otherMode, ""); c != 1 {
-		t.Fatalf("import did not replace the freetype sessions: %d", c)
-	}
-}
-
-func testEpoch(t *testing.T, m Store) {
-	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.AddSession(u, "en", Session{WPM: 10, FinishedAt: when})
-	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 0 {
-		t.Fatalf("the first epoch: %+v", got)
-	}
-	if err := m.Reset(u, "en"); err != nil {
-		t.Fatal(err)
-	}
-	m.AddSession(u, "en", Session{WPM: 20, FinishedAt: when})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, FinishedAt: when})
-	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 1 {
-		t.Fatalf("a session after a reset must carry the next epoch: %+v", got)
-	}
-	if got, _ := m.RecentFreetypeSessions(u, "en", otherMode, "", 5); len(got) != 1 || got[0].Epoch != 1 {
-		t.Fatalf("a freetype session after a reset must carry the next epoch: %+v", got)
-	}
-	if err := m.Import(u, "en", ImportData{
-		Sessions: []Session{{WPM: 40, Epoch: 5, FinishedAt: when}},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 1 || got[0].Epoch != 5 {
-		t.Fatalf("an imported session keeps the epoch of its file: %+v", got)
-	}
-	m.AddSession(u, "en", Session{WPM: 50, FinishedAt: when})
-	if got, _ := m.RecentSessions(u, "en", "", 5); len(got) != 2 || got[0].Epoch != 2 {
-		t.Fatalf("a session after an import must carry the next epoch: %+v", got)
-	}
-}
-
-func testAbortedNotShown(t *testing.T, m Store) {
-	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.AddSession(u, "en", Session{WPM: 20, Chars: 10, Unlocked: 1, Length: "words-10", FinishedAt: when})
-	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 30, Chars: 30, FinishedAt: when})
-
-	if got, _ := m.RecentSessions(u, "en", "", 10); len(got) != 1 || got[0].WPM != 20 {
-		t.Fatalf("recent: %+v, want only the live round", got)
-	}
-	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
-		t.Fatalf("count: %d, want 1", c)
-	}
-	live, _ := m.RecentSessions(u, "en", "", 10)
-	if l := Lengths(live); len(l) != 1 || l[0] != "words-10" {
-		t.Fatalf("lengths: %v, want only the live round's", l)
-	}
-	if n, _ := m.LettersTyped(u, "en", 1); n != 10 {
-		t.Fatalf("letters typed: %d, want 10 (no aborted chars)", n)
-	}
-	if days, _ := m.PracticeDays(u, "en", "", 0); len(days) != 1 || days[0].Rounds != 2 || days[0].Chars != 40 {
-		t.Fatalf("days: %+v, want 2 rounds and 40 chars (no aborted)", days)
-	}
-	m.AddSession(u, "en", Session{WPM: 90, Chars: 90, Unlocked: 9, Length: "words-99", FinishedAt: when, Round: "tab-1", Aborted: true})
-	if c, _ := m.SessionCount(u, "en", ""); c != 1 {
-		t.Fatalf("the same aborted round twice: %d, want 1", c)
-	}
-}
-
-func testResetLearn(t *testing.T, m Store) {
-	m.SetUnlocked(u, "en", 12)
-	m.SaveKeyStats(u, "en", map[string]engine.KeyStat{"a": {Count: 3}})
-	m.AddSession(u, "en", Session{WPM: 60, Chars: 10, Round: "r1"})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 50, Level: 1, Round: "c1"})
-	if err := m.ResetLearn(u, "en"); err != nil {
-		t.Fatal(err)
-	}
-	n, _ := m.Unlocked(u, "en")
-	stats, _ := m.KeyStats(u, "en")
-	learn, _ := m.SessionCount(u, "en", "")
-	ft5000, _ := m.FreetypeSessionCount(u, "en", otherMode, "")
-	if n != 0 || len(stats) != 0 || learn != 0 || ft5000 != 1 {
-		t.Fatalf("after ResetLearn: unlocked %d, stats %d, Learn rounds %d, Freetype rounds %d (want Freetype kept)", n, len(stats), learn, ft5000)
-	}
-}
-
-func testDaysPerMode(t *testing.T, m Store) {
-	when := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
-	m.AddSession(u, "en", Session{WPM: 30, Chars: 10, FinishedAt: when})
-	m.AddSession(u, "en", Session{WPM: 40, Chars: 20, Level: 2, FinishedAt: when})
-	m.AddSession(u, "en", Session{WPM: 45, Chars: 20, Level: 3, FinishedAt: when})
-	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 50, Chars: 40, FinishedAt: when})
-	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 60, Chars: 80, FinishedAt: when})
-	for part, want := range map[string]int{"": 5, PartLearn: 1, PartReinforce: 2, PartFreetype: 2} {
-		days, err := m.PracticeDays(u, "en", part, 0)
-		if err != nil || len(days) != 1 || days[0].Rounds != want {
-			t.Fatalf("part %q: %+v %v, want one day of %d rounds", part, days, err, want)
-		}
+func TestBests(t *testing.T) {
+	a, b, c := round(ModeLearn, 30), round(ModeLearn, 50), round(ModeLearn, 90)
+	c.Kind = KindSprint
+	b.Keys = []engine.Sample{{Char: "a"}}
+	bests := Bests([]Round{a, b, c})
+	if bests["words-30"].WPM != 50 || bests[KindSprint].WPM != 90 || bests["words-30"].Keys != nil {
+		t.Fatalf("bests: %+v", bests)
 	}
 }

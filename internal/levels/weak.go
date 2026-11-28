@@ -7,13 +7,12 @@ import (
 	"cmp"
 	"slices"
 	"unicode"
+
+	"typingtrainer/internal/engine"
 )
 
-type Key struct {
-	Char   string
-	Errors int
-	Ms     float64
-}
+// Key is one press, as the browser measured it.
+type Key = engine.Sample
 
 type Pair struct {
 	Pair  string  `json:"pair"`

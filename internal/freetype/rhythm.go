@@ -10,14 +10,12 @@ import (
 	"math"
 	"slices"
 	"unicode"
+
+	"typingtrainer/internal/engine"
 )
 
-// Key is one press as the rhythm reads it.
-type Key struct {
-	Char   string
-	Errors int
-	Ms     float64
-}
+// Key is one press, as the browser measured it.
+type Key = engine.Sample
 
 type Rhythm struct {
 	Median    float64   `json:"median"`    // the usual time between two letters of a word, ms

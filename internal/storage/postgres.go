@@ -1,8 +1,9 @@
 //go:build !(js && wasm)
 
-package storage
+// The PostgreSQL Store, through the standard database/sql; pgx is only the
+// driver. Not in the GitHub Pages build.
 
-// The PostgreSQL Store.
+package storage
 
 import (
 	"database/sql"
@@ -14,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
@@ -46,6 +46,8 @@ func OpenPostgres(url string) (*PostgresStore, error) {
 
 func (p *PostgresStore) Close() error { return p.db.Close() }
 
+// migrate applies, in number order, each migrations/NNN_*.sql file the
+// database has not recorded yet, each in a transaction.
 func migrate(db *sql.DB) error {
 	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
 		version INTEGER PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now())`); err != nil {
@@ -72,27 +74,22 @@ func migrate(db *sql.DB) error {
 		if err != nil {
 			return err
 		}
-		tx, err := db.Begin()
+		err = inTx(db, func(tx *sql.Tx) error {
+			if _, err := tx.Exec(string(body)); err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+			_, err := tx.Exec(`INSERT INTO schema_migrations (version) VALUES ($1)`, version)
+			return err
+		})
 		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(string(body)); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("%s: %w", name, err)
-		}
-		if _, err := tx.Exec(`INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
-			tx.Rollback()
-			return err
-		}
-		if err := tx.Commit(); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *PostgresStore) inTx(f func(tx *sql.Tx) error) error {
-	tx, err := p.db.Begin()
+func inTx(db *sql.DB, f func(tx *sql.Tx) error) error {
+	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
@@ -103,465 +100,142 @@ func (p *PostgresStore) inTx(f func(tx *sql.Tx) error) error {
 	return tx.Commit()
 }
 
-func (p *PostgresStore) KeyStats(user, lang string) (map[string]engine.KeyStat, error) {
-	rows, err := p.db.Query(`SELECT ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped
-		FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang)
+func (p *PostgresStore) Progress(user string) (Progress, error) {
+	var letters []byte
+	out := Progress{Letters: map[string]engine.KeyStat{}}
+	err := p.db.QueryRow(`SELECT letters, unlocked, lap FROM progress WHERE user_id = $1`, user).Scan(&letters, &out.Unlocked, &out.Lap)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, nil
+	}
 	if err != nil {
-		return nil, err
+		return out, err
 	}
-	defer rows.Close()
-	out := map[string]engine.KeyStat{}
-	for rows.Next() {
-		var ch string
-		var k engine.KeyStat
-		if err := rows.Scan(&ch, &k.Count, &k.Mistakes, &k.ErrEMA, &k.TimeEMA, &k.TimedCount, &k.Held, &k.Hits, &k.Slipped); err != nil {
-			return nil, err
-		}
-		out[ch] = k
-	}
-	return out, rows.Err()
+	return out, json.Unmarshal(letters, &out.Letters)
 }
 
-func (p *PostgresStore) SaveKeyStats(user, lang string, stats map[string]engine.KeyStat) error {
-	return p.inTx(func(tx *sql.Tx) error { return saveKeyStats(tx, user, lang, stats) })
-}
-
-func saveKeyStats(tx *sql.Tx, user, lang string, stats map[string]engine.KeyStat) error {
-	if _, err := tx.Exec(`DELETE FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
-		return err
-	}
-	for ch, k := range stats {
-		if _, err := tx.Exec(`INSERT INTO key_stats
-			(user_id, lang, ch, count, mistakes, err_ema, time_ema, timed_count, held, hits, slipped)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-			user, lang, ch, k.Count, k.Mistakes, k.ErrEMA, k.TimeEMA, k.TimedCount, k.Held, k.Hits, k.Slipped); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (p *PostgresStore) SaveLearned(user, lang string, l Learned) error {
-	return p.inTx(func(tx *sql.Tx) error {
-		if l.Stats != nil {
-			if err := saveKeyStats(tx, user, lang, l.Stats); err != nil {
-				return err
-			}
-			if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap) VALUES ($1, $2, $3, $4)
-				ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap`,
-				user, lang, l.Unlocked, l.Lap); err != nil {
+func (p *PostgresStore) Save(user string, pr *Progress, r *Round) error {
+	return inTx(p.db, func(tx *sql.Tx) error {
+		if pr != nil {
+			if err := saveProgress(tx, user, *pr); err != nil {
 				return err
 			}
 		}
-		if l.Session == nil {
+		if r == nil {
 			return nil
 		}
-		l.Session.Epoch = currentEpoch(tx, user, lang)
-		return addSession(tx, user, lang, modeLearning, *l.Session)
+		return addRound(tx, user, *r)
 	})
 }
 
-func (p *PostgresStore) Unlocked(user, lang string) (int, error) {
-	var n int
-	err := p.db.QueryRow(`SELECT unlocked FROM progress WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&n)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
+func saveProgress(tx *sql.Tx, user string, pr Progress) error {
+	if pr.Letters == nil {
+		pr.Letters = map[string]engine.KeyStat{}
 	}
-	return n, err
-}
-
-func (p *PostgresStore) SetUnlocked(user, lang string, n int) error {
-	_, err := p.db.Exec(`INSERT INTO progress (user_id, lang, unlocked) VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked`, user, lang, n)
-	return err
-}
-
-func (p *PostgresStore) Lap(user, lang string) (int, error) {
-	var n int
-	err := p.db.QueryRow(`SELECT lap FROM progress WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&n)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, nil
-	}
-	return n, err
-}
-
-func (p *PostgresStore) SetLap(user, lang string, n int) error {
-	_, err := p.db.Exec(`INSERT INTO progress (user_id, lang, lap) VALUES ($1, $2, $3)
-		ON CONFLICT (user_id, lang) DO UPDATE SET lap = EXCLUDED.lap`, user, lang, n)
-	return err
-}
-
-func (p *PostgresStore) ResetLearn(user, lang string) error {
-	return p.inTx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(`INSERT INTO epochs (user_id, lang, epoch) VALUES ($1, $2, 1)
-			ON CONFLICT (user_id, lang) DO UPDATE SET epoch = epochs.epoch + 1`, user, lang); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`UPDATE progress SET unlocked = 0, lap = 0
-			WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`DELETE FROM key_stats WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
-			return err
-		}
-		_, err := tx.Exec(`DELETE FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3`, user, lang, modeLearning)
+	letters, err := json.Marshal(pr.Letters)
+	if err != nil {
 		return err
-	})
-}
-
-const modeLearning = "learning"
-
-type execer interface {
-	Exec(query string, args ...any) (sql.Result, error)
-}
-
-type querier interface {
-	Exec(query string, args ...any) (sql.Result, error)
-	QueryRow(query string, args ...any) *sql.Row
-}
-
-func currentEpoch(db querier, user, lang string) int {
-	var n int
-	if err := db.QueryRow(`SELECT epoch FROM epochs WHERE user_id = $1 AND lang = $2`, user, lang).Scan(&n); err != nil {
-		return 0
 	}
-	return n
-}
-
-func (p *PostgresStore) addSession(user, lang, mode string, s Session) error {
-	return addSession(p.db, user, lang, mode, s)
-}
-
-func addSession(db execer, user, lang, mode string, s Session) error {
-	var keys []byte
-	if len(s.Keys) > 0 {
-		var err error
-		if keys, err = json.Marshal(s.Keys); err != nil {
-			return err
-		}
-	}
-	s = s.WithLength()
-	_, err := db.Exec(`INSERT INTO sessions
-		(user_id, lang, mode, wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, round_id, epoch, aborted, seconds, kind)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NULLIF($15, ''), $16, $17, NULLIF($18::double precision, 0), $19)
-		ON CONFLICT DO NOTHING`,
-		user, lang, mode, s.WPM, s.Accuracy, s.Chars, s.Consistency, s.Unlocked, keys, s.FinishedAt, s.Length, s.Device, s.Level, s.Lap, s.Round, s.Epoch, s.Aborted, s.Seconds, s.Kind)
+	_, err = tx.Exec(`INSERT INTO progress (user_id, letters, unlocked, lap) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (user_id) DO UPDATE SET letters = EXCLUDED.letters, unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap`,
+		user, letters, pr.Unlocked, pr.Lap)
 	return err
 }
 
-func (p *PostgresStore) HasRound(user, lang, round string) (bool, error) {
-	if round == "" {
+// addRound keeps a round once: a second round with the same ID is dropped.
+func addRound(tx *sql.Tx, user string, r Round) error {
+	var keys []byte
+	if r.Keys != nil {
+		var err error
+		if keys, err = json.Marshal(r.Keys); err != nil {
+			return err
+		}
+	}
+	var id any
+	if r.ID != "" {
+		id = r.ID
+	}
+	_, err := tx.Exec(`INSERT INTO rounds
+		(user_id, round_id, mode, kind, level, lap, length, wpm, accuracy, chars, consistency, unlocked, finished_at, keys)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+		ON CONFLICT (user_id, round_id) DO NOTHING`,
+		user, id, r.Mode, r.Kind, r.Level, r.Lap, r.Length, r.WPM, r.Accuracy, r.Chars, r.Consistency, r.Unlocked, r.FinishedAt, keys)
+	return err
+}
+
+func (p *PostgresStore) HasRound(user, id string) (bool, error) {
+	if id == "" {
 		return false, nil
 	}
 	var found bool
-	err := p.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM sessions WHERE user_id = $1 AND lang = $2 AND round_id = $3)`,
-		user, lang, round).Scan(&found)
+	err := p.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM rounds WHERE user_id = $1 AND round_id = $2)`, user, id).Scan(&found)
 	return found, err
 }
 
-func (p *PostgresStore) recentSessions(user, lang, mode, length string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT wpm, accuracy, chars, consistency, unlocked, keys, finished_at, length, device, level, lap, epoch, aborted, COALESCE(seconds, 0), kind
-		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND ($4 = '' OR length = $4)
-		ORDER BY id DESC LIMIT $5`, user, lang, mode, length, limit)
+func (p *PostgresStore) Rounds(user, prefix string, limit int) ([]Round, error) {
+	query := `SELECT COALESCE(round_id, ''), mode, kind, level, lap, length, wpm, accuracy, chars, consistency, unlocked, finished_at, keys
+		FROM rounds WHERE user_id = $1 AND starts_with(mode, $2) ORDER BY id DESC`
+	args := []any{user, prefix}
+	if limit > 0 {
+		query += ` LIMIT $3`
+		args = append(args, limit)
+	}
+	rows, err := p.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []Session{}
+	out := []Round{}
 	for rows.Next() {
-		var s Session
-		var consistency sql.NullFloat64
+		var r Round
 		var keys []byte
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Seconds, &s.Kind); err != nil {
+		if err := rows.Scan(&r.ID, &r.Mode, &r.Kind, &r.Level, &r.Lap, &r.Length, &r.WPM, &r.Accuracy, &r.Chars,
+			&r.Consistency, &r.Unlocked, &r.FinishedAt, &keys); err != nil {
 			return nil, err
 		}
-		if consistency.Valid {
-			s.Consistency = &consistency.Float64
-		}
 		if keys != nil {
-			if err := json.Unmarshal(keys, &s.Keys); err != nil {
+			if err := json.Unmarshal(keys, &r.Keys); err != nil {
 				return nil, err
 			}
 		}
-		out = append(out, s)
+		r.FinishedAt = r.FinishedAt.UTC()
+		out = append(out, r)
 	}
 	return out, rows.Err()
 }
 
-func (p *PostgresStore) bestRounds(user, lang, mode string) (map[string]Session, error) {
-	// The key is BestKey's: the length, or 'sprint' for a sprint.
-	rows, err := p.db.Query(`SELECT DISTINCT ON (best_key) wpm, accuracy, chars, consistency, unlocked, finished_at, length, device, level, lap, epoch, aborted, kind
-		FROM (SELECT *, CASE WHEN kind = 'sprint' THEN 'sprint' ELSE length END AS best_key FROM sessions
-			WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted) s
-		ORDER BY best_key, wpm DESC, id`, user, lang, mode)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]Session{}
-	for rows.Next() {
-		var s Session
-		var consistency sql.NullFloat64
-		if err := rows.Scan(&s.WPM, &s.Accuracy, &s.Chars, &consistency, &s.Unlocked, &s.FinishedAt, &s.Length, &s.Device, &s.Level, &s.Lap, &s.Epoch, &s.Aborted, &s.Kind); err != nil {
-			return nil, err
-		}
-		if consistency.Valid {
-			s.Consistency = &consistency.Float64
-		}
-		out[BestKey(s)] = s
-	}
-	return out, rows.Err()
-}
-
-func (p *PostgresStore) sessionCount(user, lang, mode, length string) (int, error) {
-	var n int
-	err := p.db.QueryRow(`SELECT count(*) FROM sessions
-		WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND ($4 = '' OR length = $4)`,
-		user, lang, mode, length).Scan(&n)
-	return n, err
-}
-
-func (p *PostgresStore) sessionLengths(user, lang, mode string) ([]string, error) {
-	rows, err := p.db.Query(`SELECT DISTINCT length FROM sessions
-		WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted ORDER BY length`, user, lang, mode)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []string{}
-	for rows.Next() {
-		var l string
-		if err := rows.Scan(&l); err != nil {
-			return nil, err
-		}
-		out = append(out, l)
-	}
-	return out, rows.Err()
-}
-
-func (p *PostgresStore) AddSession(user, lang string, s Session) error {
-	s.Epoch = currentEpoch(p.db, user, lang)
-	return p.addSession(user, lang, modeLearning, s)
-}
-func (p *PostgresStore) RecentSessions(user, lang, length string, limit int) ([]Session, error) {
-	return p.recentSessions(user, lang, modeLearning, length, limit)
-}
-func (p *PostgresStore) SessionCount(user, lang, length string) (int, error) {
-	return p.sessionCount(user, lang, modeLearning, length)
-}
-func (p *PostgresStore) LettersTyped(user, lang string, unlocked int) (int, error) {
-	var n int
-	err := p.db.QueryRow(`SELECT COALESCE(SUM(chars), 0) FROM sessions
-		WHERE user_id = $1 AND lang = $2 AND mode = $3 AND NOT aborted AND unlocked >= $4 AND device <> $5`,
-		user, lang, modeLearning, unlocked, DeviceTouch).Scan(&n)
-	return n, err
-}
-
-func (p *PostgresStore) PracticeDays(user, lang, part string, tz time.Duration) ([]Day, error) {
-	rows, err := p.db.Query(`SELECT to_char((finished_at AT TIME ZONE 'UTC') + make_interval(secs => $3), 'YYYY-MM-DD') AS d,
-		COUNT(*) FILTER (WHERE NOT aborted),
-		COALESCE(SUM(CASE WHEN seconds IS NOT NULL THEN seconds WHEN aborted THEN 0 WHEN wpm > 0 THEN chars * accuracy / 100 / 5 / wpm * 60 ELSE 0 END), 0),
-		COALESCE(SUM(chars) FILTER (WHERE NOT aborted), 0)
-		FROM sessions WHERE user_id = $1 AND lang = $2 AND ($4 = ''
-			OR $4 = 'learn' AND mode = 'learning' AND level = 0
-			OR $4 = 'reinforce' AND mode = 'learning' AND level > 0
-			OR $4 = 'freetype' AND mode LIKE 'freetype-%')
-		GROUP BY d ORDER BY d`,
-		user, lang, tz.Seconds(), part)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Day{}
-	for rows.Next() {
-		var d Day
-		if err := rows.Scan(&d.Date, &d.Rounds, &d.Seconds, &d.Chars); err != nil {
-			return nil, err
-		}
-		out = append(out, d)
-	}
-	return out, rows.Err()
-}
-
-func (p *PostgresStore) AddFreetypeSession(user, lang, mode string, s Session) error {
-	s.Epoch = currentEpoch(p.db, user, lang)
-	return p.addSession(user, lang, mode, s)
-}
-func (p *PostgresStore) RecentFreetypeSessions(user, lang, mode, length string, limit int) ([]Session, error) {
-	return p.recentSessions(user, lang, mode, length, limit)
-}
-func (p *PostgresStore) LastFreetypeRounds(user, lang string, limit int) ([]Session, error) {
-	rows, err := p.db.Query(`SELECT mode, wpm, accuracy, chars, consistency, keys, finished_at, length, device, epoch, kind
-		FROM sessions WHERE user_id = $1 AND lang = $2 AND mode LIKE 'freetype-%' AND NOT aborted
-		ORDER BY finished_at DESC, id DESC LIMIT $3`, user, lang, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []Session{}
-	for rows.Next() {
-		var s Session
-		var consistency sql.NullFloat64
-		var keys []byte
-		if err := rows.Scan(&s.Mode, &s.WPM, &s.Accuracy, &s.Chars, &consistency, &keys, &s.FinishedAt, &s.Length, &s.Device, &s.Epoch, &s.Kind); err != nil {
-			return nil, err
-		}
-		if consistency.Valid {
-			s.Consistency = &consistency.Float64
-		}
-		if keys != nil {
-			if err := json.Unmarshal(keys, &s.Keys); err != nil {
-				return nil, err
-			}
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-func (p *PostgresStore) BestFreetypeRounds(user, lang, mode string) (map[string]Session, error) {
-	return p.bestRounds(user, lang, mode)
-}
-func (p *PostgresStore) FreetypeSessionCount(user, lang, mode, length string) (int, error) {
-	return p.sessionCount(user, lang, mode, length)
-}
-func (p *PostgresStore) FreetypeSessionLengths(user, lang, mode string) ([]string, error) {
-	return p.sessionLengths(user, lang, mode)
-}
-
-func (p *PostgresStore) Reset(user, lang string) error {
-	return p.inTx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(`INSERT INTO epochs (user_id, lang, epoch) VALUES ($1, $2, 1)
-			ON CONFLICT (user_id, lang) DO UPDATE SET epoch = epochs.epoch + 1`, user, lang); err != nil {
+func (p *PostgresStore) Reset(user string) error {
+	return inTx(p.db, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM progress WHERE user_id = $1`, user); err != nil {
 			return err
 		}
-		for _, table := range []string{"progress", "key_stats", "sessions"} {
-			if _, err := tx.Exec(`DELETE FROM `+table+` WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
+		_, err := tx.Exec(`DELETE FROM rounds WHERE user_id = $1`, user)
+		return err
+	})
+}
+
+func (p *PostgresStore) ResetLearn(user string) error {
+	return inTx(p.db, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM progress WHERE user_id = $1`, user); err != nil {
+			return err
+		}
+		_, err := tx.Exec(`DELETE FROM rounds WHERE user_id = $1 AND mode IN ($2, $3)`, user, ModeLearn, ModeReinforce)
+		return err
+	})
+}
+
+func (p *PostgresStore) Import(user string, pr Progress, rounds []Round) error {
+	return inTx(p.db, func(tx *sql.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM rounds WHERE user_id = $1`, user); err != nil {
+			return err
+		}
+		if err := saveProgress(tx, user, pr); err != nil {
+			return err
+		}
+		for _, r := range rounds {
+			if err := addRound(tx, user, r); err != nil {
 				return err
 			}
 		}
 		return nil
 	})
-}
-
-func (p *PostgresStore) Import(user, lang string, data ImportData) error {
-	return p.inTx(func(tx *sql.Tx) error {
-		if _, err := tx.Exec(`INSERT INTO epochs (user_id, lang, epoch) VALUES ($1, $2, 1)
-			ON CONFLICT (user_id, lang) DO UPDATE SET epoch = epochs.epoch + 1`, user, lang); err != nil {
-			return err
-		}
-		for _, table := range []string{"progress", "key_stats", "sessions"} {
-			if _, err := tx.Exec(`DELETE FROM `+table+` WHERE user_id = $1 AND lang = $2`, user, lang); err != nil {
-				return err
-			}
-		}
-		if err := saveKeyStats(tx, user, lang, data.Keys); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(`INSERT INTO progress (user_id, lang, unlocked, lap) VALUES ($1, $2, $3, $4)
-			ON CONFLICT (user_id, lang) DO UPDATE SET unlocked = EXCLUDED.unlocked, lap = EXCLUDED.lap`,
-			user, lang, data.Unlocked, data.Lap); err != nil {
-			return err
-		}
-		for _, s := range data.Sessions {
-			if err := addSession(tx, user, lang, modeLearning, s); err != nil {
-				return err
-			}
-		}
-		for mode, sessions := range data.Freetype {
-			if mode == "" {
-				return errors.New("storage: freetype mode is empty")
-			}
-			for _, s := range sessions {
-				if err := addSession(tx, user, lang, mode, s); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
-}
-
-func userID(n int64) string { return "u" + strconv.FormatInt(n, 10) }
-
-func (p *PostgresStore) CreateUser(name, passwordHash string, now time.Time, from string) (User, error) {
-	var u User
-	err := p.inTx(func(tx *sql.Tx) error {
-		var n int64
-		err := tx.QueryRow(`INSERT INTO users (name, password_hash, created_at) VALUES ($1, $2, $3)
-			ON CONFLICT (name) DO NOTHING RETURNING id`, name, passwordHash, now).Scan(&n)
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNameTaken
-		}
-		if err != nil {
-			return err
-		}
-		u = User{ID: userID(n), Name: name, PasswordHash: passwordHash, CreatedAt: now}
-		if from == "" {
-			return nil
-		}
-		for _, table := range []string{"progress", "key_stats", "sessions", "epochs"} {
-			if _, err := tx.Exec(`UPDATE `+table+` SET user_id = $1 WHERE user_id = $2`, u.ID, from); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return User{}, err
-	}
-	return u, nil
-}
-
-func (p *PostgresStore) user(where string, arg any) (User, error) {
-	var u User
-	var n int64
-	err := p.db.QueryRow(`SELECT id, name, password_hash, created_at FROM users WHERE `+where, arg).
-		Scan(&n, &u.Name, &u.PasswordHash, &u.CreatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return User{}, ErrNotFound
-	}
-	u.ID = userID(n)
-	return u, err
-}
-
-func (p *PostgresStore) UserByName(name string) (User, error) {
-	return p.user("name = $1", name)
-}
-
-func (p *PostgresStore) UserByID(id string) (User, error) {
-	n, err := strconv.ParseInt(strings.TrimPrefix(id, "u"), 10, 64)
-	if err != nil || !strings.HasPrefix(id, "u") {
-		return User{}, ErrNotFound
-	}
-	return p.user("id = $1", n)
-}
-
-func (p *PostgresStore) AddLogin(tokenHash, userID string, expires time.Time) error {
-	_, err := p.db.Exec(`INSERT INTO logins (token_hash, user_id, expires) VALUES ($1, $2, $3)`,
-		tokenHash, userID, expires)
-	return err
-}
-
-func (p *PostgresStore) LoginUser(tokenHash string, now time.Time) (string, error) {
-	var id string
-	var expires time.Time
-	err := p.db.QueryRow(`SELECT user_id, expires FROM logins WHERE token_hash = $1`, tokenHash).Scan(&id, &expires)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", ErrNotFound
-	}
-	if err != nil {
-		return "", err
-	}
-	if !now.Before(expires) {
-		if err := p.DeleteLogin(tokenHash); err != nil {
-			return "", err
-		}
-		return "", ErrNotFound
-	}
-	return id, nil
-}
-
-func (p *PostgresStore) DeleteLogin(tokenHash string) error {
-	_, err := p.db.Exec(`DELETE FROM logins WHERE token_hash = $1`, tokenHash)
-	return err
 }

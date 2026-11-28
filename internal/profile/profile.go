@@ -9,6 +9,8 @@ import (
 	"cmp"
 	"math"
 	"slices"
+
+	"typingtrainer/internal/engine"
 )
 
 type Params struct {
@@ -21,14 +23,8 @@ type Params struct {
 	NeighbourDist float64 // keys this close (in key widths, a row apart at most) are neighbours
 }
 
-// Key is one press: the wanted character, how many wrong presses it took,
-// the time to the first press, the first wrong key.
-type Key struct {
-	Char   string
-	Errors int
-	Ms     float64
-	Typed  string
-}
+// Key is one press, as the browser measured it.
+type Key = engine.Sample
 
 // Place is where a key stands on the keyboard and which finger presses it.
 type Place struct {

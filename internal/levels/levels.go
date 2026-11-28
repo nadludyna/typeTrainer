@@ -5,7 +5,6 @@
 package levels
 
 type Params struct {
-	Words        []int // each level's number of most common words
 	LevelStart   int
 	PassAccuracy float64
 	FailAccuracy float64
@@ -61,10 +60,10 @@ type Place struct {
 	Moved  int `json:"moved"`
 }
 
-// Standing is where the last run of rounds at one level leaves it, each
-// round judged by judge (Judge for Reinforce, JudgeRhythm for Freetype).
-func Standing(rounds []Round, judge func(Round, Params) Verdict, p Params) Place {
-	top := max(len(p.Words), 1)
+// Standing is where the last run of rounds at one level of 1..top leaves it,
+// each round judged by judge (Judge for Reinforce, JudgeRhythm for Freetype).
+func Standing(rounds []Round, judge func(Round, Params) Verdict, top int, p Params) Place {
+	top = max(top, 1)
 	if len(rounds) == 0 {
 		return Place{Level: clampLevel(p.LevelStart, top)}
 	}

@@ -13,10 +13,10 @@ type Confusion struct {
 	N     int    `json:"n"`
 }
 
-func Confusions(sessions []storage.Session, least, limit int) []Confusion {
+func Confusions(rounds []storage.Round, least, limit int) []Confusion {
 	type pair struct{ want, typed string }
 	count := map[pair]int{}
-	for _, s := range sessions {
+	for _, s := range rounds {
 		for _, k := range s.Keys {
 			if k.Typed != "" && k.Typed != k.Char {
 				count[pair{k.Char, k.Typed}]++

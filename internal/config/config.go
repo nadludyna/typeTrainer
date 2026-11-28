@@ -23,13 +23,13 @@ type Config struct {
 	MaxSmallBodyBytes int
 	MaxRoundChars     int
 
-	MaxImportBytes    int
-	MaxImportSessions int
+	MaxImportBytes  int
+	MaxImportRounds int
 
 	ImportFutureTolerance time.Duration
 
-	MaxRoundWords   int
-	MaxRoundSeconds int
+	Alphabet string   // the letters of the language
+	Lengths  []string // the round lengths a round may have
 
 	ConsistencyMinSeconds int
 	ConfusionMin          int
@@ -40,6 +40,7 @@ type Config struct {
 	Laps                  engine.LapParams
 	Words                 engine.WordParams
 	Freetype              freetype.Params
+	WordLevels            []int // Reinforce's word levels: each takes the n most common words
 	Levels                levels.Params
 	WeakBoost             float64 // in a weak-spots round a word with a weak spot, in a sprint an owned word, weighs 1 + this
 	Profile               profile.Params
@@ -81,13 +82,13 @@ func Default() Config {
 		MaxSmallBodyBytes: 1024,
 		MaxRoundChars:     1 << 20,
 
-		MaxImportBytes:    64 << 20,
-		MaxImportSessions: 50000,
+		MaxImportBytes:  64 << 20,
+		MaxImportRounds: 50000,
 
 		ImportFutureTolerance: 5 * time.Minute,
 
-		MaxRoundWords:   500,
-		MaxRoundSeconds: 600,
+		Alphabet: "abcdefghijklmnopqrstuvwxyz",
+		Lengths:  []string{"words-30", "words-50", "time-15", "time-30", "time-60"},
 
 		ConsistencyMinSeconds: 5,
 		ConfusionMin:          3,
@@ -175,9 +176,9 @@ func Default() Config {
 			Sitting: 30 * time.Minute, TiredRuns: 3, TiredDrop: 3,
 			ColdAfter: 6 * time.Hour,
 		},
-		WeakBoost: 50,
+		WeakBoost:  50,
+		WordLevels: []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 		Levels: levels.Params{
-			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 			LevelStart:   1,
 			PassAccuracy: 96,
 			FailAccuracy: 92,

@@ -4,15 +4,13 @@ package main
 
 import (
 	"math/rand"
-	"os"
 	"strconv"
 	"testing"
 
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/language"
-	"typingtrainer/internal/layout"
 	"typingtrainer/internal/sim"
+	"typingtrainer/internal/trainer"
 )
 
 const minGain = 3
@@ -26,30 +24,13 @@ const (
 
 func TestAdaptiveBeatsRandom(t *testing.T) {
 	cfg := config.Default()
-	data, err := os.ReadFile("../../data/languages.json")
+	words, home, err := trainer.Corpus(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
-	langs, err := language.Parse(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, l := range langs {
+	for _, l := range []struct{ ID string }{{"en"}} {
 		t.Run(l.ID, func(t *testing.T) {
 			t.Parallel()
-			list, err := os.ReadFile("../../data/langs/" + l.ID + "/free.txt")
-			if err != nil {
-				t.Fatal(err)
-			}
-			layoutJSON, err := os.ReadFile("../../data/layouts/" + l.Layout + ".json")
-			if err != nil {
-				t.Fatal(err)
-			}
-			lay, err := layout.Parse(layoutJSON)
-			if err != nil {
-				t.Fatal(err)
-			}
-			words, home := l.Words(string(list)), lay.RestingKeys()
 
 			for seed := int64(1); seed <= typists; seed++ {
 				stream := runOne(kStream, seed, words, home, cfg)

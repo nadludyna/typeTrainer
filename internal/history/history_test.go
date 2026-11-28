@@ -10,7 +10,7 @@ import (
 func keys(spec ...engine.Sample) []engine.Sample { return spec }
 
 func TestConfusions(t *testing.T) {
-	s := []storage.Session{
+	s := []storage.Round{
 		{Keys: keys(
 			engine.Sample{Char: "r", Errors: 1, Typed: "t"},
 			engine.Sample{Char: "r", Errors: 2, Typed: "t"},

@@ -2,10 +2,11 @@ package freetype
 
 import (
 	"math/rand"
-	"os"
 	"slices"
 	"strings"
 	"testing"
+
+	"typingtrainer/data"
 )
 
 // typed gives every letter of text a time around ms (±20 %), and the second
@@ -147,11 +148,7 @@ func TestFreetype_StumblePairsComeMoreOften(t *testing.T) {
 // read again before every round from the last 20. With the loop the typist
 // meets their stumble pair more often than with words drawn evenly.
 func TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften(t *testing.T) {
-	list, err := os.ReadFile("../../data/langs/en/free.txt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	words := strings.Fields(string(list))[:1000]
+	words := strings.Fields(string(data.Words))[:1000]
 	run := func(adaptive bool) (share float64, found []string) {
 		pk := NewPicker(words, rand.New(rand.NewSource(9)))
 		rng := rand.New(rand.NewSource(10))

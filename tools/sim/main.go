@@ -13,13 +13,11 @@ import (
 
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/language"
-	"typingtrainer/internal/layout"
 	"typingtrainer/internal/sim"
+	"typingtrainer/internal/trainer"
 )
 
 func main() {
-	only := flag.String("lang", "", "language id; empty = all")
 	temps := flag.String("temps", "", "comma-separated temperatures to try for the adaptive\n"+
 		"strategy instead of the configured one, e.g. 0.1,0.25 (experiment only)")
 	floor := flag.Int("floor", -1, "FloorWords instead of the configured one (experiment only)")
@@ -54,11 +52,7 @@ func main() {
 		}
 	}
 
-	data, err := os.ReadFile("data/languages.json")
-	if err != nil {
-		fail(err)
-	}
-	langs, err := language.Parse(data)
+	words, home, err := trainer.Corpus(cfg)
 	if err != nil {
 		fail(err)
 	}
@@ -76,24 +70,7 @@ func main() {
 		"len = mean letters per word (before |: over the whole run until the goal),\n" +
 		"rank = mean place of the words in the frequency list (0 = most common),\n" +
 		"after = mean rank of the words typed after every letter was open, until the goal\n")
-	for _, l := range langs {
-		if *only != "" && l.ID != *only {
-			continue
-		}
-		list, err := os.ReadFile("data/langs/" + l.ID + "/free.txt")
-		if err != nil {
-			fail(err)
-		}
-		layoutJSON, err := os.ReadFile("data/layouts/" + l.Layout + ".json")
-		if err != nil {
-			fail(err)
-		}
-		lay, err := layout.Parse(layoutJSON)
-		if err != nil {
-			fail(err)
-		}
-		runLanguage(l.ID, l.Words(string(list)), lay.RestingKeys(), cfg, ts)
-	}
+	runLanguage("en", words, home, cfg, ts)
 }
 
 func strategy(k int, t float64, gen *engine.Generator, cfg config.Config, rng *rand.Rand) sim.Strategy {

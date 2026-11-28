@@ -107,26 +107,20 @@ func TestApp_FreetypeRhythm(t *testing.T) {
 		}
 		return b.String()
 	}()
-	round := func(list int, perSecond, device string) {
+	round := func(list int, perSecond string) {
 		t.Helper()
-		body := fmt.Sprintf(`{"wpm":60,"accuracy":99,"chars":100,"perSecond":[%s],"list":%d,"device":%q,"keys":[%s]}`, perSecond, list, device, keys)
+		body := fmt.Sprintf(`{"wpm":60,"accuracy":99,"chars":100,"perSecond":[%s],"list":%d,"keys":[%s]}`, perSecond, list, keys)
 		if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", body); code != 200 {
 			t.Fatalf("results: %d %v", code, out)
 		}
 	}
 	even, uneven := "5,5,5,5,5,5", "1,9,1,9,1,9"
-	for range 3 {
-		round(200, even, "touch")
-	}
-	if st := stats(200); st["standing"].(map[string]any)["level"] != 1.0 || st["rhythm"].(map[string]any)["presses"] != 0.0 {
-		t.Fatalf("rounds on a phone move nothing: %v %v", st["standing"], st["rhythm"])
-	}
-	round(200, even, "keyboard")
-	round(200, even, "keyboard")
+	round(200, even)
+	round(200, even)
 	if s := stats(200)["standing"].(map[string]any); s["level"] != 1.0 || s["passes"] != 2.0 {
 		t.Fatalf("two even rounds: %v", s)
 	}
-	round(200, even, "keyboard")
+	round(200, even)
 	st := stats(200)
 	if s := st["standing"].(map[string]any); s["level"] != 2.0 || s["moved"] != 1.0 {
 		t.Fatalf("the third even round moves the list up: %v", s)
@@ -135,16 +129,16 @@ func TestApp_FreetypeRhythm(t *testing.T) {
 	if len(pairs) != 1 || pairs[0].(map[string]any)["pair"] != "qu" {
 		t.Fatalf("the stumble pair: %v", st["rhythm"])
 	}
-	round(1000, uneven, "keyboard")
-	round(1000, uneven, "keyboard")
+	round(1000, uneven)
+	round(1000, uneven)
 	if s := stats(1000)["standing"].(map[string]any); s["level"] != 1.0 || s["moved"] != -1.0 {
 		t.Fatalf("two uneven rounds move the list down: %v", s)
 	}
 }
 
 // The words a typist owns, through the app: "the" and "and" typed clean and
-// even in three Freetype rounds on a keyboard are owned, in Freetype's
-// stats and in Reinforce's; phone rounds own nothing.
+// even in three Freetype rounds are owned, in Freetype's stats and in
+// Reinforce's.
 func TestApp_OwnedWords(t *testing.T) {
 	h, _, _ := newApp()
 	var b strings.Builder
@@ -156,9 +150,9 @@ func TestApp_OwnedWords(t *testing.T) {
 			fmt.Fprintf(&b, `{"char":%q,"errors":0,"ms":150}`, string(c))
 		}
 	}
-	round := func(device string) {
+	round := func() {
 		t.Helper()
-		body := fmt.Sprintf(`{"wpm":60,"accuracy":100,"chars":80,"perSecond":[5,5,5,5,5,5],"list":200,"device":%q,"keys":[%s]}`, device, b.String())
+		body := fmt.Sprintf(`{"wpm":60,"accuracy":100,"chars":80,"perSecond":[5,5,5,5,5,5],"list":200,"keys":[%s]}`, b.String())
 		if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", body); code != 200 {
 			t.Fatalf("results: %d %v", code, out)
 		}
@@ -167,15 +161,12 @@ func TestApp_OwnedWords(t *testing.T) {
 		_, st := call(t, h, "GET", path, "")
 		return fmt.Sprint(st["owned"])
 	}
-	for range 3 {
-		round("touch")
-	}
-	round("keyboard")
-	round("keyboard")
+	round()
+	round()
 	if got := owned("/api/v1/freetype/stats?lang=en&list=200"); got != "[0 0 0 0 0]" {
-		t.Fatalf("two keyboard rounds (and three on a phone) own nothing: %s", got)
+		t.Fatalf("two rounds own nothing: %s", got)
 	}
-	round("keyboard")
+	round()
 	if got := owned("/api/v1/freetype/stats?lang=en&list=200"); got != "[2 2 2 2 2]" {
 		t.Fatalf("the and and are owned in every list: %s", got)
 	}

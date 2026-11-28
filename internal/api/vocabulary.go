@@ -39,7 +39,7 @@ func (s *Server) vocabulary(user, lang string, fresh bool) (profile.Vocabulary, 
 		return profile.Vocabulary{}, profile.Seen{}, err
 	}
 	seen := profile.Seen{Last: map[string]time.Time{}}
-	for _, r := range storage.OnKeyboard(learning) {
+	for _, r := range learning {
 		if seen.Oldest.IsZero() || r.FinishedAt.Before(seen.Oldest) {
 			seen.Oldest = r.FinishedAt
 		}
@@ -53,7 +53,7 @@ func (s *Server) vocabulary(user, lang string, fresh bool) (profile.Vocabulary, 
 	if err != nil {
 		return profile.Vocabulary{}, profile.Seen{}, err
 	}
-	rounds := storage.OnKeyboard(append(learning, free...))
+	rounds := append(learning, free...)
 	slices.SortStableFunc(rounds, func(a, b storage.Session) int { return a.FinishedAt.Compare(b.FinishedAt) })
 	keys := make([][]profile.Key, len(rounds))
 	for i, r := range rounds {

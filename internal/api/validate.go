@@ -34,9 +34,6 @@ func validate(req resultsRequest, maxChars, maxEvents int, alphabet string) stri
 			return "perSecond: each count must be between 0 and the number of events"
 		}
 	}
-	if !validDevice(req.Device) {
-		return "device: unknown device"
-	}
 	if !storage.ValidKind(req.Kind) {
 		return "kind: unknown kind of round"
 	}
@@ -66,10 +63,6 @@ func validLength(length string, maxWords, maxSeconds int) bool {
 		return n <= maxSeconds
 	}
 	return false
-}
-
-func validDevice(d string) bool {
-	return d == "" || d == storage.DeviceKeyboard || d == storage.DeviceTouch
 }
 
 func validateSamples(samples []engine.Sample, max int, alphabet string) string {
@@ -153,9 +146,6 @@ func validateSessions(sessions []storage.Session, max, maxEvents, letters, laps 
 		}
 		if !okLength(sess.Length) {
 			return "sessions: unknown length " + sess.Length
-		}
-		if !validDevice(sess.Device) {
-			return "sessions: unknown device " + sess.Device
 		}
 		if !storage.ValidKind(sess.Kind) {
 			return "sessions: unknown kind " + sess.Kind

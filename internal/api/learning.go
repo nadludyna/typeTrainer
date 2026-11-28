@@ -294,46 +294,6 @@ func newLap(done learned, p engine.Params) float64 {
 	return 0
 }
 
-type abortRequest struct {
-	Round   string          `json:"round"`
-	Keys    []engine.Sample `json:"keys"`
-	Length  string          `json:"length"`
-	Seconds float64         `json:"seconds"`
-}
-
-// A round dropped with Tab: its raw presses are kept, but it is not shown
-// anywhere and its presses never reach the model.
-func (s *Server) handleAbort(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	r.Body = http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxBodyBytes))
-	var req abortRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		badRequest(w, "invalid JSON")
-		return
-	}
-	if req.Round == "" || !validRoundID(req.Round) {
-		badRequest(w, "round: at most 64 letters, digits and -")
-		return
-	}
-	if msg := validateSamples(req.Keys, s.cfg.MaxEvents, l.Info.Alphabet); msg != "" {
-		badRequest(w, "keys: "+msg)
-		return
-	}
-	if !s.validLength(req.Length) {
-		badRequest(w, "length: unknown round length")
-		return
-	}
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	if err := s.store.AddSession(user, l.Info.ID, storage.Session{
-		Keys: req.Keys, Chars: len(req.Keys), FinishedAt: time.Now(),
-		Length: req.Length, Round: req.Round, Aborted: true, Seconds: s.typedSeconds(req.Seconds),
-	}); err != nil {
-		serverError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
-}
-
 type resultsRequest struct {
 	Samples   []engine.Sample `json:"samples"`
 	Keys      []engine.Sample `json:"keys"`
@@ -342,12 +302,10 @@ type resultsRequest struct {
 	Chars     int             `json:"chars"`
 	PerSecond []int           `json:"perSecond"`
 	Length    string          `json:"length"`
-	Device    string          `json:"device"`
 	Kind      string          `json:"kind"`
 	Level     float64         `json:"level"`
 	List      int             `json:"list"`
 	Round     string          `json:"round"`
-	Seconds   float64         `json:"seconds"`
 }
 
 func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user string, l *Language) {
@@ -381,9 +339,6 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	}
 	reinforce := req.Level >= 1 && req.Level == math.Trunc(req.Level) && s.validWordLevel(l, int(req.Level))
 	learnt := req.Keys
-	if req.Device == storage.DeviceTouch {
-		learnt = nil
-	}
 	if req.Kind != "" && !reinforce {
 		badRequest(w, "kind: Learn has only the usual round")
 		return
@@ -399,11 +354,10 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	}
 	err = s.store.SaveLearned(user, l.Info.ID, done.record(&storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Device: req.Device, Kind: req.Kind,
-		Lap:     done.lap,
-		Level:   reinforceLevel(req.Level, len(l.Levels)),
-		Round:   req.Round,
-		Seconds: s.typedSeconds(req.Seconds),
+		Keys: req.Keys, Unlocked: done.unlocked, Length: req.Length, Kind: req.Kind,
+		Lap:   done.lap,
+		Level: reinforceLevel(req.Level, len(l.Levels)),
+		Round: req.Round,
 	}))
 	if err != nil {
 		serverError(w, err)
@@ -411,28 +365,6 @@ func (s *Server) handleResults(w http.ResponseWriter, r *http.Request, user stri
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"unlocked": done.unlocked, "newLetter": done.newLetter, "consistency": consistency,
 		"newLap": newLap(done, done.who.base.ForLap(done.lapAfter, s.cfg.Laps))})
-}
-
-func (s *Server) handleProgress(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	var req struct {
-		UnlockAll bool `json:"unlockAll"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxSmallBodyBytes))).Decode(&req); err != nil {
-		badRequest(w, "invalid JSON")
-		return
-	}
-	s.writeMu.Lock()
-	defer s.writeMu.Unlock()
-	who := s.learner(user, l)
-	n := who.gen.Start()
-	if req.UnlockAll {
-		n = len(who.gen.Order())
-	}
-	if err := s.store.SetUnlocked(user, l.Info.ID, n); err != nil {
-		serverError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]int{"unlocked": n})
 }
 
 type keyInfo struct {
@@ -499,14 +431,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request, user string
 	all := withLength(mine, length)
 	sessions := slices.Clone(all[max(0, len(all)-50):])
 	slices.Reverse(sessions)
-	keyboard := storage.OnKeyboard(every)
-	rounds := history.LetterTimeline(keyboard, gen.Order(), gen.Start(), who.base, s.cfg.Laps)
+	keyboard := every
 	out := map[string]any{
-		"forecast": history.NextForecast(rounds, gen.Order(), stats, unlocked, p, s.cfg.Forecast),
-		"lap":      lap, "lastLap": who.base.LastLap(s.cfg.Laps),
-		"streaks": history.AccuracyStreaks(all, s.cfg.StreakAccuracies),
-		"order":   gen.Order(),
-		"lang":    id, "keys": keys, "sessions": summaries(sessions), "sessionCount": len(all), "targetWpm": p.TargetWPM,
+		"lap": lap, "lastLap": who.base.LastLap(s.cfg.Laps),
+		"order":      gen.Order(),
+		"confusions": history.Confusions(mine, s.cfg.ConfusionMin, s.cfg.ConfusionShown),
+		"lang":       id, "keys": keys, "sessions": summaries(sessions), "sessionCount": len(all), "targetWpm": p.TargetWPM,
 		"masteryMin": masteryMin, "masteryLevel": masteryLevel, "accuracy": p.AccWindow > 0,
 		"lengths": storage.Lengths(mine), "bests": storage.BestOf(mine),
 		"learnRounds": len(every),
@@ -575,52 +505,6 @@ func (s *Server) allLearning(user, lang string) ([]storage.Session, error) {
 	all, err := s.store.RecentSessions(user, lang, "", count)
 	slices.Reverse(all)
 	return all, err
-}
-
-func (s *Server) handleLearnHistory(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	all, err := s.allLearning(user, l.Info.ID)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	all = storage.OnKeyboard(all)
-	who := s.learner(user, l)
-	writeJSON(w, http.StatusOK, map[string]any{
-		"order":      who.gen.Order(),
-		"rounds":     history.LetterTimeline(all, who.gen.Order(), who.gen.Start(), who.base, s.cfg.Laps),
-		"confusions": history.Confusions(all, s.cfg.ConfusionMin, s.cfg.ConfusionShown),
-	})
-}
-
-func (s *Server) handleActivity(w http.ResponseWriter, r *http.Request, user string, l *Language) {
-	tz := 0
-	if v := r.URL.Query().Get("tz"); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < -maxTZMinutes || n > maxTZMinutes {
-			badRequest(w, "tz: minutes from UTC, -840 to 840")
-			return
-		}
-		tz = n
-	}
-	part := r.URL.Query().Get("part")
-	if part != "" && part != storage.PartLearn && part != storage.PartReinforce && part != storage.PartFreetype {
-		badRequest(w, "part: learn, reinforce or freetype")
-		return
-	}
-	days, err := s.store.PracticeDays(user, l.Info.ID, part, time.Duration(tz)*time.Minute)
-	if err != nil {
-		serverError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"days": days})
-}
-
-const maxTZMinutes = 14 * 60
-
-// typedSeconds keeps a round's measured time in 0..MaxTypedSeconds: the
-// daily goal counts it, so a wrong clock can neither break nor fill it.
-func (s *Server) typedSeconds(x float64) float64 {
-	return min(max(x, 0), float64(s.cfg.MaxTypedSeconds))
 }
 
 func (s *Server) validLength(length string) bool {

@@ -9,7 +9,6 @@ import (
 	"net/http"
 
 	"typingtrainer/internal/config"
-	"typingtrainer/internal/engine"
 )
 
 type checkinRequest struct {
@@ -28,37 +27,10 @@ func checkinLetters(answer string, now, all int, c config.Checkin) int {
 	return now
 }
 
-// checkinStep is the first speed goal step at least GoalMargin above the
-// sample's speed, or the last step.
-func checkinStep(wpm float64, base engine.Params, laps engine.LapParams, c config.Checkin) int {
-	last := base.LastLap(laps)
-	for step := 0; step <= last; step++ {
-		if base.ForLap(step, laps).TargetWPM >= wpm+c.GoalMargin {
-			return step
-		}
-	}
-	return last
-}
-
-// pickBy is the value of the first threshold x reaches (thresholds highest
-// first), else the fallback.
-func pickBy(x float64, thresholds []float64, values []int, fallback int) int {
-	for i, t := range thresholds {
-		if i < len(values) && x >= t {
-			return values[i]
-		}
-	}
-	return fallback
-}
-
 func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request, user string, l *Language) {
 	var req checkinRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, int64(s.cfg.MaxSmallBodyBytes))).Decode(&req); err != nil {
 		badRequest(w, "invalid JSON")
-		return
-	}
-	if !inRange(req.WPM, 0, 400) || !inRange(req.Accuracy, 0, 100) {
-		badRequest(w, "wpm 0..400, accuracy 0..100")
 		return
 	}
 	c, id := s.cfg.Checkin, l.Info.ID
@@ -93,20 +65,7 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request, user stri
 			}
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"unlocked": next})
-	case "reinforce":
-		who := s.learner(user, l)
-		step := checkinStep(req.WPM, who.base, s.cfg.Laps, c)
-		if err := s.setStep(user, id, step); err != nil {
-			serverError(w, err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{
-			"step": step, "targetWpm": who.base.ForLap(step, s.cfg.Laps).TargetWPM,
-			"wordLevel": min(pickBy(req.Accuracy, c.LevelAccuracy, c.LevelFor, 1), len(l.Levels)),
-		})
-	case "freetype":
-		writeJSON(w, http.StatusOK, map[string]any{"list": pickBy(req.WPM, c.ListSpeed, c.ListFor, s.cfg.Freetype.Lists[0])})
 	default:
-		badRequest(w, "mode: learn, reinforce or freetype")
+		badRequest(w, "mode: learn")
 	}
 }

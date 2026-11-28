@@ -30,17 +30,14 @@ type Config struct {
 
 	MaxRoundWords   int
 	MaxRoundSeconds int
-	MaxTypedSeconds int
 
 	ConsistencyMinSeconds int
-	StreakAccuracies      []float64
 	ConfusionMin          int
 	ConfusionShown        int
 	Guests                bool // a guest cookie per browser; off on GitHub Pages, where one guest is all
 	GuestDays             int  // how long a guest cookie lasts
 	Engine                engine.Params
 	Laps                  engine.LapParams
-	Forecast              engine.ForecastParams
 	Words                 engine.WordParams
 	Freetype              freetype.Params
 	Levels                levels.Params
@@ -52,17 +49,9 @@ type Config struct {
 	Sim                   sim.Params
 }
 
-// Checkin is the first visit of a mode.
+// Checkin is Learn's first visit: one question sets the first letters.
 type Checkin struct {
-	SampleWords   int       // the Reinforce sample's word list
-	FreetypeWords int       // the Freetype sample's word list
-	SampleSeconds int       // how long a sample is
-	SomeLetters   int       // Learn's start for "a little" and "yes"
-	GoalMargin    float64   // the goal is the first step this far above the sample's speed
-	LevelAccuracy []float64 // a word level for each accuracy, highest first
-	LevelFor      []int     // ... the word level (1 = the first) for each of them
-	ListSpeed     []float64 // a Freetype list for each speed, highest first
-	ListFor       []int     // ... the list for each of them
+	SomeLetters int // Learn's start for "a little" and "yes"
 }
 
 type Server struct {
@@ -99,22 +88,13 @@ func Default() Config {
 
 		MaxRoundWords:   500,
 		MaxRoundSeconds: 600,
-		MaxTypedSeconds: 3600,
 
 		ConsistencyMinSeconds: 5,
-		StreakAccuracies:      []float64{95, 97, 100},
 		ConfusionMin:          3,
 		Laps:                  engine.LapParams{StepWPM: 10, MaxWPM: 200},
-		Checkin: Checkin{
-			SampleWords: 200, FreetypeWords: 1000, SampleSeconds: 30,
-			SomeLetters:   10,
-			GoalMargin:    5,
-			LevelAccuracy: []float64{97, 94}, LevelFor: []int{3, 2},
-			ListSpeed: []float64{70, 40}, ListFor: []int{5000, 1000},
-		},
-		Forecast:       engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
-		ConfusionShown: 6,
-		GuestDays:      365,
+		Checkin:               Checkin{SomeLetters: 10},
+		ConfusionShown:        6,
+		GuestDays:             365,
 		Engine: engine.Params{
 			Alpha:         0.1,
 			ErrAlpha:      0.05,

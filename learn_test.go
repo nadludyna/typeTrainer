@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -193,7 +192,7 @@ func TestApp_RareWordsAfterTheAlphabet(t *testing.T) {
 		}
 		return float64(sum) / float64(n)
 	}
-	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
+	call(t, h, "POST", "/api/v1/import?lang=en", `{"unlocked":26}`)
 	start := meanRank()
 	call(t, h, "POST", "/api/v1/freetype/results?lang=en", `{"wpm":40,"accuracy":98,"chars":20000,"list":1000}`)
 	if again := meanRank(); again > 1.5*start {
@@ -205,23 +204,6 @@ func TestApp_RareWordsAfterTheAlphabet(t *testing.T) {
 	}
 	if end := meanRank(); end < 1.8*start {
 		t.Fatalf("after the ramp: mean rank %v, want much higher than %v", end, start)
-	}
-}
-
-func TestApp_RoundDevice(t *testing.T) {
-	h, _, _ := newApp()
-	if code, _ := call(t, h, "POST", "/api/v1/results?lang=en", `{"samples":[],"chars":40,"wpm":30,"accuracy":95,"device":"fridge"}`); code != 400 {
-		t.Fatalf("unknown device: %d, want 400", code)
-	}
-	call(t, h, "POST", "/api/v1/results?lang=en", `{"samples":[],"chars":40,"wpm":30,"accuracy":95}`)
-	call(t, h, "POST", "/api/v1/results?lang=en", `{"samples":[],"chars":40,"wpm":30,"accuracy":95,"device":"touch"}`)
-	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	var devices []any
-	for _, s := range st["sessions"].([]any) {
-		devices = append(devices, s.(map[string]any)["device"])
-	}
-	if len(devices) != 2 || !slices.Contains(devices, "touch") || !slices.Contains(devices, nil) {
-		t.Fatalf("devices in the history: %v", devices)
 	}
 }
 
@@ -238,9 +220,6 @@ func TestApp_LearnLaps(t *testing.T) {
 	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
 	if st["lap"].(float64) != 0 || st["targetWpm"].(float64) != 30 || st["lastLap"].(float64) != 17 {
 		t.Fatalf("before: lap %v goal %v last %v", st["lap"], st["targetWpm"], st["lastLap"])
-	}
-	if st["forecast"].(map[string]any)["known"] != false {
-		t.Fatalf("no letter left to master, no forecast: %v", st["forecast"])
 	}
 	press := `{"keys":[{"char":"a","errors":0,"ms":50}],"chars":1,"wpm":30,"accuracy":100}`
 	for lap := 1; lap <= 17; lap++ {
@@ -280,39 +259,6 @@ func TestApp_LearnLaps(t *testing.T) {
 	}
 }
 
-func TestApp_LearnForecast(t *testing.T) {
-	h, _, _ := newApp()
-	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if f := st["forecast"].(map[string]any); f["known"] != false {
-		t.Fatalf("no rounds yet, no forecast: %v", f)
-	}
-	var open []string
-	for _, k := range st["keys"].([]any) {
-		if k := k.(map[string]any); k["unlocked"] == true {
-			open = append(open, k["char"].(string))
-		}
-	}
-	for i := range 8 {
-		ms := 900 - 60*i
-		var samples []string
-		for _, c := range open {
-			for range 3 {
-				samples = append(samples, fmt.Sprintf(`{"char":%q,"errors":0,"ms":%d}`, c, ms))
-			}
-		}
-		all := strings.Join(samples, ",")
-		body := `{"samples":[` + all + `],"keys":[` + all + `],"chars":30,"wpm":20,"accuracy":100}`
-		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
-			t.Fatalf("results: %d %v", code, out)
-		}
-	}
-	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	f := st["forecast"].(map[string]any)
-	if f["known"] != true || f["rounds"].(float64) < 1 {
-		t.Fatalf("forecast after 8 improving rounds of %v: %v", open, f)
-	}
-}
-
 func TestApp_PortionSentTwice(t *testing.T) {
 	h, _, _ := newApp()
 	body := `{"samples":[{"char":"a","errors":1,"ms":300}],"recent":[],"round":"r-1","portionIndex":0,"ack":0}`
@@ -343,68 +289,6 @@ func TestApp_PortionSentTwice(t *testing.T) {
 		`{"round":"r-1","portionIndex":0,"ack":-1}`,
 	} {
 		if code, _ := call(t, h, "POST", "/api/v1/portion?lang=en", bad); code != 400 {
-			t.Fatalf("%s: got %d, want 400", bad, code)
-		}
-	}
-}
-
-func TestApp_AbortedRoundIsKeptRawButLearnedNowhere(t *testing.T) {
-	h, _, _ := newApp()
-	keys := `[{"char":"a","errors":1,"ms":300},{"char":"s","errors":0,"ms":400}]`
-	body := `{"round":"tab-1","keys":` + keys + `,"length":"words-30","seconds":19.5}`
-	for range 2 {
-		if code, out := call(t, h, "POST", "/api/v1/abort?lang=en", body); code != 200 {
-			t.Fatalf("abort: %d %v", code, out)
-		}
-	}
-	_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["sessionCount"].(float64) != 0 {
-		t.Fatalf("an aborted round must not be in the history: %v", st["sessionCount"])
-	}
-	for _, k := range st["keys"].([]any) {
-		if k := k.(map[string]any); (k["char"] == "a" || k["char"] == "s") && k["count"].(float64) > 0 {
-			t.Fatalf("an aborted round reached the model: %v", k)
-		}
-	}
-	if b := st["bests"].(map[string]any); len(b) != 0 {
-		t.Fatalf("an aborted round must not be among the bests: %v", b)
-	}
-	_, out := call(t, h, "GET", "/api/v1/activity?lang=en", "")
-	if days := out["days"].([]any); len(days) != 1 || days[0].(map[string]any)["rounds"].(float64) != 0 ||
-		days[0].(map[string]any)["seconds"].(float64) != 19.5 {
-		t.Fatalf("an aborted round counts its time toward the daily goal, and nothing else: %v", days)
-	}
-	_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
-	if rounds := hist["rounds"].([]any); len(rounds) != 0 {
-		t.Fatalf("an aborted round must not be in the timeline: %v", rounds)
-	}
-	if conf := hist["confusions"].([]any); len(conf) != 0 {
-		t.Fatalf("an aborted round must not make confusions: %v", conf)
-	}
-	res := `{"keys":[{"char":"a","errors":0,"ms":300}],"chars":1,"wpm":30,"accuracy":100}`
-	if code, _ := call(t, h, "POST", "/api/v1/results?lang=en", res); code != 200 {
-		t.Fatal("a normal round after an aborted one must save")
-	}
-	_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-	if st["sessionCount"].(float64) != 1 {
-		t.Fatalf("only the normal round counts: %v", st["sessionCount"])
-	}
-	counted := false
-	for _, k := range st["keys"].([]any) {
-		if k := k.(map[string]any); k["char"] == "a" && k["count"].(float64) == 1 {
-			counted = true
-		}
-	}
-	if !counted {
-		t.Fatal("the normal round must be learned")
-	}
-	for _, bad := range []string{
-		`{"round":"a b","keys":[]}`,
-		`{"keys":[]}`,
-		`{"round":"tab-2","keys":[{"char":"ж","errors":0,"ms":1}]}`,
-		`{"round":"tab-2","keys":[],"length":"words-9999"}`,
-	} {
-		if code, _ := call(t, h, "POST", "/api/v1/abort?lang=en", bad); code != 400 {
 			t.Fatalf("%s: got %d, want 400", bad, code)
 		}
 	}
@@ -581,19 +465,12 @@ func TestApp_StatsPerMode(t *testing.T) {
 		if _, pairs := st["pairs"]; pairs != (part == "reinforce") {
 			t.Fatalf("part %q: pairs sent = %v, only Reinforce has them", part, pairs)
 		}
-		_, act := call(t, h, "GET", "/api/v1/activity?lang=en&part="+part, "")
-		if days := act["days"].([]any); len(days) != 1 || days[0].(map[string]any)["rounds"].(float64) != want {
-			t.Fatalf("part %q: days %v, want one day of %v rounds", part, days, want)
-		}
 	}
 	_, re := call(t, h, "GET", "/api/v1/stats?lang=en&part=reinforce", "")
 	if best := re["bests"].(map[string]any)["words-30"].(map[string]any)["wpm"]; best != 60.0 {
 		t.Fatalf("Reinforce's best: %v, want 60", best)
 	}
-	if _, act := call(t, h, "GET", "/api/v1/activity?lang=en&part=freetype", ""); len(act["days"].([]any)) != 0 {
-		t.Fatalf("Freetype has no days yet: %v", act["days"])
-	}
-	for _, path := range []string{"/api/v1/stats?lang=en&part=freetype", "/api/v1/activity?lang=en&part=climb"} {
+	for _, path := range []string{"/api/v1/stats?lang=en&part=freetype"} {
 		if code, _ := call(t, h, "GET", path, ""); code != 400 {
 			t.Fatalf("%s: %d, want 400", path, code)
 		}
@@ -641,46 +518,6 @@ func TestApp_ReinforceLevelMovesByItself(t *testing.T) {
 	}
 }
 
-// A round typed on a phone is kept and counted in the stats, but the trainer
-// learns nothing from it: no letter, mix-up or word level moves
-// . The same rounds on a keyboard move all three.
-func TestApp_PhoneRoundsTeachNothing(t *testing.T) {
-	for _, device := range []string{"touch", "keyboard"} {
-		h, _, _ := newApp()
-		_, st := call(t, h, "GET", "/api/v1/stats?lang=en", "")
-		goal := st["targetWpm"].(float64)
-		keys := `[{"char":"a","errors":1,"ms":300,"typed":"s"},{"char":"s","errors":0,"ms":300}]`
-		send := func(level int) {
-			t.Helper()
-			body := fmt.Sprintf(`{"keys":%s,"chars":2,"accuracy":99,"wpm":%v,"level":%d,"device":%q}`, keys, goal+10, level, device)
-			if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
-				t.Fatalf("%s results: %d %v", device, code, out)
-			}
-		}
-		send(0)
-		for range 3 {
-			send(3)
-		}
-		_, st = call(t, h, "GET", "/api/v1/stats?lang=en", "")
-		if st["sessionCount"].(float64) != 4 {
-			t.Fatalf("%s: %v rounds shown, want 4", device, st["sessionCount"])
-		}
-		count := 0.0
-		for _, k := range st["keys"].([]any) {
-			if k := k.(map[string]any); k["char"] == "a" {
-				count = k["count"].(float64)
-			}
-		}
-		level := st["standing"].(map[string]any)["level"].(float64)
-		_, hist := call(t, h, "GET", "/api/v1/learn/history?lang=en", "")
-		mixUps, timeline := len(hist["confusions"].([]any)), len(hist["rounds"].([]any))
-		learnt := device == "keyboard"
-		if (count > 0) != learnt || (level == 4) != learnt || (mixUps > 0) != learnt || (timeline == 4) != learnt {
-			t.Fatalf("%s: presses of a %v, word level %v, mix-ups %d, rounds in the letters' history %d", device, count, level, mixUps, timeline)
-		}
-	}
-}
-
 // The demo history (go run ./tools/demo) is a file the server takes, with
 // rounds in every mode, Reinforce's at a word level.
 func TestDemo_Imports(t *testing.T) {
@@ -707,7 +544,7 @@ func TestDemo_Imports(t *testing.T) {
 	if _, s := call(t, h, "GET", "/api/v1/freetype/stats?lang=en&list=1000&length=words-30", ""); s["sessionCount"].(float64) != 12 {
 		t.Errorf("freetype: %v rounds, want 12", s["sessionCount"])
 	}
-	if _, s := call(t, h, "GET", "/api/v1/learn/history?lang=en", ""); len(s["confusions"].([]any)) == 0 {
+	if _, s := call(t, h, "GET", "/api/v1/stats?lang=en&part=learn", ""); len(s["confusions"].([]any)) == 0 {
 		t.Errorf("no keys mixed up: the learn grid and its mix-ups would be empty")
 	}
 }
@@ -730,9 +567,9 @@ func TestApp_ProfileFingersAndMistakes(t *testing.T) {
 			}
 		}
 	}
-	send := func(device string) {
+	send := func() {
 		t.Helper()
-		body := fmt.Sprintf(`{"keys":[%s],"chars":300,"accuracy":90,"wpm":30,"device":%q}`, b.String(), device)
+		body := fmt.Sprintf(`{"keys":[%s],"chars":300,"accuracy":90,"wpm":30}`, b.String())
 		if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
 			t.Fatalf("results: %d %v", code, out)
 		}
@@ -744,11 +581,7 @@ func TestApp_ProfileFingersAndMistakes(t *testing.T) {
 	if p := profile(); p["presses"] != 0.0 || p["weak"] != "" {
 		t.Fatalf("no rounds: %v", p)
 	}
-	send("touch")
-	if p := profile(); p["presses"] != 0.0 {
-		t.Fatalf("a phone round says nothing about fingers: %v", p)
-	}
-	send("keyboard")
+	send()
 	p := profile()
 	if p["weak"] != "lp" || fmt.Sprint(p["letters"]) != "[a q z]" {
 		t.Fatalf("weak finger %v, letters %v", p["weak"], p["letters"])

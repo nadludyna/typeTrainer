@@ -29,7 +29,6 @@ func (s *Server) withWeakPairs(user string, l *Language, gen *engine.Generator, 
 	if err != nil {
 		return nil, weakSpots{}, err
 	}
-	rounds = storage.OnKeyboard(rounds)
 	weak := weakSpots{back: returning, share: s.cfg.Engine.FingerShare}
 	for _, p := range s.pairsOf(rounds[:min(len(rounds), s.cfg.Levels.WeakRounds)]) {
 		weak.pairs = append(weak.pairs, p.Pair)

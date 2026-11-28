@@ -18,10 +18,10 @@ import (
 
 // ---------- Freetype's loop: the rhythm and the word list ----------
 
-// typedRounds is the last Freetype rounds typed on a keyboard, newest first.
+// typedRounds is the last Freetype rounds, newest first.
 func (s *Server) typedRounds(user, lang string) ([]storage.Session, error) {
 	rounds, err := s.store.LastFreetypeRounds(user, lang, max(s.cfg.Freetype.RhythmRounds, s.cfg.Levels.History))
-	return storage.OnKeyboard(rounds), err
+	return rounds, err
 }
 
 // rhythmOf is the rhythm of the last WeakRounds of these rounds.
@@ -184,12 +184,10 @@ func (s *Server) handleFreetypeResults(w http.ResponseWriter, r *http.Request, u
 	defer s.writeMu.Unlock()
 	err := s.store.AddFreetypeSession(user, l.Info.ID, storage.FreetypeMode(req.List), storage.Session{
 		WPM: req.WPM, Accuracy: req.Accuracy, Chars: req.Chars, Consistency: consistency, FinishedAt: time.Now(),
-		Keys:    req.Keys,
-		Length:  req.Length,
-		Device:  req.Device,
-		Kind:    req.Kind,
-		Round:   req.Round,
-		Seconds: s.typedSeconds(req.Seconds),
+		Keys:   req.Keys,
+		Length: req.Length,
+		Kind:   req.Kind,
+		Round:  req.Round,
 	})
 	if err != nil {
 		serverError(w, err)

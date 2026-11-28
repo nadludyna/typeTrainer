@@ -7,7 +7,6 @@ package api
 import (
 	"slices"
 
-	"typingtrainer/internal/history"
 	"typingtrainer/internal/levels"
 	"typingtrainer/internal/storage"
 )
@@ -46,8 +45,6 @@ func (s *Server) history(user, lang, mode, length string) (map[string]any, error
 		return nil, err
 	}
 	sessions := slices.Clone(all[:min(len(all), 50)])
-	slices.Reverse(all)
-	streaks := history.AccuracyStreaks(all, s.cfg.StreakAccuracies)
 	lengths, err := s.store.FreetypeSessionLengths(user, lang, mode)
 	if err != nil {
 		return nil, err
@@ -56,5 +53,5 @@ func (s *Server) history(user, lang, mode, length string) (map[string]any, error
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"sessions": summaries(sessions), "sessionCount": count, "lengths": lengths, "bests": bests, "streaks": streaks}, nil
+	return map[string]any{"sessions": summaries(sessions), "sessionCount": count, "lengths": lengths, "bests": bests}, nil
 }

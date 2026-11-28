@@ -74,7 +74,7 @@ func TestApp_ResetClearsProgress(t *testing.T) {
 	h, _, _ := newApp()
 	body := `{"samples":[{"char":"a","errors":0,"ms":300},{"char":" ","errors":0,"ms":200}],"wpm":30,"accuracy":100}`
 	call(t, h, "POST", "/api/v1/results?lang=en", body)
-	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
+	call(t, h, "POST", "/api/v1/import?lang=en", `{"unlocked":26}`)
 	if code, out := call(t, h, "POST", "/api/v1/reset?lang=en", ""); code != 200 {
 		t.Fatalf("reset: %d %v", code, out)
 	}
@@ -90,11 +90,11 @@ func TestApp_ResetClearsProgress(t *testing.T) {
 
 func TestApp_ExportImportRoundTrip(t *testing.T) {
 	h, _, _ := newApp()
+	call(t, h, "POST", "/api/v1/import?lang=en", `{"unlocked":26}`)
 	for _, wpm := range []string{"20", "40"} {
 		body := `{"keys":[{"char":"a","errors":1,"ms":300},{"char":" ","errors":0,"ms":200}],"wpm":` + wpm + `,"accuracy":90}`
 		call(t, h, "POST", "/api/v1/results?lang=en", body)
 	}
-	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, guestRequest("GET", "/api/v1/export?lang=en", ""))
@@ -207,7 +207,6 @@ func TestApp_RawKeysKept(t *testing.T) {
 		t.Fatal("raw keys lost in an export/import round trip")
 	}
 
-	call(t, h, "POST", "/api/v1/progress?lang=en", `{"unlockAll":true}`)
 	free := `{"keys":[{"char":"a","errors":0,"ms":250}],"chars":1,"wpm":60,"accuracy":100,"list":1000}`
 	if code, out := call(t, h, "POST", "/api/v1/freetype/results?lang=en", free); code != 200 {
 		t.Fatalf("freetype results: %d %v", code, out)
@@ -280,30 +279,6 @@ func TestApp_RoundLengths(t *testing.T) {
 	_, back := call(t, h, "GET", "/api/v1/stats?lang=en&length=time-60", "")
 	if back["sessionCount"].(float64) != 2 {
 		t.Fatalf("after import time-60: %v", back["sessionCount"])
-	}
-}
-
-func TestApp_Activity(t *testing.T) {
-	h, _, _ := newApp()
-	if code, out := call(t, h, "GET", "/api/v1/activity?lang=en&tz=120", ""); code != 200 || len(out["days"].([]any)) != 0 {
-		t.Fatalf("no rounds: %d %v, want 200 and no days", code, out)
-	}
-	body := `{"samples":[{"char":"e","errors":0,"ms":300},{"char":" ","errors":0,"ms":200}],"wpm":60,"accuracy":100,"chars":300}`
-	if code, out := call(t, h, "POST", "/api/v1/results?lang=en", body); code != 200 {
-		t.Fatalf("results: %d %v", code, out)
-	}
-	_, out := call(t, h, "GET", "/api/v1/activity?lang=en&tz=120", "")
-	days := out["days"].([]any)
-	if len(days) != 1 {
-		t.Fatalf("one round: %v, want one day", days)
-	}
-	if d := days[0].(map[string]any); d["rounds"].(float64) != 1 || d["seconds"].(float64) != 60 || d["chars"].(float64) != 300 {
-		t.Fatalf("day %v, want 1 round, 60 s, 300 letters", d)
-	}
-	for _, tz := range []string{"abc", "900", "-900"} {
-		if code, _ := call(t, h, "GET", "/api/v1/activity?lang=en&tz="+tz, ""); code != 400 {
-			t.Fatalf("tz=%s: %d, want 400", tz, code)
-		}
 	}
 }
 

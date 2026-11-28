@@ -114,7 +114,7 @@ func TestApp_Freetype(t *testing.T) {
 	}
 }
 
-// Freetype's loop through the app (docs/HOW-THE-MODES-WORK.md, 0.3): the
+// Freetype's loop through the app: the
 // word list moves by consistency, three even rounds up and two uneven ones
 // down, and the rhythm finds the pair typed with a stumble, from rounds on a
 // keyboard only.

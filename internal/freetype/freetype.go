@@ -1,6 +1,6 @@
 // Package freetype is Freetype's words: draws from the N most common words
-// or long words, real sentences, and the rhythm that weighs the draw
-// (docs/HOW-THE-MODES-WORK.md, section 0.3). How its word list moves is
+// or long words, real sentences, and the rhythm that weighs the draw.
+// How its word list moves is in
 // package levels.
 package freetype
 

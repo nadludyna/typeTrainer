@@ -51,7 +51,7 @@ type Params struct {
 	OwnedPenalty float64 // a word the typist owns weighs this much of its weight (Reinforce)
 	OwnedBoost   float64 // in a sprint an owned word weighs 1 + this instead; 0 outside a sprint
 
-	// Accuracy rules of Learn (HOW-THE-MODES-WORK section 14); off while AccWindow is 0.
+	// Accuracy rules of Learn; off while AccWindow is 0.
 	AccWindow int     // presses of a letter the accuracy looks at
 	AccPrior  float64 // imaginary misses added to them
 	AccMaster float64 // accuracy of a mastered letter
@@ -138,7 +138,7 @@ func seedHits(s KeyStat, p Params) string {
 }
 
 // ForStage turns the accuracy rules off once every letter is open: they are
-// Learn's; Reinforce adds speed (docs/PRODUCT.md, "One mode, three stages").
+// Learn's; Reinforce adds speed.
 func (p Params) ForStage(unlocked, all int) Params {
 	if unlocked >= all {
 		p.AccWindow = 0
@@ -157,7 +157,7 @@ func (p Params) errAlpha() float64 {
 // sends a portion with its space, or the rest of a round), so the first press
 // of a batch and every press right after a space begin a word: their time
 // includes reading the word, not only the finger, so they count for accuracy
-// but not for speed (docs/HOW-THE-MODES-WORK.md, section 5).
+// but not for speed.
 func Apply(stats map[string]KeyStat, samples []Sample, p Params) map[string]KeyStat {
 	out := make(map[string]KeyStat, len(stats))
 	for k, v := range stats {

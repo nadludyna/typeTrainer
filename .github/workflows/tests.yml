@@ -1,6 +1,6 @@
 # Checks every pull request that changes more than the docs, and main every
 # night: the nightly run types every browser check three times, to catch a
-# race that shows only now and then (docs/DEVELOPMENT.md).
+# race that shows only now and then.
 name: Tests
 
 on:

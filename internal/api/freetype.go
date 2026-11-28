@@ -17,7 +17,7 @@ import (
 	"typingtrainer/internal/storage"
 )
 
-// ---------- Freetype's loop: the rhythm and the word list (docs/HOW-THE-MODES-WORK.md, 0.3) ----------
+// ---------- Freetype's loop: the rhythm and the word list ----------
 
 // typedRounds is the last Freetype rounds typed on a keyboard, newest first.
 func (s *Server) typedRounds(user, lang string) ([]storage.Session, error) {

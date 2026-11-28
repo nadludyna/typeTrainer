@@ -25,7 +25,7 @@ func main() {
 	floor := flag.Int("floor", -1, "FloorWords instead of the configured one (experiment only)")
 	ramp := flag.Float64("ramp", -1, "RampLetters instead of the configured one (experiment only)")
 	apply := flag.String("apply", "portion", "when the stream strategy learns: portion (as typed) or round (one batch at the round's end)")
-	acc := flag.Int("acc", 0, "accuracy rules of Learn with this window of presses (HOW-THE-MODES-WORK section 14); 0 = the built rules")
+	acc := flag.Int("acc", 0, "accuracy rules of Learn with this window of presses; 0 = the built rules")
 	flag.Parse()
 	cfg := config.Default()
 	cfg.Engine.AccWindow = *acc

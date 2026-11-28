@@ -1,5 +1,5 @@
 // The check-in when a mode is first opened: one question or a short sample
-// sets where the mode starts (docs/HOW-THE-MODES-WORK.md, section 0.6). The
+// sets where the mode starts. The
 // sample's presses are never sent; only its speed and accuracy are.
 
 package api

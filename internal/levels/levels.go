@@ -1,8 +1,7 @@
 // Package levels moves a mode's level by its rounds: Reinforce's word level
 // judged by speed (Judge), Freetype's word list by consistency (JudgeRhythm),
 // both over the last run at one level (Standing); and the weak letter pairs
-// Reinforce brings more often (WeakPairs). docs/HOW-THE-MODES-WORK.md,
-// sections 0.2 and 0.3.
+// Reinforce brings more often (WeakPairs).
 package levels
 
 type Params struct {

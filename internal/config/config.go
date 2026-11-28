@@ -55,7 +55,7 @@ type Config struct {
 	Sim                   sim.Params
 }
 
-// Checkin is the first visit of a mode (docs/HOW-THE-MODES-WORK.md, section 0.6).
+// Checkin is the first visit of a mode.
 type Checkin struct {
 	SampleWords   int       // the Reinforce sample's word list
 	FreetypeWords int       // the Freetype sample's word list

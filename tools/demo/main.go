@@ -1,6 +1,6 @@
 // Command demo prints a made-up history of every mode as an import file,
 // to look at the screens with data in them: go run ./tools/demo > demo.json,
-// then Settings → Import (docs/DEVELOPMENT.md).
+// then Settings → Import.
 package main
 
 import (

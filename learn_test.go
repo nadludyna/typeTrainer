@@ -602,7 +602,7 @@ func TestApp_StatsPerMode(t *testing.T) {
 
 // Reinforce's word level moves by its rounds: three at the goal speed with
 // 96 % or more move it up, two under 90 % of the goal move it down, a level
-// picked by hand starts a run of its own (docs/HOW-THE-MODES-WORK.md, 0.2).
+// picked by hand starts a run of its own.
 func TestApp_ReinforceLevelMovesByItself(t *testing.T) {
 	h, _, _ := newApp()
 	round := func(level int, wpm float64) map[string]any {
@@ -643,7 +643,7 @@ func TestApp_ReinforceLevelMovesByItself(t *testing.T) {
 
 // A round typed on a phone is kept and counted in the stats, but the trainer
 // learns nothing from it: no letter, mix-up or word level moves
-// (docs/PRODUCT.md, "Phones"). The same rounds on a keyboard move all three.
+// . The same rounds on a keyboard move all three.
 func TestApp_PhoneRoundsTeachNothing(t *testing.T) {
 	for _, device := range []string{"touch", "keyboard"} {
 		h, _, _ := newApp()

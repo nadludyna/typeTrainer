@@ -1,5 +1,5 @@
 // Command check runs every check a pull request needs, in order, and says
-// which failed: go run ./tools/check [-quick] (docs/DEVELOPMENT.md).
+// which failed: go run ./tools/check [-quick].
 // -quick leaves out the browser checks. Run it from the repository.
 package main
 

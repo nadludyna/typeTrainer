@@ -272,9 +272,13 @@
     class="relative overflow-hidden font-mono text-[32px] leading-[1.7] tracking-[0.01em]"
     style:height="{LINES * 1.7}em"
   >
-    <div class="relative transition-transform duration-150" style:translate="0 {-caret.scroll}px">
+    <div class="relative transition-transform duration-150" style:translate="0 {-caret.scroll}px" data-text>
       {#each chars as ch, i (i)}{#if extras[i]?.length}<span class="text-bad bg-bad-soft">{extras[i]?.join("")}</span
-          >{/if}<span bind:this={spans[i]} class={cls(i, marks[i] ?? Mark.Untyped)}>{ch}</span>{/each}
+          >{/if}<span
+          bind:this={spans[i]}
+          class={cls(i, marks[i] ?? Mark.Untyped)}
+          data-m={marks[i]}>{ch}</span
+        >{/each}
       <span
         aria-hidden="true"
         class="absolute top-0 left-0 w-[3px] rounded-sm bg-accent transition-[translate] duration-75 ease-out {started

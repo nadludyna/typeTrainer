@@ -14,5 +14,4 @@ AGENTS.local.md
 # a made-up history to import (go run ./tools/demo > demo.json)
 /demo.json
 # the built page (npm run build in web/)
-/web/dist/*
-!/web/dist/.keep
+/web/dist/page/

@@ -1,7 +1,8 @@
 //go:build !(js && wasm)
 
 // The web server: go run ./cmd/typetrainer. With DATABASE_URL the data is
-// kept in PostgreSQL, without it in memory until the server stops.
+// kept in PostgreSQL, without it in memory until the server stops; ADDR
+// changes where it listens (localhost:3000).
 package main
 
 import (
@@ -27,6 +28,9 @@ func main() {
 	handler, cfg, err := app.New(store, true)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if addr := os.Getenv("ADDR"); addr != "" {
+		cfg.Addr = addr // another address, as the browser checks run it
 	}
 	ln, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {

@@ -8,10 +8,11 @@ An adaptive touch-typing trainer on real words. Three modes, each with its own l
 
 ## Run it
 
-Needs [Go](https://go.dev/dl/) 1.25+.
+Needs [Go](https://go.dev/dl/) 1.25+ and [Node](https://nodejs.org/) 24+.
 
 ```
-go run .
+cd web && npm ci && npm run build && cd ..
+go run ./cmd/typetrainer
 ```
 
 Open <http://localhost:3000>. Set `DATABASE_URL` to keep progress in PostgreSQL.

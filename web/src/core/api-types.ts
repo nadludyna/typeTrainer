@@ -67,6 +67,16 @@ export interface Imported {
   rounds: number;
 }
 
+export interface Key {
+  char: string;
+  label?: string;
+  finger: string;
+  home?: boolean;
+  width?: number;
+  alt?: string;
+  modifier?: boolean;
+}
+
 export interface KeyStat {
   count: number;
   mistakes: number;
@@ -82,6 +92,19 @@ export interface Kind {
   kind: string;
   count: number;
   share: number;
+}
+
+export interface Layout {
+  id: string;
+  name: string;
+  fingers: Record<string, LayoutFinger>;
+  rows: Key[][];
+  offsets: number[];
+}
+
+export interface LayoutFinger {
+  name: string;
+  color: string;
 }
 
 export interface LearnResult {

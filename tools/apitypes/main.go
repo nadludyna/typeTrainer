@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"typingtrainer/internal/app"
+	"typingtrainer/internal/layout"
 	"typingtrainer/internal/modes/freetype"
 	"typingtrainer/internal/modes/learn"
 	"typingtrainer/internal/modes/reinforce"
@@ -43,6 +44,9 @@ var types = []struct {
 	{"FreetypeStats", freetype.Stats{}},
 	{"File", app.File{}},
 	{"Imported", app.Imported{}},
+	{"Layout", layout.Layout{}},
+	{"LayoutFinger", layout.Finger{}},
+	{"Key", layout.Key{}},
 }
 
 func main() {

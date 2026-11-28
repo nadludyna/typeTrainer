@@ -4,7 +4,6 @@ package config
 import (
 	"time"
 
-	"typingtrainer/internal/auth"
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/levels"
@@ -22,7 +21,6 @@ type Config struct {
 
 	MaxBodyBytes      int
 	MaxSmallBodyBytes int
-	MaxAuthBodyBytes  int
 	MaxRoundChars     int
 
 	MaxImportBytes    int
@@ -38,9 +36,8 @@ type Config struct {
 	StreakAccuracies      []float64
 	ConfusionMin          int
 	ConfusionShown        int
-	Accounts              bool
-	BehindProxy           bool
-	Auth                  auth.Params
+	Guests                bool // a guest cookie per browser; off on GitHub Pages, where one guest is all
+	GuestDays             int  // how long a guest cookie lasts
 	Engine                engine.Params
 	Laps                  engine.LapParams
 	Forecast              engine.ForecastParams
@@ -93,7 +90,6 @@ func Default() Config {
 
 		MaxBodyBytes:      1 << 20,
 		MaxSmallBodyBytes: 1024,
-		MaxAuthBodyBytes:  4096,
 		MaxRoundChars:     1 << 20,
 
 		MaxImportBytes:    64 << 20,
@@ -118,17 +114,7 @@ func Default() Config {
 		},
 		Forecast:       engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
 		ConfusionShown: 6,
-		Auth: auth.Params{
-			Iterations:    600000,
-			LoginDays:     30,
-			NameMin:       3,
-			NameMax:       20,
-			PasswordMin:   8,
-			PasswordMax:   128,
-			GuestDays:     365,
-			Attempts:      10,
-			AttemptWindow: 15,
-		},
+		GuestDays: 365,
 		Engine: engine.Params{
 			Alpha:         0.1,
 			ErrAlpha:      0.05,

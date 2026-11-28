@@ -9,9 +9,7 @@ import (
 	"typingtrainer/internal/storage"
 )
 
-const accountsOn = false
-
-func behindProxy() bool { return false }
+const guestsOn = false
 
 func openStore() (storage.Store, error) {
 	return storage.NewMemoryStore(), nil

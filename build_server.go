@@ -11,11 +11,7 @@ import (
 	"typingtrainer/internal/storage"
 )
 
-const accountsOn = true
-
-func behindProxy() bool {
-	return os.Getenv("BEHIND_PROXY") == "1"
-}
+const guestsOn = true
 
 func openStore() (storage.Store, error) {
 	url := os.Getenv("DATABASE_URL")

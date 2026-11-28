@@ -27,8 +27,7 @@ func newApp() (http.Handler, config.Config, error) { return newAppWith(openStore
 
 func newAppWith(open func() (storage.Store, error)) (http.Handler, config.Config, error) {
 	cfg := config.Default()
-	cfg.Accounts = accountsOn
-	cfg.BehindProxy = behindProxy()
+	cfg.Guests = guestsOn
 
 	langData, err := files.ReadFile("data/languages.json")
 	if err != nil {

@@ -7,9 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
-	"time"
 
-	"typingtrainer/internal/auth"
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
@@ -43,15 +41,12 @@ type Server struct {
 
 	vocabMu sync.Mutex
 	vocab   map[string]vocabAt // the owned words of a learner, read at a round's start
-
-	attempts *auth.Limiter
 }
 
 func NewServer(cfg config.Config, store storage.Store, langs []*Language) *Server {
 	s := &Server{cfg: cfg, store: store, langs: map[string]*Language{}, order: langs,
 		portionCache: map[string]*cachedPortion{},
-		vocab:        map[string]vocabAt{},
-		attempts:     auth.NewLimiter(cfg.Auth.Attempts, time.Duration(cfg.Auth.AttemptWindow)*time.Minute)}
+		vocab:        map[string]vocabAt{}}
 	for _, l := range langs {
 		s.langs[l.Info.ID] = l
 	}
@@ -60,10 +55,6 @@ func NewServer(cfg config.Config, store storage.Store, langs []*Language) *Serve
 
 func (s *Server) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/languages", s.handleLanguages)
-	mux.HandleFunc("POST /api/v1/auth/register", s.handleRegister)
-	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
-	mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
-	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
 	mux.HandleFunc("GET /api/v1/layout", s.withLang(s.handleLayout))
 	mux.HandleFunc("POST /api/v1/portion", s.withLang(s.handlePortion))
 	mux.HandleFunc("POST /api/v1/abort", s.withLang(s.handleAbort))

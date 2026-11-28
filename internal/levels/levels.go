@@ -1,12 +1,10 @@
 // Package levels moves a mode's level by its rounds: Reinforce's word level
 // judged by speed (Judge), Freetype's word list by consistency (JudgeRhythm),
 // both over the last run at one level (Standing); and the weak letter pairs
-// Reinforce brings more often (WeakPairs). docs/HOW-THE-MODES-WORK.md,
-// sections 0.2 and 0.3.
+// Reinforce brings more often (WeakPairs).
 package levels
 
 type Params struct {
-	Words        []int // each level's number of most common words
 	LevelStart   int
 	PassAccuracy float64
 	FailAccuracy float64
@@ -62,10 +60,10 @@ type Place struct {
 	Moved  int `json:"moved"`
 }
 
-// Standing is where the last run of rounds at one level leaves it, each
-// round judged by judge (Judge for Reinforce, JudgeRhythm for Freetype).
-func Standing(rounds []Round, judge func(Round, Params) Verdict, p Params) Place {
-	top := max(len(p.Words), 1)
+// Standing is where the last run of rounds at one level of 1..top leaves it,
+// each round judged by judge (Judge for Reinforce, JudgeRhythm for Freetype).
+func Standing(rounds []Round, judge func(Round, Params) Verdict, top int, p Params) Place {
+	top = max(top, 1)
 	if len(rounds) == 0 {
 		return Place{Level: clampLevel(p.LevelStart, top)}
 	}

@@ -3,7 +3,7 @@ package levels
 import "testing"
 
 var testParams = Params{
-	Words: []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000}, LevelStart: 1,
+	LevelStart:   1,
 	PassAccuracy: 96, FailAccuracy: 92, FailSpeed: 0.9, ConsPass: 80, ConsFail: 70, PassesUp: 3, FailsDown: 2, History: 50,
 	WeakRounds: 20, WeakMinSamples: 15, WeakMissMs: 1000, WeakPairs: 3,
 }
@@ -72,7 +72,7 @@ func TestStanding(t *testing.T) {
 		{"each round at its own goal",
 			[]Round{{Level: 5, Accuracy: 97, WPM: 52, Goal: 50}, {Level: 5, Accuracy: 97, WPM: 62, Goal: 60}, {Level: 5, Accuracy: 97, WPM: 70, Goal: 70}}, Place{Level: 6, Moved: 1}},
 	} {
-		if got := Standing(c.rounds, Judge, p); got != c.want {
+		if got := Standing(c.rounds, Judge, 10, p); got != c.want {
 			t.Errorf("%s: %+v, want %+v", c.name, got, c.want)
 		}
 	}
@@ -99,7 +99,7 @@ func TestJudgeRhythm(t *testing.T) {
 	}
 	c80 := c(85)
 	run := []Round{{Level: 2, Accuracy: 98, Consistency: c80}, {Level: 2, Accuracy: 98, Consistency: c80}, {Level: 2, Accuracy: 98, Consistency: c80}}
-	if got := Standing(run, JudgeRhythm, testParams); got.Level != 3 || got.Moved != 1 {
+	if got := Standing(run, JudgeRhythm, 10, testParams); got.Level != 3 || got.Moved != 1 {
 		t.Fatalf("three even rounds move the list up: %+v", got)
 	}
 }
@@ -111,18 +111,18 @@ func TestStanding_AColdRoundDoesNotFail(t *testing.T) {
 	bad, good := Round{Level: 2, Accuracy: 80}, Round{Level: 2, Accuracy: 99}
 	cold := bad
 	cold.Cold = true
-	if got := Standing([]Round{bad, bad}, Judge, p); got.Moved != -1 {
+	if got := Standing([]Round{bad, bad}, Judge, 10, p); got.Moved != -1 {
 		t.Fatalf("two fails move down: %+v", got)
 	}
-	if got := Standing([]Round{cold, bad}, Judge, p); got.Moved != 0 || got.Fails != 1 || got.Level != 2 {
+	if got := Standing([]Round{cold, bad}, Judge, 10, p); got.Moved != 0 || got.Fails != 1 || got.Level != 2 {
 		t.Fatalf("a cold fail is not counted: %+v", got)
 	}
-	if got := Standing([]Round{good, good, cold}, Judge, p); got.Passes != 2 {
+	if got := Standing([]Round{good, good, cold}, Judge, 10, p); got.Passes != 2 {
 		t.Fatalf("a cold fail keeps the passes: %+v", got)
 	}
 	warm := good
 	warm.Cold = true
-	if got := Standing([]Round{warm, good, good}, Judge, p); got.Moved != 1 {
+	if got := Standing([]Round{warm, good, good}, Judge, 10, p); got.Moved != 1 {
 		t.Fatalf("a cold round can pass: %+v", got)
 	}
 }

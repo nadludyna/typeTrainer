@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "project": ["src/**/*.{ts,svelte}"],
+  "ignore": ["src/core/api-types.ts"],
+  "ignoreDependencies": ["tailwindcss"]
+}

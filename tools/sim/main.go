@@ -13,19 +13,20 @@ import (
 
 	"typingtrainer/internal/config"
 	"typingtrainer/internal/engine"
-	"typingtrainer/internal/language"
-	"typingtrainer/internal/layout"
-	"typingtrainer/internal/sim"
+	"typingtrainer/internal/trainer"
+	"typingtrainer/tools/sim/sim"
 )
 
+// simp is the simulated typists (sim.Default), with the flags of this run.
+var simp = sim.Default()
+
 func main() {
-	only := flag.String("lang", "", "language id; empty = all")
 	temps := flag.String("temps", "", "comma-separated temperatures to try for the adaptive\n"+
 		"strategy instead of the configured one, e.g. 0.1,0.25 (experiment only)")
 	floor := flag.Int("floor", -1, "FloorWords instead of the configured one (experiment only)")
 	ramp := flag.Float64("ramp", -1, "RampLetters instead of the configured one (experiment only)")
 	apply := flag.String("apply", "portion", "when the stream strategy learns: portion (as typed) or round (one batch at the round's end)")
-	acc := flag.Int("acc", 0, "accuracy rules of Learn with this window of presses (HOW-THE-MODES-WORK section 14); 0 = the built rules")
+	acc := flag.Int("acc", 0, "accuracy rules of Learn with this window of presses; 0 = the built rules")
 	flag.Parse()
 	cfg := config.Default()
 	cfg.Engine.AccWindow = *acc
@@ -37,7 +38,7 @@ func main() {
 	}
 	switch *apply {
 	case "portion", "round":
-		cfg.Sim.ApplyPerRound = *apply == "round"
+		simp.ApplyPerRound = *apply == "round"
 	default:
 		fail(fmt.Errorf("bad -apply %q: portion or round", *apply))
 	}
@@ -54,15 +55,11 @@ func main() {
 		}
 	}
 
-	data, err := os.ReadFile("data/languages.json")
+	words, home, err := trainer.Corpus(cfg)
 	if err != nil {
 		fail(err)
 	}
-	langs, err := language.Parse(data)
-	if err != nil {
-		fail(err)
-	}
-	p := cfg.Sim
+	p := simp
 	fmt.Printf("%d simulated typists per strategy, %d words per exercise, give up after %d exercises\n",
 		p.Runs, cfg.Engine.ExerciseWords, p.MaxExercises)
 	fmt.Printf("stream: portions of %d words, %d waiting; counted in exercises of %d words\n",
@@ -76,24 +73,7 @@ func main() {
 		"len = mean letters per word (before |: over the whole run until the goal),\n" +
 		"rank = mean place of the words in the frequency list (0 = most common),\n" +
 		"after = mean rank of the words typed after every letter was open, until the goal\n")
-	for _, l := range langs {
-		if *only != "" && l.ID != *only {
-			continue
-		}
-		list, err := os.ReadFile("data/langs/" + l.ID + "/free.txt")
-		if err != nil {
-			fail(err)
-		}
-		layoutJSON, err := os.ReadFile("data/layouts/" + l.Layout + ".json")
-		if err != nil {
-			fail(err)
-		}
-		lay, err := layout.Parse(layoutJSON)
-		if err != nil {
-			fail(err)
-		}
-		runLanguage(l.ID, l.Words(string(list)), lay.RestingKeys(), cfg, ts)
-	}
+	runLanguage("en", words, home, cfg, ts)
 }
 
 func strategy(k int, t float64, gen *engine.Generator, cfg config.Config, rng *rand.Rand) sim.Strategy {
@@ -101,7 +81,7 @@ func strategy(k int, t float64, gen *engine.Generator, cfg config.Config, rng *r
 	case 0:
 		return &sim.Random{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng}
 	case 1:
-		return &sim.BestOfN{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng, P: cfg.Sim}
+		return &sim.BestOfN{Gen: gen, Words: cfg.Engine.ExerciseWords, Rng: rng, P: simp}
 	}
 	ep := engineParams(k, t, cfg)
 	if k >= 3 {
@@ -122,7 +102,7 @@ func engineParams(k int, t float64, cfg config.Config) engine.Params {
 }
 
 func runLanguage(id string, words, home []string, cfg config.Config, temps []float64) {
-	p := cfg.Sim
+	p := simp
 	fmt.Printf("\n%s (%d words)\n", id, len(words))
 	fmt.Printf("%-22s %6s %6s %7s %5s %4s %5s | %-29s | %-29s\n", "", "", "", "", "", "", "", "beginner, first", "expert")
 	fmt.Printf("%-22s %6s %6s %7s %5s %4s %5s | %5s %5s %5s %5s %5s | %5s %5s %5s %5s %5s\n",
@@ -177,7 +157,6 @@ func runLanguage(id string, words, home []string, cfg config.Config, temps []flo
 		}
 		fmt.Println(row(name, res, vs))
 	}
-	forecast(words, home, cfg)
 	unlockPace(words, home, cfg)
 }
 
@@ -187,7 +166,7 @@ func runLanguage(id string, words, home []string, cfg config.Config, temps []flo
 func unlockPace(words, home []string, cfg config.Config) {
 	ep := cfg.Engine
 	kind := func(errMin, errMax, timeMin, timeMax, learn float64) sim.Params {
-		q := cfg.Sim
+		q := simp
 		q.ErrMin, q.ErrMax, q.TimeMin, q.TimeMax, q.LearnRate = errMin, errMax, timeMin, timeMax, learn
 		return q
 	}
@@ -195,14 +174,14 @@ func unlockPace(words, home []string, cfg config.Config) {
 		name string
 		p    sim.Params
 	}{
-		{"beginner", cfg.Sim},
-		{"middle", kind(0.04, 0.08, 250, 450, cfg.Sim.LearnRate)},
+		{"beginner", simp},
+		{"middle", kind(0.04, 0.08, 250, 450, simp.LearnRate)},
 		{"fast, steady", kind(0.02, 0.04, 120, 250, 0)},
 	}
-	fmt.Println("unlock pace, rounds of the app (median of", cfg.Sim.Runs, "typists):")
+	fmt.Println("unlock pace, rounds of the app (median of", simp.Runs, "typists):")
 	for _, k := range kinds {
 		var half, all []int
-		for run := 0; run < cfg.Sim.Runs; run++ {
+		for run := 0; run < simp.Runs; run++ {
 			seed := int64(run + 1)
 			gen := engine.NewGenerator(words, rand.New(rand.NewSource(seed)), ep)
 			gen.SetHome(home, ep)
@@ -212,7 +191,7 @@ func unlockPace(words, home []string, cfg config.Config) {
 			stats := map[string]engine.KeyStat{}
 			unlocked, n := gen.Start(), len(gen.Order())
 			h, rounds := 0, 0
-			for rounds < cfg.Sim.MaxExercises && unlocked < n {
+			for rounds < simp.MaxExercises && unlocked < n {
 				var round []engine.Sample
 				for i := 0; i < ep.RoundPortions; i++ {
 					samples := t.Type(s.Text(stats, unlocked, 0))
@@ -238,25 +217,6 @@ func gen0(words, home []string, cfg config.Config) *engine.Generator {
 	g := engine.NewGenerator(words, rand.New(rand.NewSource(1)), cfg.Engine)
 	g.SetHome(home, cfg.Engine)
 	return g
-}
-
-func forecast(words, home []string, cfg config.Config) {
-	p, ep, fp := cfg.Sim, cfg.Engine, cfg.Forecast
-	var runs []sim.ForecastRun
-	for run := 0; run < p.Runs; run++ {
-		seed := int64(run + 1)
-		gen := engine.NewGenerator(words, rand.New(rand.NewSource(seed)), ep)
-		gen.SetHome(home, ep)
-		gen.SetWordParams(cfg.Words)
-		typist := sim.NewTypist(gen.Order(), p, rand.New(rand.NewSource(seed))).
-			Clone(rand.New(rand.NewSource(seed + 1000)))
-		rounds := p.MaxExercises * ep.ExerciseWords / (ep.PortionWords * ep.RoundPortions)
-		runs = append(runs, sim.Forecasts(gen, &sim.Stream{Gen: gen, EP: ep}, typist, ep, fp, rounds))
-	}
-	s := sim.Summarize(runs, fp)
-	fmt.Printf("forecast \"rounds to the next letter\": shown in %.0f%% of rounds; %d forecasts, error mean %.1f, median %.1f rounds\n"+
-		"  (mean wait %.1f); within max(2, 25%%) %.0f%%, too hopeful %.0f%%; \"more than %d\": %d, right %d\n",
-		s.Shown*100, s.N, s.MeanAbs, s.MedianAbs, s.MeanActual, s.Within*100, s.Early*100, fp.MaxRounds, s.More, s.MoreRight)
 }
 
 func row(name string, res []sim.Result, vs []sim.Variety) string {

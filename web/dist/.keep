@@ -1,0 +1,1 @@
+Vite builds the page into page/ here (npm run build in web/); this file keeps the folder for go:embed.

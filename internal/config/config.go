@@ -4,12 +4,10 @@ package config
 import (
 	"time"
 
-	"typingtrainer/internal/auth"
 	"typingtrainer/internal/engine"
 	"typingtrainer/internal/freetype"
 	"typingtrainer/internal/levels"
 	"typingtrainer/internal/profile"
-	"typingtrainer/internal/sim"
 )
 
 type Config struct {
@@ -22,50 +20,37 @@ type Config struct {
 
 	MaxBodyBytes      int
 	MaxSmallBodyBytes int
-	MaxAuthBodyBytes  int
 	MaxRoundChars     int
 
-	MaxImportBytes    int
-	MaxImportSessions int
+	MaxImportBytes  int
+	MaxImportRounds int
 
 	ImportFutureTolerance time.Duration
 
-	MaxRoundWords   int
-	MaxRoundSeconds int
-	MaxTypedSeconds int
+	Alphabet string   // the letters of the language
+	Lengths  []string // the round lengths a round may have
 
 	ConsistencyMinSeconds int
-	StreakAccuracies      []float64
 	ConfusionMin          int
 	ConfusionShown        int
-	Accounts              bool
-	BehindProxy           bool
-	Auth                  auth.Params
+	Guests                bool // a guest cookie per browser; off on GitHub Pages, where one guest is all
+	GuestDays             int  // how long a guest cookie lasts
 	Engine                engine.Params
 	Laps                  engine.LapParams
-	Forecast              engine.ForecastParams
 	Words                 engine.WordParams
 	Freetype              freetype.Params
+	WordLevels            []int // Reinforce's word levels: each takes the n most common words
 	Levels                levels.Params
 	WeakBoost             float64 // in a weak-spots round a word with a weak spot, in a sprint an owned word, weighs 1 + this
 	Profile               profile.Params
 	Owned                 profile.WordParams // the words a typist owns
 	Time                  profile.TimeParams // forgetting, warm-up, tiredness
 	Checkin               Checkin
-	Sim                   sim.Params
 }
 
-// Checkin is the first visit of a mode (docs/HOW-THE-MODES-WORK.md, section 0.6).
+// Checkin is Learn's first visit: one question sets the first letters.
 type Checkin struct {
-	SampleWords   int       // the Reinforce sample's word list
-	FreetypeWords int       // the Freetype sample's word list
-	SampleSeconds int       // how long a sample is
-	SomeLetters   int       // Learn's start for "a little" and "yes"
-	GoalMargin    float64   // the goal is the first step this far above the sample's speed
-	LevelAccuracy []float64 // a word level for each accuracy, highest first
-	LevelFor      []int     // ... the word level (1 = the first) for each of them
-	ListSpeed     []float64 // a Freetype list for each speed, highest first
-	ListFor       []int     // ... the list for each of them
+	SomeLetters int // Learn's start for "a little" and "yes"
 }
 
 type Server struct {
@@ -93,42 +78,22 @@ func Default() Config {
 
 		MaxBodyBytes:      1 << 20,
 		MaxSmallBodyBytes: 1024,
-		MaxAuthBodyBytes:  4096,
 		MaxRoundChars:     1 << 20,
 
-		MaxImportBytes:    64 << 20,
-		MaxImportSessions: 50000,
+		MaxImportBytes:  64 << 20,
+		MaxImportRounds: 50000,
 
 		ImportFutureTolerance: 5 * time.Minute,
 
-		MaxRoundWords:   500,
-		MaxRoundSeconds: 600,
-		MaxTypedSeconds: 3600,
+		Alphabet: "abcdefghijklmnopqrstuvwxyz",
+		Lengths:  []string{"words-10", "words-15", "words-20", "words-30", "words-50", "words-100", "time-15", "time-30", "time-60"},
 
 		ConsistencyMinSeconds: 5,
-		StreakAccuracies:      []float64{95, 97, 100},
 		ConfusionMin:          3,
 		Laps:                  engine.LapParams{StepWPM: 10, MaxWPM: 200},
-		Checkin: Checkin{
-			SampleWords: 200, FreetypeWords: 1000, SampleSeconds: 30,
-			SomeLetters:   10,
-			GoalMargin:    5,
-			LevelAccuracy: []float64{97, 94}, LevelFor: []int{3, 2},
-			ListSpeed: []float64{70, 40}, ListFor: []int{5000, 1000},
-		},
-		Forecast:       engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
-		ConfusionShown: 6,
-		Auth: auth.Params{
-			Iterations:    600000,
-			LoginDays:     30,
-			NameMin:       3,
-			NameMax:       20,
-			PasswordMin:   8,
-			PasswordMax:   128,
-			GuestDays:     365,
-			Attempts:      10,
-			AttemptWindow: 15,
-		},
+		Checkin:               Checkin{SomeLetters: 10},
+		ConfusionShown:        6,
+		GuestDays:             365,
 		Engine: engine.Params{
 			Alpha:         0.1,
 			ErrAlpha:      0.05,
@@ -185,10 +150,7 @@ func Default() Config {
 			RepeatPenalty: 0.3,
 			OwnedPenalty:  0.3,
 
-			Lists:         []int{200, 1000, 5000, 10000, 25000},
-			LongMin:       6,
-			TextMarks:     ".,?!;:'-",
-			SentenceTries: 20,
+			Lists: []int{200, 1000, 5000, 10000, 25000},
 
 			RhythmRounds:      20,
 			RhythmMaxMs:       2000,
@@ -212,9 +174,9 @@ func Default() Config {
 			Sitting: 30 * time.Minute, TiredRuns: 3, TiredDrop: 3,
 			ColdAfter: 6 * time.Hour,
 		},
-		WeakBoost: 50,
+		WeakBoost:  50,
+		WordLevels: []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 		Levels: levels.Params{
-			Words:        []int{200, 500, 1000, 2000, 3000, 5000, 7500, 10000, 15000, 25000},
 			LevelStart:   1,
 			PassAccuracy: 96,
 			FailAccuracy: 92,
@@ -229,29 +191,6 @@ func Default() Config {
 			WeakMinSamples: 15,
 			WeakMissMs:     1000,
 			WeakPairs:      3,
-		},
-		Sim: sim.Params{
-			ErrMin: 0.03, ErrMax: 0.30,
-			TimeMin: 350, TimeMax: 900,
-			ErrFloor:  0.01,
-			TimeFloor: 200,
-			LearnRate: 0.02,
-			TimeNoise: 0.25,
-
-			GoalErrorRate: 0.05,
-
-			ExpertErrMax:   0.05,
-			ExpertTimeMin:  150,
-			ExpertTimeMax:  350,
-			OpenExercises:  100,
-			FirstExercises: 30,
-
-			Runs:         20,
-			MaxExercises: 3000,
-
-			BestOf:        20,
-			MissPenaltyMs: 5000,
-			ScoreWindow:   50,
 		},
 	}
 }

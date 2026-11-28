@@ -1,7 +1,7 @@
 // Freetype's rhythm: a typist's usual time between two letters of a word,
 // the time past which a press is a stumble, and the letter pairs they
 // stumble on far more often than on the rest. Freetype brings words with
-// those pairs more often (docs/HOW-THE-MODES-WORK.md, 0.3).
+// those pairs more often.
 
 package freetype
 
@@ -10,14 +10,12 @@ import (
 	"math"
 	"slices"
 	"unicode"
+
+	"typingtrainer/internal/engine"
 )
 
-// Key is one press as the rhythm reads it.
-type Key struct {
-	Char   string
-	Errors int
-	Ms     float64
-}
+// Key is one press, as the browser measured it.
+type Key = engine.Sample
 
 type Rhythm struct {
 	Median    float64   `json:"median"`    // the usual time between two letters of a word, ms

@@ -1,4 +1,5 @@
-# Tests, builds and publishes the GitHub Pages version on every push to main.
+# Builds and publishes the GitHub Pages version on every push to main: the
+# page built with --mode pages and the Go program as WebAssembly beside it.
 name: Deploy to GitHub Pages
 
 on:
@@ -20,38 +21,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-
-      - name: Test
-        run: |
-          go vet ./...
-          go test ./...
-
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
       - name: Build the site
         run: |
-          mkdir -p site
-          cp -r web/. site/
-          cp pages/wasm-shim.js site/
-          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o site/app.wasm .
-          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" site/ 2>/dev/null \
-            || cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" site/
-          V="${GITHUB_SHA::8}"
-          sed -i 's|<script type="module" src="app.js"></script>|<script src="wasm_exec.js"></script>\n  <script src="wasm-shim.js"></script>\n  <script type="module" src="app.js"></script>|' site/index.html
-          sed -i -E "s/(src|href)=\"([a-z0-9_.-]+\.(js|css))\"/\1=\"\2?v=$V\"/g" site/index.html
-          for f in base.css layout.css typing.css stats.css screens.css responsive.css file-check.js wasm_exec.js wasm-shim.js app.js; do
-            grep -q "$f?v=$V" site/index.html || { echo "missing version on $f"; exit 1; }
-          done
-          sed -i -E "s#(from |import )\"(\./[a-z0-9_-]+\.js)\"#\1\"\2?v=$V\"#g" site/*.js
-          if grep -nE "(from |import )\"\./[a-z0-9_-]+\.js\"" site/*.js; then
-            echo "an import above has no version"; exit 1
-          fi
-
+          cd web && npm ci && npm run pages && cd ..
+          GOOS=js GOARCH=wasm go build -trimpath -ldflags="-s -w" -o web/dist/page/app.wasm ./cmd/typetrainer
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/dist/page/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: web/dist/page
 
   deploy:
     needs: build

@@ -1,4 +1,4 @@
-// Package layout loads keyboard layouts from data/layouts.
+// Package layout reads a keyboard layout: its keys in rows, each with its finger.
 package layout
 
 import (

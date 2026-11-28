@@ -1,5 +1,5 @@
 // Command check runs every check a pull request needs, in order, and says
-// which failed: go run ./tools/check [-quick] (docs/DEVELOPMENT.md).
+// which failed: go run ./tools/check [-quick]. The same command runs in CI.
 // -quick leaves out the browser checks. Run it from the repository.
 package main
 
@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,13 +14,16 @@ import (
 	"time"
 )
 
+// staticcheck is pinned: a new version may find new things, and that is a
+// change of its own.
+const staticcheck = "honnef.co/go/tools/cmd/staticcheck@v0.8.2"
+
 type step struct {
 	name string
 	dir  string
 	cmd  []string
 	env  []string
-	// ok judges the output too: gofmt -l lists unformatted files and still
-	// exits 0.
+	// ok judges the output too: gofmt -l lists unformatted files and still exits 0.
 	ok func(out string) bool
 }
 
@@ -32,22 +34,22 @@ func main() {
 		fmt.Fprintln(os.Stderr, "check: run it from the repository (where go.mod is)")
 		os.Exit(2)
 	}
+	if _, err := os.Stat("web/node_modules"); err != nil {
+		fmt.Fprintln(os.Stderr, "check: the page's tools are not installed: cd web && npm ci")
+		os.Exit(2)
+	}
 	wasm := filepath.Join(os.TempDir(), "typetrainer-check.wasm")
 	steps := []step{
 		{name: "gofmt", cmd: []string{"gofmt", "-l", "."}, ok: func(out string) bool { return strings.TrimSpace(out) == "" }},
 		{name: "go vet", cmd: []string{"go", "vet", "./..."}},
+		{name: "staticcheck", cmd: []string{"go", "run", staticcheck, "./..."}},
 		{name: "go test", cmd: []string{"go", "test", "./..."}},
-		{name: "Pages build (WebAssembly)", cmd: []string{"go", "build", "-o", wasm, "."}, env: []string{"GOOS=js", "GOARCH=wasm"}},
+		{name: "WebAssembly build", cmd: []string{"go", "build", "-o", wasm, "./cmd/typetrainer"}, env: []string{"GOOS=js", "GOARCH=wasm"}},
+		{name: "page: types, lint, unused, tests", dir: "web", cmd: npm("run", "check")},
+		{name: "page build", dir: "web", cmd: npm("run", "build")},
 	}
 	if !*quick {
-		if _, err := os.Stat("tools/browser/node_modules"); err != nil {
-			fmt.Println("✗ browser checks: their tools are not installed (cd tools/browser && npm ci)")
-			os.Exit(1)
-		}
-		if busy("localhost:3000") {
-			fmt.Println("! something already serves localhost:3000: the browser checks test that server, not this code")
-		}
-		steps = append(steps, step{name: "browser checks", dir: "tools/browser", cmd: []string{"npx", "playwright", "test"}})
+		steps = append(steps, step{name: "browser checks", dir: "web", cmd: npx("playwright", "test")})
 	}
 	failed := 0
 	start := time.Now()
@@ -71,6 +73,18 @@ func main() {
 	fmt.Printf("all %d passed (%s)\n", len(steps), time.Since(start).Round(time.Second))
 }
 
+// npm and npx: on Windows they are .cmd files, which exec does not find by
+// their bare name.
+func npm(args ...string) []string { return append([]string{node("npm")}, args...) }
+func npx(args ...string) []string { return append([]string{node("npx")}, args...) }
+
+func node(tool string) string {
+	if os.PathSeparator == '\\' {
+		return tool + ".cmd"
+	}
+	return tool
+}
+
 func run(s step) (string, error) {
 	c := exec.Command(s.cmd[0], s.cmd[1:]...)
 	c.Dir = s.dir
@@ -85,13 +99,4 @@ func run(s step) (string, error) {
 func tail(s string, n int) string {
 	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
 	return strings.Join(lines[max(0, len(lines)-n):], "\n")
-}
-
-func busy(addr string) bool {
-	c, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
-	if err != nil {
-		return false
-	}
-	c.Close()
-	return true
 }

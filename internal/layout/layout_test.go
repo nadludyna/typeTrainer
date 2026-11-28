@@ -1,31 +1,23 @@
 package layout
 
 import (
-	"os"
 	"sort"
 	"strings"
 	"testing"
+
+	"typingtrainer/data"
 )
 
+// The keys under the resting fingers of the built-in QWERTY: the home row.
 func TestRestingKeys(t *testing.T) {
-	for file, want := range map[string]string{
-		"qwerty-en": "asdfjkl;",
-	} {
-		data, err := os.ReadFile("../../data/layouts/" + file + ".json")
-		if err != nil {
-			t.Fatal(err)
-		}
-		l, err := Parse(data)
-		if err != nil {
-			t.Fatal(err)
-		}
-		got := l.RestingKeys()
-		sort.Strings(got)
-		w := strings.Split(want, "")
-		sort.Strings(w)
-		if strings.Join(got, "") != strings.Join(w, "") {
-			t.Errorf("%s: got %v, want %v", file, got, w)
-		}
+	l, err := Parse(data.Layout)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := l.RestingKeys()
+	sort.Strings(got)
+	if strings.Join(got, "") != ";adfjkls" {
+		t.Errorf("resting keys: %v", got)
 	}
 }
 

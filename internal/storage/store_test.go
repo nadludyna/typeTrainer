@@ -46,7 +46,7 @@ var storeTests = map[string]func(*testing.T, Store){
 }
 
 // otherMode is a mode outside Learn that no test below uses by its own name.
-var otherMode = FreetypeMode(5000, "")
+var otherMode = FreetypeMode(5000)
 
 func testRoundSentTwice(t *testing.T, m Store) {
 	if has, err := m.HasRound(u, "en", "r1"); err != nil || has {
@@ -214,14 +214,11 @@ func testFreetype(t *testing.T, m Store) {
 }
 
 func testFreetypeModes(t *testing.T, m Store) {
-	small, big := FreetypeMode(200, ""), FreetypeMode(25000, "")
+	small, big := FreetypeMode(200), FreetypeMode(25000)
 	if small != "freetype-200" {
 		t.Fatalf("FreetypeMode(200) = %q", small)
 	}
-	long, sentences := FreetypeMode(200, VariantLong), FreetypeMode(0, VariantSentences)
-	if long != "freetype-200-long" || sentences != "freetype-sentences" {
-		t.Fatalf("variant modes = %q, %q", long, sentences)
-	}
+	long, sentences := FreetypeMode(7000), FreetypeMode(9000)
 	at := time.Date(2026, 10, 19, 12, 0, 0, 0, time.UTC)
 	m.AddFreetypeSession(u, "en", small, Session{WPM: 80, Length: "words-30", FinishedAt: at})
 	m.AddFreetypeSession(u, "en", small, Session{WPM: 90, Length: "time-30", FinishedAt: at})
@@ -233,7 +230,7 @@ func testFreetypeModes(t *testing.T, m Store) {
 		}
 	}
 
-	for mode, want := range map[string]int{small: 2, big: 1, otherMode: 1, FreetypeMode(1000, ""): 0, long: 1, sentences: 1} {
+	for mode, want := range map[string]int{small: 2, big: 1, otherMode: 1, FreetypeMode(1000): 0, long: 1, sentences: 1} {
 		if c, _ := m.FreetypeSessionCount(u, "en", mode, ""); c != want {
 			t.Errorf("%s: %d rounds, want %d", mode, c, want)
 		}
@@ -345,7 +342,7 @@ func testSignUpTakesGuest(t *testing.T, m Store) {
 	m.SetLap(guest, "en", 2)
 	m.AddSession(guest, "en", Session{WPM: 40})
 	m.AddFreetypeSession(guest, "en", otherMode, Session{WPM: 50, Level: 3})
-	m.AddFreetypeSession(guest, "en", FreetypeMode(200, ""), Session{WPM: 60})
+	m.AddFreetypeSession(guest, "en", FreetypeMode(200), Session{WPM: 60})
 	m.AddSession(guest, "uk", Session{WPM: 30})
 	m.AddSession(other, "en", Session{WPM: 20})
 
@@ -358,7 +355,7 @@ func testSignUpTakesGuest(t *testing.T, m Store) {
 	lap, _ := m.Lap(a.ID, "en")
 	learn, _ := m.SessionCount(a.ID, "en", "")
 	ft5000, _ := m.FreetypeSessionCount(a.ID, "en", otherMode, "")
-	free, _ := m.FreetypeSessionCount(a.ID, "en", FreetypeMode(200, ""), "")
+	free, _ := m.FreetypeSessionCount(a.ID, "en", FreetypeMode(200), "")
 	uk, _ := m.SessionCount(a.ID, "uk", "")
 	if stats["e"].Count != 5 || unlocked != 9 || lap != 2 || learn != 1 || ft5000 != 1 || free != 1 || uk != 1 {
 		t.Fatalf("account: stats=%v unlocked=%d lap=%d learn=%d freetype 5000=%d freetype 200=%d uk=%d", stats, unlocked, lap, learn, ft5000, free, uk)
@@ -495,13 +492,13 @@ func testRecentFreetype(t *testing.T, m Store) {
 			t.Fatal(err)
 		}
 	}
-	add(FreetypeMode(200, ""), 1, 1)
-	add(FreetypeMode(1000, VariantLong), 2, 2)
-	add(FreetypeMode(0, VariantSentences), 3, 3)
-	add(FreetypeMode(200, ""), 4, 4)
-	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
-	m.AddFreetypeSession(u, "pl", FreetypeMode(200, ""), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
-	m.AddFreetypeSession("someone-else", "en", FreetypeMode(200, ""), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
+	add(FreetypeMode(200), 1, 1)
+	add(FreetypeMode(1000), 2, 2)
+	add(FreetypeMode(10000), 3, 3)
+	add(FreetypeMode(200), 4, 4)
+	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 99, FinishedAt: at.Add(5 * time.Second), Aborted: true})
+	m.AddFreetypeSession(u, "pl", FreetypeMode(200), Session{WPM: 98, FinishedAt: at.Add(6 * time.Second)})
+	m.AddFreetypeSession("someone-else", "en", FreetypeMode(200), Session{WPM: 97, FinishedAt: at.Add(7 * time.Second)})
 	m.AddSession(u, "en", Session{WPM: 96, FinishedAt: at.Add(8 * time.Second)})
 	got, err := m.LastFreetypeRounds(u, "en", 3)
 	if err != nil {
@@ -511,12 +508,12 @@ func testRecentFreetype(t *testing.T, m Store) {
 	for _, s := range got {
 		seen = append(seen, fmt.Sprintf("%v %s %d", s.WPM, s.Mode, len(s.Keys)))
 	}
-	want := []string{"4 freetype-200 1", "3 freetype-sentences 1", "2 freetype-1000-long 1"}
+	want := []string{"4 freetype-200 1", "3 freetype-10000 1", "2 freetype-1000 1"}
 	if !slices.Equal(seen, want) {
 		t.Fatalf("got %v, want %v", seen, want)
 	}
-	add(FreetypeMode(5000, ""), 5, 9)
-	add(FreetypeMode(1000, ""), 6, 9)
+	add(FreetypeMode(5000), 5, 9)
+	add(FreetypeMode(1000), 6, 9)
 	if got, _ := m.LastFreetypeRounds(u, "en", 1); len(got) != 1 || got[0].WPM != 6 {
 		t.Fatalf("two rounds ending at once: the one saved last comes first, got %v", got)
 	}
@@ -526,7 +523,7 @@ func testRecentFreetype(t *testing.T, m Store) {
 func testRoundKind(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 1, Level: 2, Kind: KindWeak, FinishedAt: time.Now()})
 	m.AddSession(u, "en", Session{WPM: 2, Level: 2, FinishedAt: time.Now()})
-	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 3, Kind: KindClean, FinishedAt: time.Now()})
+	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 3, Kind: KindClean, FinishedAt: time.Now()})
 	got, _ := m.RecentSessions(u, "en", "", 10)
 	if len(got) != 2 || got[0].Kind != "" || got[1].Kind != KindWeak {
 		t.Fatalf("learning rounds: %+v", got)
@@ -534,7 +531,7 @@ func testRoundKind(t *testing.T, m Store) {
 	if usual := Usual(got); len(usual) != 1 || usual[0].WPM != 2 {
 		t.Fatalf("the usual rounds: %+v", usual)
 	}
-	if free, _ := m.RecentFreetypeSessions(u, "en", FreetypeMode(200, ""), "", 10); len(free) != 1 || free[0].Kind != KindClean {
+	if free, _ := m.RecentFreetypeSessions(u, "en", FreetypeMode(200), "", 10); len(free) != 1 || free[0].Kind != KindClean {
 		t.Fatalf("Freetype rounds: %+v", free)
 	}
 	if last, _ := m.LastFreetypeRounds(u, "en", 10); len(last) != 1 || last[0].Kind != KindClean {
@@ -674,7 +671,7 @@ func testBestRounds(t *testing.T, m Store) {
 	}
 
 	// A sprint's best is its own, not the best of its length.
-	sprints := FreetypeMode(10000, VariantLong) // a mode no other round of this test uses
+	sprints := FreetypeMode(15000) // a mode no other round of this test uses
 	if f, _ := m.BestFreetypeRounds(u, "en", sprints); len(f) != 0 {
 		t.Fatalf("no rounds: %v; want no best", f)
 	}
@@ -828,7 +825,7 @@ func testDaysPerMode(t *testing.T, m Store) {
 	m.AddSession(u, "en", Session{WPM: 30, Chars: 10, FinishedAt: when})
 	m.AddSession(u, "en", Session{WPM: 40, Chars: 20, Level: 2, FinishedAt: when})
 	m.AddSession(u, "en", Session{WPM: 45, Chars: 20, Level: 3, FinishedAt: when})
-	m.AddFreetypeSession(u, "en", FreetypeMode(200, ""), Session{WPM: 50, Chars: 40, FinishedAt: when})
+	m.AddFreetypeSession(u, "en", FreetypeMode(200), Session{WPM: 50, Chars: 40, FinishedAt: when})
 	m.AddFreetypeSession(u, "en", otherMode, Session{WPM: 60, Chars: 80, FinishedAt: when})
 	for part, want := range map[string]int{"": 5, PartLearn: 1, PartReinforce: 2, PartFreetype: 2} {
 		days, err := m.PracticeDays(u, "en", part, 0)

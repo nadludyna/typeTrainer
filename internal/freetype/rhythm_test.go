@@ -126,7 +126,7 @@ func TestFreetype_StumblePairsComeMoreOften(t *testing.T) {
 		p.RepeatPenalty = 1
 		with, all := 0, 0
 		for range 400 {
-			for _, w := range pk.Freetype(nil, 6, len(words), false, pairs, p) {
+			for _, w := range pk.Freetype(nil, 6, len(words), pairs, p) {
 				all++
 				if w == "quiz" || w == "lazy" {
 					with++
@@ -159,7 +159,7 @@ func TestRhythmLoop_SimulatedTypistMeetsTheirStumblePairMoreOften(t *testing.T) 
 		var pairs []string
 		met, all := 0, 0
 		for r := range 30 {
-			text := strings.Join(pk.Freetype(nil, 30, len(words), false, pairs, testParams), " ") + " "
+			text := strings.Join(pk.Freetype(nil, 30, len(words), pairs, testParams), " ") + " "
 			runes := []rune(text)
 			keys := make([]Key, len(runes))
 			for i, c := range runes {
@@ -207,7 +207,7 @@ func TestFreetype_OwnedWordsComeLessOften(t *testing.T) {
 		p.RepeatPenalty, p.OwnedPenalty = 1, 0.3
 		with, all := 0, 0
 		for range 400 {
-			for _, w := range pk.Freetype(nil, 6, len(words), false, nil, p) {
+			for _, w := range pk.Freetype(nil, 6, len(words), nil, p) {
 				all++
 				if w == "quiz" || w == "lazy" {
 					with++
@@ -229,7 +229,7 @@ func TestFreetype_OwnedWordsComeLessOften(t *testing.T) {
 		p.RepeatPenalty, p.OwnedPenalty, p.OwnedBoost = 1, 0.3, 50
 		with, all := 0, 0
 		for range 400 {
-			for _, w := range pk.Freetype(nil, 6, len(words), false, nil, p) {
+			for _, w := range pk.Freetype(nil, 6, len(words), nil, p) {
 				all++
 				if w == "quiz" || w == "lazy" {
 					with++

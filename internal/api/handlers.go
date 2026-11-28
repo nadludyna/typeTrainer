@@ -20,7 +20,6 @@ type Language struct {
 	Info       language.Language
 	Gen        *engine.Generator
 	Freetype   *freetype.Picker
-	Sentences  *freetype.Sentences
 	Levels     []*engine.Generator // Reinforce's word levels, the most frequent words first
 	LayoutJSON []byte
 	Places     map[string]profile.Place // where each key stands, and its finger

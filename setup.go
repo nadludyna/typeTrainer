@@ -89,10 +89,6 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	gen.SetHome(lay.RestingKeys(), cfg.Engine)
 	gen.SetWordParams(cfg.Words)
 	picker := freetype.NewPicker(long, rand.New(rand.NewSource(seed+2)))
-	var sentences *freetype.Sentences
-	if data, err := files.ReadFile("data/langs/" + info.ID + "/sentences.txt"); err == nil {
-		sentences = freetype.NewSentences(freetype.ParseSentences(string(data)), rand.New(rand.NewSource(seed+3)))
-	}
 	places := map[string]profile.Place{}
 	for c, at := range lay.Places() {
 		places[c] = profile.Place{Finger: at.Finger, Row: at.Row, X: at.X}
@@ -101,5 +97,5 @@ func loadLanguage(info language.Language, cfg config.Config, seed int64) (*api.L
 	for _, n := range cfg.Levels.Words {
 		levels = append(levels, gen.WithWords(long[:min(n, len(long))], cfg.Engine))
 	}
-	return &api.Language{Info: info, Gen: gen, Freetype: picker, Sentences: sentences, Levels: levels, LayoutJSON: layoutJSON, Places: places, Fingers: lay.FingerOrder()}, nil
+	return &api.Language{Info: info, Gen: gen, Freetype: picker, Levels: levels, LayoutJSON: layoutJSON, Places: places, Fingers: lay.FingerOrder()}, nil
 }

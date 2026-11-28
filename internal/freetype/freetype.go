@@ -1,14 +1,12 @@
-// Package freetype is Freetype's words: draws from the N most common words
-// or long words, real sentences, and the rhythm that weighs the draw.
-// How its word list moves is in
-// package levels.
+// Package freetype is Freetype's words: draws from the N most common words,
+// weighted by the rhythm (rhythm.go). How its word list moves is in package
+// levels.
 package freetype
 
 import (
 	"math"
 	"math/rand"
 	"strings"
-	"unicode/utf8"
 )
 
 type Params struct {
@@ -19,10 +17,7 @@ type Params struct {
 	OwnedPenalty  float64 // a word the typist owns weighs this much of its weight
 	OwnedBoost    float64 // in a sprint an owned word weighs 1 + this times a word not owned; 0 outside a sprint
 
-	Lists         []int // the word lists: the N most common words
-	LongMin       int
-	TextMarks     string
-	SentenceTries int
+	Lists []int // the word lists: the N most common words
 
 	// The rhythm (rhythm.go).
 	RhythmRounds      int     // the last rounds it is read from
@@ -62,30 +57,10 @@ func NewPicker(words []string, rng *rand.Rand) *Picker {
 	return &Picker{words: words, rng: rng}
 }
 
-// Freetype draws n words from the size most common (long: of LongMin
-// letters or more), a word with one of the stumble pairs 1 + StumbleBoost
-// times as likely as one without.
-func (pk *Picker) Freetype(recent []string, n, size int, long bool, pairs []string, p Params) []string {
+// Freetype draws n words from the size most common, a word with one of the
+// stumble pairs 1 + StumbleBoost times as likely as one without.
+func (pk *Picker) Freetype(recent []string, n, size int, pairs []string, p Params) []string {
 	size = min(max(size, 1), len(pk.words))
-	var pool []int
-	if long {
-		for i, w := range pk.words[:size] {
-			if utf8.RuneCountInString(w) >= p.LongMin {
-				pool = append(pool, i)
-			}
-		}
-	}
-	if len(pool) == 0 {
-		pool = nil
-	}
-	return pk.drawFrom(recent, n, size, pool, 1, pairs, p)
-}
-
-func (pk *Picker) Size() int { return len(pk.words) }
-
-const tries = 32
-
-func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float64, pairs []string, p Params) []string {
 	if len(pk.words) == 0 || n <= 0 {
 		return nil
 	}
@@ -98,11 +73,7 @@ func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float
 	}
 	out := make([]string, 0, n)
 	for len(out) < n {
-		from := []int(nil)
-		if pool != nil && pk.rng.Float64() < share {
-			from = pool
-		}
-		word := pk.words[pk.drawWord(window, last, size, from, pairs, p)]
+		word := pk.words[pk.drawWord(window, last, size, pairs, p)]
 		out = append(out, word)
 		window = append(window, word)
 		if len(window) > keep {
@@ -113,13 +84,13 @@ func (pk *Picker) drawFrom(recent []string, n, size int, pool []int, share float
 	return out
 }
 
-func (pk *Picker) drawWord(window []string, last string, size int, from []int, pairs []string, p Params) int {
+func (pk *Picker) Size() int { return len(pk.words) }
+
+const tries = 32
+
+func (pk *Picker) drawWord(window []string, last string, size int, pairs []string, p Params) int {
 	count := size
 	at := func(k int) int { return k }
-	if from != nil {
-		count = len(from)
-		at = func(k int) int { return from[k] }
-	}
 	uses := make(map[string]int, len(window))
 	for _, w := range window {
 		uses[w]++

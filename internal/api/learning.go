@@ -346,7 +346,6 @@ type resultsRequest struct {
 	Kind      string          `json:"kind"`
 	Level     float64         `json:"level"`
 	List      int             `json:"list"`
-	Variant   string          `json:"variant"`
 	Round     string          `json:"round"`
 	Seconds   float64         `json:"seconds"`
 }

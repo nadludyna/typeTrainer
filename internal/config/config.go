@@ -114,7 +114,7 @@ func Default() Config {
 		},
 		Forecast:       engine.ForecastParams{Window: 10, MinRounds: 3, MaxRounds: 50},
 		ConfusionShown: 6,
-		GuestDays: 365,
+		GuestDays:      365,
 		Engine: engine.Params{
 			Alpha:         0.1,
 			ErrAlpha:      0.05,
@@ -171,10 +171,7 @@ func Default() Config {
 			RepeatPenalty: 0.3,
 			OwnedPenalty:  0.3,
 
-			Lists:         []int{200, 1000, 5000, 10000, 25000},
-			LongMin:       6,
-			TextMarks:     ".,?!;:'-",
-			SentenceTries: 20,
+			Lists: []int{200, 1000, 5000, 10000, 25000},
 
 			RhythmRounds:      20,
 			RhythmMaxMs:       2000,

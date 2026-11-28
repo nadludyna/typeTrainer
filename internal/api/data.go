@@ -77,8 +77,8 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request, user strin
 	}
 	freetype := map[string]freetypeExport{}
 	for _, key := range s.freetypeKeys(l) {
-		n, v, _ := storage.ParseFreetypeKey(key)
-		h, err := s.allFreetype(user, id, storage.FreetypeMode(n, v))
+		n, _ := storage.ParseFreetypeKey(key)
+		h, err := s.allFreetype(user, id, storage.FreetypeMode(n))
 		if err != nil {
 			serverError(w, err)
 			return
@@ -110,10 +110,10 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 		return
 	}
 	okFreetype := func(key string) bool {
-		n, v, ok := storage.ParseFreetypeKey(key)
-		return ok && s.validVariant(l, n, v)
+		n, ok := storage.ParseFreetypeKey(key)
+		return ok && s.validList(l, n)
 	}
-	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Levels.Words), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.freetypeAlphabet(l.Info.Alphabet), s.cfg.ImportFutureTolerance); msg != "" {
+	if msg := validateImport(in, s.cfg.MaxImportSessions, s.cfg.MaxEvents, len(l.Gen.Order()), len(s.cfg.Levels.Words), s.cfg.Engine.LastLap(s.cfg.Laps), l.Info.Alphabet, s.validLength, okFreetype, s.cfg.ImportFutureTolerance); msg != "" {
 		badRequest(w, msg)
 		return
 	}
@@ -123,8 +123,8 @@ func (s *Server) handleImport(w http.ResponseWriter, r *http.Request, user strin
 	id := l.Info.ID
 	histories := map[string][]storage.Session{}
 	for list, f := range in.Freetype {
-		n, v, _ := storage.ParseFreetypeKey(list)
-		histories[storage.FreetypeMode(n, v)] = f.Sessions
+		n, _ := storage.ParseFreetypeKey(list)
+		histories[storage.FreetypeMode(n)] = f.Sessions
 	}
 
 	s.writeMu.Lock()

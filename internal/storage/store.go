@@ -32,55 +32,27 @@ type Session struct {
 	seq      int64           // the memory store's order of saving, as PostgreSQL's id
 }
 
-const (
-	VariantLong      = "long"
-	VariantSentences = "sentences"
-	VariantCustom    = "custom"
-)
-
-var FreetypeVariants = []string{"", VariantLong, VariantSentences, VariantCustom}
-
-func Listless(variant string) bool { return variant == VariantSentences || variant == VariantCustom }
-
-func FreetypeKey(n int, variant string) string {
-	switch {
-	case variant == "":
-		return strconv.Itoa(n)
-	case Listless(variant):
-		return variant
-	}
-	return strconv.Itoa(n) + "-" + variant
-}
-
-// freetypePrefix starts the mode of every Freetype round.
+// A Freetype round's mode names its word list: "freetype-<n>".
 const freetypePrefix = "freetype-"
 
-func FreetypeMode(n int, variant string) string { return freetypePrefix + FreetypeKey(n, variant) }
+func FreetypeMode(n int) string { return freetypePrefix + strconv.Itoa(n) }
 
-// ParseFreetypeMode is ParseFreetypeKey of a round's mode.
-func ParseFreetypeMode(mode string) (n int, variant string, ok bool) {
+// ParseFreetypeMode is the word list of a Freetype round's mode.
+func ParseFreetypeMode(mode string) (n int, ok bool) {
 	key, found := strings.CutPrefix(mode, freetypePrefix)
 	if !found {
-		return 0, "", false
+		return 0, false
 	}
 	return ParseFreetypeKey(key)
 }
 
-func ParseFreetypeKey(key string) (n int, variant string, ok bool) {
-	if Listless(key) {
-		return 0, key, true
+// ParseFreetypeKey is the word list of an export's Freetype key ("1000").
+func ParseFreetypeKey(key string) (n int, ok bool) {
+	n, err := strconv.Atoi(key)
+	if err != nil || n <= 0 || strconv.Itoa(n) != key {
+		return 0, false
 	}
-	num, rest, dash := strings.Cut(key, "-")
-	n, err := strconv.Atoi(num)
-	if err != nil || n <= 0 || Listless(rest) || (dash && rest == "") {
-		return 0, "", false
-	}
-	for _, v := range FreetypeVariants {
-		if v == rest {
-			return n, v, true
-		}
-	}
-	return 0, "", false
+	return n, true
 }
 
 type Day struct {

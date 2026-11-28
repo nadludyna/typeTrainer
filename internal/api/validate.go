@@ -90,7 +90,7 @@ func validateSamples(samples []engine.Sample, max int, alphabet string) string {
 	return ""
 }
 
-func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, freetypeAlphabet string, futureTolerance time.Duration) string {
+func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps int, alphabet string, okLength func(string) bool, okFreetype func(string) bool, futureTolerance time.Duration) string {
 	if in.Unlocked < 0 || in.Unlocked > letters {
 		return "unlocked: out of range"
 	}
@@ -119,7 +119,7 @@ func validateImport(in langExport, maxSessions, maxEvents, letters, levels, laps
 		if !okFreetype(list) {
 			return "freetype: unknown list " + list
 		}
-		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, freetypeAlphabet, okLength, futureTolerance); msg != "" {
+		if msg := validateSessions(f.Sessions, maxSessions, maxEvents, letters, 0, alphabet, okLength, futureTolerance); msg != "" {
 			return "freetype " + msg
 		}
 		for _, sess := range f.Sessions {
